@@ -81,7 +81,6 @@
 .circle-nav__spin {
   position: absolute;
   inset: 0;
-  animation: spin 70s linear infinite;
 }
 
 .circle-nav__orbit {
@@ -95,10 +94,6 @@
   fill: none;
   stroke: rgba(0, 47, 167, 0.22);
   stroke-width: 1;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 .circle-nav__item {
