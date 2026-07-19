@@ -77,7 +77,12 @@
     rgba(0, 47, 167, 0.12) 50%,
     transparent 80%);
   filter: blur(28px);
-  animation: breathe 4.6s ease-in-out infinite alternate-reverse;
+  animation: breathe-outer 4.6s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes breathe-outer {
+  from { transform: scale(0.95); opacity: 0.6; }
+  to { transform: scale(1.05); opacity: 0.9; }
 }
 
 .circle-nav__spin {
