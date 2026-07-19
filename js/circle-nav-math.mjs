@@ -1,33 +1,31 @@
-export function computeRingPositions(labels, radius) {
-  const count = labels.length;
-  return labels.map((label, i) => {
-    const angleDeg = (360 / count) * i - 90;
-    const angleRad = (angleDeg * Math.PI) / 180;
-    const x = radius * Math.cos(angleRad);
-    const y = radius * Math.sin(angleRad);
-    const rotateDeg = angleDeg + 90;
-    return { label, angleDeg, x, y, rotateDeg };
-  });
+export function computeLabelAngles(count) {
+  const angles = [];
+  for (let i = 0; i < count; i += 1) {
+    angles.push((360 / count) * i - 90);
+  }
+  return angles;
+}
+
+export function arcLengthAtAngle(angleDeg, radius) {
+  const circumference = 2 * Math.PI * radius;
+  const normalizedDeg = ((angleDeg % 360) + 360) % 360;
+  return (normalizedDeg / 360) * circumference;
 }
 
 /**
  * Builds an SVG stroke-dasharray for a circle of the given radius, leaving
- * a gap centered on each label's angle (from computeRingPositions) so the
- * dashed ring reads as "broken" by the label text sitting on it, rather
- * than the dashes running underneath the words.
+ * a gap centered on each item's angle so the dashed ring reads as "broken"
+ * by the label text sitting on it, rather than the dashes running
+ * underneath the words. `gapWidth` is the caller-measured pixel width the
+ * gap needs (e.g. from SVGTextContentElement.getComputedTextLength() on
+ * the actual rendered label) — this function only handles the geometry.
  */
-export function computeOrbitDashArray(labels, radius, options = {}) {
-  const charWidthPx = options.charWidthPx ?? 7;
-  const paddingPx = options.paddingPx ?? 14;
-  const count = labels.length;
+export function computeOrbitDashArray(items, radius) {
   const circumference = 2 * Math.PI * radius;
 
-  const gaps = labels
-    .map((label, i) => {
-      const angleDeg = (360 / count) * i - 90;
-      const normalizedDeg = ((angleDeg % 360) + 360) % 360;
-      const arcCenter = (normalizedDeg / 360) * circumference;
-      const gapWidth = label.length * charWidthPx + paddingPx;
+  const gaps = items
+    .map(({ angleDeg, gapWidth }) => {
+      const arcCenter = arcLengthAtAngle(angleDeg, radius);
       return { start: arcCenter - gapWidth / 2, end: arcCenter + gapWidth / 2 };
     })
     .sort((a, b) => a.start - b.start);

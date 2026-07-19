@@ -89,14 +89,12 @@
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+.circle-nav__orbit-line {
   fill: none;
   stroke: rgba(0, 47, 167, 0.22);
   stroke-width: 1;
-}
-
-.circle-nav__ring {
-  position: absolute;
-  inset: 0;
 }
 
 @keyframes spin {
@@ -104,19 +102,18 @@
 }
 
 .circle-nav__item {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  font-size: 0.85rem;
+  fill: var(--color-text-muted);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-text-muted);
-  white-space: nowrap;
-  transition: color var(--transition-fast);
+  cursor: pointer;
+  transition: fill var(--transition-fast);
 }
 
-.circle-nav__item:hover {
-  color: var(--color-klein-blue);
+.circle-nav__item:hover,
+.circle-nav__item:focus-visible {
+  fill: var(--color-klein-blue);
 }
 
 .circle-nav__mobile-list {
