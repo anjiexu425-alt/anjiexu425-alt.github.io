@@ -1,8 +1,8 @@
 import {
   computeLabelAngles,
-  arcLengthAtAngle,
   resolveArcPlacement,
   computeOrbitDashArray,
+  ARC_BUFFER_DEG,
 } from './circle-nav-math.mjs';
 
 const RING_ITEMS = [
@@ -22,12 +22,24 @@ const BOTTOM_PATH_ID = 'circle-nav-path-bottom';
 const DEGREES_PER_SECOND = 360 / 70; // one revolution per 70s, matching the site's slow/breathing motion pace
 const MIN_UPDATE_INTERVAL_MS = 80; // ~12fps is plenty smooth for a 70s revolution; avoids needless work at 60fps
 
+function pointOnCircle(radius, angleDeg) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return { x: radius + radius * Math.cos(rad), y: radius + radius * Math.sin(rad) };
+}
+
+// Each path extends ARC_BUFFER_DEG past its nominal 180/0deg boundary on
+// both ends (see the comment on ARC_BUFFER_DEG in circle-nav-math.mjs) —
+// large-arc-flag is 1 because the buffered span now exceeds 180deg.
 function topPathD(radius) {
-  return `M 0 ${radius} A ${radius} ${radius} 0 0 1 ${radius * 2} ${radius}`;
+  const start = pointOnCircle(radius, 180 - ARC_BUFFER_DEG);
+  const end = pointOnCircle(radius, 360 + ARC_BUFFER_DEG);
+  return `M ${start.x} ${start.y} A ${radius} ${radius} 0 1 1 ${end.x} ${end.y}`;
 }
 
 function bottomPathD(radius) {
-  return `M 0 ${radius} A ${radius} ${radius} 0 0 0 ${radius * 2} ${radius}`;
+  const start = pointOnCircle(radius, 180 + ARC_BUFFER_DEG);
+  const end = pointOnCircle(radius, 0 - ARC_BUFFER_DEG);
+  return `M ${start.x} ${start.y} A ${radius} ${radius} 0 1 0 ${end.x} ${end.y}`;
 }
 
 function renderCircleNav() {

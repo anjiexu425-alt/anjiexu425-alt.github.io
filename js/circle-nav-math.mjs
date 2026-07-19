@@ -13,25 +13,40 @@ export function arcLengthAtAngle(angleDeg, radius) {
 }
 
 /**
+ * Degrees each semicircle path extends past its nominal 180/0deg boundary,
+ * on both ends. A label anchored (text-anchor: middle) near a path's true
+ * endpoint has no path left for the half of its text past that anchor —
+ * SVG simply doesn't render characters that would fall beyond the path's
+ * length, so the word appears to be cut in half. The buffer gives every
+ * anchor room for the longest label's half-width before it runs out of
+ * path, without affecting orientation (a single continuously-authored arc
+ * never flips orientation partway through, only switching arcs does).
+ */
+export const ARC_BUFFER_DEG = 35;
+
+/**
  * A single circular <textPath> can only render one half of the circle with
  * upright text — the other half is necessarily mirrored (this is inherent
  * to how SVG orients glyphs along a path, not a bug in a specific browser).
- * So label text is split across two static semicircle paths, each authored
- * in the direction that keeps its half upright:
- *   - "top" path: leftmost -> rightmost, arcing over the top
- *   - "bottom" path: leftmost -> rightmost, arcing under the bottom
- * Both paths start at the leftmost point (offset 0) and end at the
- * rightmost point (offset = pi * radius), so a label's offset transitions
- * continuously as it crosses from one half to the other.
+ * So label text is split across two static, buffer-extended semicircle
+ * paths, each authored in the direction that keeps its half upright:
+ *   - "top" path: (leftmost - buffer) -> (rightmost + buffer), over the top
+ *   - "bottom" path: (leftmost + buffer) -> (rightmost - buffer), under the bottom
+ * Both paths' nominal (unbuffered) endpoints are the leftmost/rightmost
+ * points, so a label's offset transitions continuously as it crosses from
+ * one half to the other (offset = 0 at the shared leftmost boundary of the
+ * unbuffered path is now offset = bufferArc on the buffered one, applied
+ * uniformly to both paths so the seam-crossing math still lines up).
  */
 export function resolveArcPlacement(angleDeg, radius) {
   const normalizedDeg = ((angleDeg % 360) + 360) % 360;
   const toRad = (deg) => (deg * Math.PI) / 180;
+  const bufferArc = radius * toRad(ARC_BUFFER_DEG);
 
   if (normalizedDeg >= 180) {
-    return { path: 'top', offset: radius * toRad(normalizedDeg - 180) };
+    return { path: 'top', offset: radius * toRad(normalizedDeg - 180) + bufferArc };
   }
-  return { path: 'bottom', offset: radius * toRad(180 - normalizedDeg) };
+  return { path: 'bottom', offset: radius * toRad(180 - normalizedDeg) + bufferArc };
 }
 
 /**

@@ -5,6 +5,7 @@ import {
   arcLengthAtAngle,
   resolveArcPlacement,
   computeOrbitDashArray,
+  ARC_BUFFER_DEG,
 } from './circle-nav-math.mjs';
 
 test('distributes angles evenly around the circle starting at the top', () => {
@@ -45,9 +46,17 @@ test('resolveArcPlacement: offset is continuous across the rightmost crossing (n
   const radius = 100;
   const fromTopSide = resolveArcPlacement(-0.0001, radius); // normalized ~359.9999, top half
   const fromBottomSide = resolveArcPlacement(0.0001, radius); // normalized ~0.0001, bottom half
-  const semicircleLength = Math.PI * radius;
-  assert.ok(Math.abs(fromTopSide.offset - semicircleLength) < 0.01);
-  assert.ok(Math.abs(fromBottomSide.offset - semicircleLength) < 0.01);
+  const bufferArc = radius * (ARC_BUFFER_DEG * Math.PI) / 180;
+  const expectedOffset = Math.PI * radius + bufferArc;
+  assert.ok(Math.abs(fromTopSide.offset - expectedOffset) < 0.01);
+  assert.ok(Math.abs(fromBottomSide.offset - expectedOffset) < 0.01);
+});
+
+test('resolveArcPlacement: a buffered anchor near the boundary leaves room for half a long label', () => {
+  const radius = 160;
+  const longestLabelHalfWidth = 55; // approx. half the rendered width of "Study Diary" at this font size
+  const placement = resolveArcPlacement(180.0001, radius); // just inside the top half, right at the seam
+  assert.ok(placement.offset >= longestLabelHalfWidth);
 });
 
 test('dash array segments sum to the full circumference', () => {
