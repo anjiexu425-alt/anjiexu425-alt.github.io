@@ -21,32 +21,31 @@ export function arcLengthAtAngle(angleDeg, radius) {
  * anchor room for the longest label's half-width before it runs out of
  * path, without affecting orientation (a single continuously-authored arc
  * never flips orientation partway through, only switching arcs does).
+ *
+ * `bufferDeg` is caller-supplied rather than a hardcoded guess, because
+ * the right amount depends on the longest label's actual rendered width —
+ * which depends on the font actually in use. A fixed constant tuned for
+ * one font (e.g. a fallback font in an environment that can't load the
+ * real webfont) silently stops being enough in another.
  */
-export const ARC_BUFFER_DEG = 35;
-
-/**
- * A single circular <textPath> can only render one half of the circle with
- * upright text — the other half is necessarily mirrored (this is inherent
- * to how SVG orients glyphs along a path, not a bug in a specific browser).
- * So label text is split across two static, buffer-extended semicircle
- * paths, each authored in the direction that keeps its half upright:
- *   - "top" path: (leftmost - buffer) -> (rightmost + buffer), over the top
- *   - "bottom" path: (leftmost + buffer) -> (rightmost - buffer), under the bottom
- * Both paths' nominal (unbuffered) endpoints are the leftmost/rightmost
- * points, so a label's offset transitions continuously as it crosses from
- * one half to the other (offset = 0 at the shared leftmost boundary of the
- * unbuffered path is now offset = bufferArc on the buffered one, applied
- * uniformly to both paths so the seam-crossing math still lines up).
- */
-export function resolveArcPlacement(angleDeg, radius) {
+export function resolveArcPlacement(angleDeg, radius, bufferDeg) {
   const normalizedDeg = ((angleDeg % 360) + 360) % 360;
   const toRad = (deg) => (deg * Math.PI) / 180;
-  const bufferArc = radius * toRad(ARC_BUFFER_DEG);
+  const bufferArc = radius * toRad(bufferDeg);
 
   if (normalizedDeg >= 180) {
     return { path: 'top', offset: radius * toRad(normalizedDeg - 180) + bufferArc };
   }
   return { path: 'bottom', offset: radius * toRad(180 - normalizedDeg) + bufferArc };
+}
+
+/**
+ * Converts a required arc-length buffer (typically: the longest label's
+ * rendered half-width, plus a safety margin, both in px) into the degrees
+ * of extra path length resolveArcPlacement's `bufferDeg` needs on each end.
+ */
+export function bufferDegForArcLength(bufferLengthPx, radius) {
+  return (bufferLengthPx / radius) * (180 / Math.PI);
 }
 
 /**

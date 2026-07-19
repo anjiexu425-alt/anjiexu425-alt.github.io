@@ -4,9 +4,11 @@ import {
   computeLabelAngles,
   arcLengthAtAngle,
   resolveArcPlacement,
+  bufferDegForArcLength,
   computeOrbitDashArray,
-  ARC_BUFFER_DEG,
 } from './circle-nav-math.mjs';
+
+const TEST_BUFFER_DEG = 35;
 
 test('distributes angles evenly around the circle starting at the top', () => {
   const angles = computeLabelAngles(4);
@@ -23,20 +25,20 @@ test('arcLengthAtAngle: 0deg is the path start (0), -90deg is 3/4 of the way aro
 
 test('resolveArcPlacement: top-of-circle angle resolves to the top path', () => {
   // -90deg = normalized 270deg, which is in the upper half [180, 360)
-  const placement = resolveArcPlacement(-90, 100);
+  const placement = resolveArcPlacement(-90, 100, TEST_BUFFER_DEG);
   assert.equal(placement.path, 'top');
 });
 
 test('resolveArcPlacement: bottom-of-circle angle resolves to the bottom path', () => {
   // 90deg = normalized 90deg, which is in the lower half [0, 180)
-  const placement = resolveArcPlacement(90, 100);
+  const placement = resolveArcPlacement(90, 100, TEST_BUFFER_DEG);
   assert.equal(placement.path, 'bottom');
 });
 
 test('resolveArcPlacement: offset is continuous across the leftmost crossing (normalized 180deg)', () => {
   const radius = 100;
-  const fromTopSide = resolveArcPlacement(180 + 0.0001, radius); // just inside the top half
-  const fromBottomSide = resolveArcPlacement(180 - 0.0001, radius); // just inside the bottom half
+  const fromTopSide = resolveArcPlacement(180 + 0.0001, radius, TEST_BUFFER_DEG); // just inside the top half
+  const fromBottomSide = resolveArcPlacement(180 - 0.0001, radius, TEST_BUFFER_DEG); // just inside the bottom half
   assert.equal(fromTopSide.path, 'top');
   assert.equal(fromBottomSide.path, 'bottom');
   assert.ok(Math.abs(fromTopSide.offset - fromBottomSide.offset) < 0.01);
@@ -44,19 +46,31 @@ test('resolveArcPlacement: offset is continuous across the leftmost crossing (no
 
 test('resolveArcPlacement: offset is continuous across the rightmost crossing (normalized 0/360deg)', () => {
   const radius = 100;
-  const fromTopSide = resolveArcPlacement(-0.0001, radius); // normalized ~359.9999, top half
-  const fromBottomSide = resolveArcPlacement(0.0001, radius); // normalized ~0.0001, bottom half
-  const bufferArc = radius * (ARC_BUFFER_DEG * Math.PI) / 180;
+  const fromTopSide = resolveArcPlacement(-0.0001, radius, TEST_BUFFER_DEG); // normalized ~359.9999, top half
+  const fromBottomSide = resolveArcPlacement(0.0001, radius, TEST_BUFFER_DEG); // normalized ~0.0001, bottom half
+  const bufferArc = (radius * TEST_BUFFER_DEG * Math.PI) / 180;
   const expectedOffset = Math.PI * radius + bufferArc;
   assert.ok(Math.abs(fromTopSide.offset - expectedOffset) < 0.01);
   assert.ok(Math.abs(fromBottomSide.offset - expectedOffset) < 0.01);
 });
 
-test('resolveArcPlacement: a buffered anchor near the boundary leaves room for half a long label', () => {
+test('resolveArcPlacement: a larger bufferDeg gives an anchor near the seam more room', () => {
   const radius = 160;
-  const longestLabelHalfWidth = 55; // approx. half the rendered width of "Study Diary" at this font size
-  const placement = resolveArcPlacement(180.0001, radius); // just inside the top half, right at the seam
-  assert.ok(placement.offset >= longestLabelHalfWidth);
+  const smallBuffer = resolveArcPlacement(180.0001, radius, 10);
+  const largeBuffer = resolveArcPlacement(180.0001, radius, 60);
+  assert.ok(largeBuffer.offset > smallBuffer.offset);
+});
+
+test('bufferDegForArcLength: converts a required px buffer into the matching degrees', () => {
+  const radius = 160;
+  // A quarter-circle's arc length is (pi/2)*radius; that should map back to 90deg.
+  const quarterArcLength = (Math.PI / 2) * radius;
+  assert.ok(Math.abs(bufferDegForArcLength(quarterArcLength, radius) - 90) < 1e-9);
+});
+
+test('bufferDegForArcLength: a longer required buffer produces more degrees', () => {
+  const radius = 160;
+  assert.ok(bufferDegForArcLength(120, radius) > bufferDegForArcLength(40, radius));
 });
 
 test('dash array segments sum to the full circumference', () => {

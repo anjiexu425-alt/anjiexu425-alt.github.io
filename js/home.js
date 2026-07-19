@@ -1,8 +1,8 @@
 import {
   computeLabelAngles,
   resolveArcPlacement,
+  bufferDegForArcLength,
   computeOrbitDashArray,
-  ARC_BUFFER_DEG,
 } from './circle-nav-math.mjs';
 
 const RING_ITEMS = [
@@ -17,6 +17,7 @@ const RING_ITEMS = [
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const XLINK_NS = 'http://www.w3.org/1999/xlink';
 const GAP_PADDING_PX = 14;
+const BUFFER_SAFETY_MARGIN_PX = 20; // extra room beyond the longest label's measured half-width
 const TOP_PATH_ID = 'circle-nav-path-top';
 const BOTTOM_PATH_ID = 'circle-nav-path-bottom';
 const DEGREES_PER_SECOND = 360 / 70; // one revolution per 70s, matching the site's slow/breathing motion pace
@@ -27,18 +28,18 @@ function pointOnCircle(radius, angleDeg) {
   return { x: radius + radius * Math.cos(rad), y: radius + radius * Math.sin(rad) };
 }
 
-// Each path extends ARC_BUFFER_DEG past its nominal 180/0deg boundary on
-// both ends (see the comment on ARC_BUFFER_DEG in circle-nav-math.mjs) —
-// large-arc-flag is 1 because the buffered span now exceeds 180deg.
-function topPathD(radius) {
-  const start = pointOnCircle(radius, 180 - ARC_BUFFER_DEG);
-  const end = pointOnCircle(radius, 360 + ARC_BUFFER_DEG);
+// Each path extends bufferDeg past its nominal 180/0deg boundary on both
+// ends (see the comment on resolveArcPlacement in circle-nav-math.mjs) —
+// large-arc-flag is 1 because the buffered span exceeds 180deg.
+function topPathD(radius, bufferDeg) {
+  const start = pointOnCircle(radius, 180 - bufferDeg);
+  const end = pointOnCircle(radius, 360 + bufferDeg);
   return `M ${start.x} ${start.y} A ${radius} ${radius} 0 1 1 ${end.x} ${end.y}`;
 }
 
-function bottomPathD(radius) {
-  const start = pointOnCircle(radius, 180 + ARC_BUFFER_DEG);
-  const end = pointOnCircle(radius, 0 - ARC_BUFFER_DEG);
+function bottomPathD(radius, bufferDeg) {
+  const start = pointOnCircle(radius, 180 + bufferDeg);
+  const end = pointOnCircle(radius, 0 - bufferDeg);
   return `M ${start.x} ${start.y} A ${radius} ${radius} 0 1 0 ${end.x} ${end.y}`;
 }
 
@@ -56,10 +57,13 @@ function renderCircleNav() {
   const defs = document.createElementNS(SVG_NS, 'defs');
   const topPath = document.createElementNS(SVG_NS, 'path');
   topPath.setAttribute('id', TOP_PATH_ID);
-  topPath.setAttribute('d', topPathD(radius));
   const bottomPath = document.createElementNS(SVG_NS, 'path');
   bottomPath.setAttribute('id', BOTTOM_PATH_ID);
-  bottomPath.setAttribute('d', bottomPathD(radius));
+  // Placeholder (unbuffered) geometry, just so a valid path exists for the
+  // text measurement pass below — replaced with the real, buffered
+  // geometry once the longest label's rendered width is known.
+  topPath.setAttribute('d', topPathD(radius, 0));
+  bottomPath.setAttribute('d', bottomPathD(radius, 0));
   defs.appendChild(topPath);
   defs.appendChild(bottomPath);
   svg.appendChild(defs);
@@ -94,12 +98,20 @@ function renderCircleNav() {
     link.appendChild(text);
     svg.appendChild(link);
 
-    // Measured once: the label's own text is a fixed length; only its
-    // position on the ring changes as the ring rotates.
-    const gapWidth = textPath.getComputedTextLength() + GAP_PADDING_PX;
+    // Real, rendered-font width — depends on whatever font actually loaded
+    // in this environment, so this can't be estimated ahead of time.
+    const renderedLength = textPath.getComputedTextLength();
 
-    return { baseAngle: baseAngles[i], textPath, gapWidth };
+    return { baseAngle: baseAngles[i], textPath, renderedLength };
   });
+
+  // Give every label's anchor enough path room for the longest label's
+  // half-width, wherever it lands on the ring (see resolveArcPlacement's
+  // doc comment for why this can't be a hardcoded guess).
+  const maxRenderedLength = Math.max(...items.map((item) => item.renderedLength));
+  const bufferDeg = bufferDegForArcLength(maxRenderedLength / 2 + BUFFER_SAFETY_MARGIN_PX, radius);
+  topPath.setAttribute('d', topPathD(radius, bufferDeg));
+  bottomPath.setAttribute('d', bottomPathD(radius, bufferDeg));
 
   let lastUpdate = 0;
 
@@ -108,9 +120,9 @@ function renderCircleNav() {
       lastUpdate = timestampMs;
       const rotation = (timestampMs / 1000) * DEGREES_PER_SECOND;
 
-      const dashItems = items.map(({ baseAngle, textPath, gapWidth }) => {
+      const dashItems = items.map(({ baseAngle, textPath, renderedLength }) => {
         const angleDeg = baseAngle + rotation;
-        const placement = resolveArcPlacement(angleDeg, radius);
+        const placement = resolveArcPlacement(angleDeg, radius, bufferDeg);
         const pathId = placement.path === 'top' ? TOP_PATH_ID : BOTTOM_PATH_ID;
 
         if (textPath.getAttribute('href') !== `#${pathId}`) {
@@ -119,7 +131,7 @@ function renderCircleNav() {
         }
         textPath.setAttribute('startOffset', String(placement.offset));
 
-        return { angleDeg, gapWidth };
+        return { angleDeg, gapWidth: renderedLength + GAP_PADDING_PX };
       });
 
       const dashArray = computeOrbitDashArray(dashItems, radius);
