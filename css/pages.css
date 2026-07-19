@@ -1,0 +1,130 @@
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  min-height: calc(100vh - 80px);
+  flex-wrap: wrap;
+}
+
+.hero__intro {
+  max-width: 480px;
+}
+
+.hero__line {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: fade-up 0.8s ease-in-out forwards;
+}
+
+.hero__line--1 {
+  font-family: var(--font-display);
+  font-size: 3rem;
+  color: var(--color-klein-blue);
+  animation-delay: 0.1s;
+}
+
+.hero__line--2 {
+  font-size: 1.25rem;
+  animation-delay: 0.5s;
+}
+
+.hero__line--3 {
+  font-size: 1.1rem;
+  color: var(--color-text-muted);
+  animation-delay: 0.9s;
+}
+
+@keyframes fade-up {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.circle-nav {
+  position: relative;
+  width: 360px;
+  height: 360px;
+  flex-shrink: 0;
+  animation: float 7s ease-in-out infinite alternate;
+}
+
+.circle-nav__orbit {
+  position: absolute;
+  inset: 20px;
+  border: 1px dashed rgba(0, 47, 167, 0.2);
+  border-radius: 50%;
+}
+
+.circle-nav__orb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 140px;
+  height: 140px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 47, 167, 0.9), rgba(0, 47, 167, 0.15) 70%, transparent 100%);
+  filter: blur(2px);
+  animation: breathe 4.5s ease-in-out infinite alternate;
+}
+
+.circle-nav__ring {
+  position: absolute;
+  inset: 0;
+}
+
+.circle-nav__item {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  transition: color var(--transition-fast);
+}
+
+.circle-nav__item:hover {
+  color: var(--color-klein-blue);
+}
+
+.circle-nav__mobile-list {
+  display: none;
+}
+
+@keyframes float {
+  from { transform: translateY(-8px); }
+  to { transform: translateY(8px); }
+}
+
+@media (max-width: 768px) {
+  .circle-nav {
+    width: auto;
+    height: auto;
+    animation: none;
+  }
+
+  .circle-nav__orbit,
+  .circle-nav__ring {
+    display: none;
+  }
+
+  .circle-nav__orb {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    width: 80px;
+    height: 80px;
+    margin: 0 auto var(--space-3);
+  }
+
+  .circle-nav__mobile-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    list-style: none;
+    padding: 0;
+    text-align: center;
+  }
+}
