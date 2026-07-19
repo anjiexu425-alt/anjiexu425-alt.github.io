@@ -74,7 +74,7 @@ img {
   justify-content: center;
   text-align: center;
   padding: var(--space-2);
-  background: linear-gradient(135deg, #d7deF5, #eef1fb);
+  background: linear-gradient(135deg, var(--color-klein-blue-soft), var(--color-surface));
   color: var(--color-text-muted);
   font-family: var(--font-body);
   font-size: 0.85rem;
