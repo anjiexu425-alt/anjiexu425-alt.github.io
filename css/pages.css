@@ -161,3 +161,27 @@
     text-align: center;
   }
 }
+
+.about {
+  display: flex;
+  gap: var(--space-5);
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding: var(--space-5) 0;
+}
+
+.about__photo {
+  flex: 1 1 320px;
+  aspect-ratio: 3 / 4;
+  min-height: 380px;
+}
+
+.about__content {
+  flex: 1 1 380px;
+}
+
+.about__content h1 {
+  font-size: 1.8rem;
+  line-height: 1.5;
+  margin-bottom: var(--space-3);
+}
