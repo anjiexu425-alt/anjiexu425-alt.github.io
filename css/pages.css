@@ -12,31 +12,33 @@
 }
 
 .hero__line {
-  opacity: 0;
-  transform: translateY(12px);
-  animation: fade-up 0.8s ease-in-out forwards;
+  min-height: 1.3em;
 }
 
 .hero__line--1 {
   font-family: var(--font-display);
   font-size: 3rem;
   color: var(--color-klein-blue);
-  animation-delay: 0.1s;
 }
 
 .hero__line--2 {
   font-size: 1.25rem;
-  animation-delay: 0.5s;
 }
 
 .hero__line--3 {
   font-size: 1.1rem;
   color: var(--color-text-muted);
-  animation-delay: 0.9s;
 }
 
-@keyframes fade-up {
-  to { opacity: 1; transform: translateY(0); }
+.typewriter-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  color: var(--color-klein-blue);
+  animation: cursor-blink 0.5s steps(1) infinite;
+}
+
+@keyframes cursor-blink {
+  50% { opacity: 0; }
 }
 
 .circle-nav {
@@ -44,7 +46,7 @@
   width: 360px;
   height: 360px;
   flex-shrink: 0;
-  animation: float 7s ease-in-out infinite alternate;
+  animation: float 5s ease-in-out infinite alternate;
 }
 
 .circle-nav__orb {

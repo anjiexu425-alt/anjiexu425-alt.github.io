@@ -4,6 +4,16 @@ import {
   bufferDegForArcLength,
   computeOrbitDashArray,
 } from './circle-nav-math.mjs';
+import { charactersVisibleAt } from './typewriter.mjs';
+
+const TYPEWRITER_LINES = [
+  { text: 'Hello,', selector: '.hero__line--1' },
+  { text: "I'm Anjie, endlessly curious about bringing ideas to life with AI.", selector: '.hero__line--2' },
+  { text: 'Nothing starts perfectly. Everything starts somewhere.', selector: '.hero__line--3' },
+];
+const TYPING_SPEED_MS_PER_CHAR = 55;
+const PAUSE_BETWEEN_LINES_MS = 450;
+const CURSOR_CHARACTER = '_';
 
 const RING_ITEMS = [
   { label: 'About', href: 'about.html' },
@@ -144,4 +154,63 @@ function renderCircleNav() {
   requestAnimationFrame(update);
 }
 
-document.addEventListener('DOMContentLoaded', renderCircleNav);
+function renderTypewriter() {
+  const lines = TYPEWRITER_LINES.map((line) => {
+    const el = document.querySelector(line.selector);
+    return el ? { text: line.text, el } : null;
+  }).filter(Boolean);
+  if (lines.length === 0) return;
+
+  const cursor = document.createElement('span');
+  cursor.className = 'typewriter-cursor';
+  cursor.textContent = CURSOR_CHARACTER;
+  cursor.setAttribute('aria-hidden', 'true');
+
+  lines.forEach((line) => {
+    line.el.textContent = '';
+  });
+  lines[0].el.appendChild(cursor);
+
+  let lineIndex = 0;
+  let lineStartMs = null;
+  let pauseUntilMs = null;
+
+  function tick(timestampMs) {
+    if (lineStartMs === null) lineStartMs = timestampMs;
+
+    if (pauseUntilMs !== null) {
+      if (timestampMs >= pauseUntilMs) {
+        pauseUntilMs = null;
+        lineIndex += 1;
+        lineStartMs = timestampMs;
+        if (lineIndex < lines.length) {
+          lines[lineIndex].el.appendChild(cursor);
+        }
+      }
+      if (lineIndex < lines.length) requestAnimationFrame(tick);
+      return;
+    }
+
+    const current = lines[lineIndex];
+    const elapsed = timestampMs - lineStartMs;
+    const visibleCount = charactersVisibleAt(elapsed, TYPING_SPEED_MS_PER_CHAR, current.text.length);
+    current.el.textContent = current.text.slice(0, visibleCount);
+    current.el.appendChild(cursor);
+
+    if (visibleCount >= current.text.length) {
+      if (lineIndex === lines.length - 1) {
+        return; // last line finished — cursor stays put, still blinking via CSS
+      }
+      pauseUntilMs = timestampMs + PAUSE_BETWEEN_LINES_MS;
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderCircleNav();
+  renderTypewriter();
+});
