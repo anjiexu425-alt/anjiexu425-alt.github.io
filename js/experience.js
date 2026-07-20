@@ -45,7 +45,13 @@ function render() {
   const dialRotation = computeCompassRotation(tickAngles, state.activeIndex);
   const dial = document.querySelector('.experience-compass__dial');
   if (dial) {
-    dial.setAttribute('transform', `rotate(${dialRotation} ${CX} ${CY})`);
+    // .style.transform (not setAttribute('transform', ...)): the SVG
+    // presentation attribute doesn't reliably pick up a CSS
+    // `transition: transform` in Safari, so it just snaps with no visible
+    // animation instead of failing loudly. Writing the CSS property
+    // directly — same technique already used for the card fan above — is
+    // unambiguous and matches what the transition rule actually watches.
+    dial.style.transform = `rotate(${dialRotation}deg)`;
   }
 
   document.querySelectorAll('[data-timeline-index]').forEach((el) => {
