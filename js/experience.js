@@ -3,7 +3,7 @@ import { createExperienceState, selectCard, computeCoverflowOffsets, computeComp
 const PLACEHOLDER_DETAIL = '[Text placeholder: describe this experience — responsibilities, outcomes, and what stood out.]';
 
 const CARDS = [
-  { line1: 'Lishui University', line2: 'Bachelor - English', period: '2021', photo: 'assets/images/experience-1-lishui.jpg', detail: PLACEHOLDER_DETAIL },
+  { line1: 'Lishui University', line2: 'Bachelor - English', period: '2021', photo: 'assets/images/experience-1-lishui.jpg', detail: "Four years at Lishui, and I stayed near the top of my cohort the whole way through — less about chasing rank, more about a habit of following through once I'd started something. That same habit carried into a few competitions along the way, the CATTI Cup translation prize being the one that stayed with me most. But what actually filled those years wasn't the grades or the titles — it was leading a student association, building a project from the ground up, and staying open to whatever came next." },
   { line1: 'President · Psychological Health Association', line2: '', period: '2023', photo: 'assets/images/experience-2-psych-association.jpg', detail: PLACEHOLDER_DETAIL },
   { line1: 'Project Lead · "New Sprout" Entrepreneurship Project', line2: '', period: '2023', photo: 'assets/images/experience-3-new-sprout.jpg', detail: PLACEHOLDER_DETAIL },
   { line1: 'IELTS Teacher · Aiyoumi International Education', line2: '', period: '2025', photo: 'assets/images/experience-4-ielts.jpg', detail: PLACEHOLDER_DETAIL },
