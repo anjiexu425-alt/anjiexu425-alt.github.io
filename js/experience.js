@@ -3,7 +3,7 @@ import { createExperienceState, selectCard, computeCoverflowOffsets, computeComp
 const PLACEHOLDER_DETAIL = '[Text placeholder: describe this experience — responsibilities, outcomes, and what stood out.]';
 
 const CARDS = [
-  { line1: 'Lishui University', line2: 'Undergraduate · English', period: '2021', detail: PLACEHOLDER_DETAIL },
+  { line1: 'Lishui University', line2: 'Bachelor - English', period: '2021', detail: PLACEHOLDER_DETAIL },
   { line1: 'President · Psychological Health Association', line2: '', period: '2023', detail: PLACEHOLDER_DETAIL },
   { line1: 'Project Lead · "New Sprout" Entrepreneurship Project', line2: '', period: '2023', detail: PLACEHOLDER_DETAIL },
   { line1: 'IELTS Teacher · AIU International Education', line2: '', period: '2025', detail: PLACEHOLDER_DETAIL },
