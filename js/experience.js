@@ -3,11 +3,11 @@ import { createExperienceState, selectCard, computeCoverflowOffsets, computeComp
 const PLACEHOLDER_DETAIL = '[Text placeholder: describe this experience — responsibilities, outcomes, and what stood out.]';
 
 const CARDS = [
-  { line1: 'Lishui University', line2: 'Bachelor - English', period: '2021', detail: PLACEHOLDER_DETAIL },
-  { line1: 'President · Psychological Health Association', line2: '', period: '2023', detail: PLACEHOLDER_DETAIL },
-  { line1: 'Project Lead · "New Sprout" Entrepreneurship Project', line2: '', period: '2023', detail: PLACEHOLDER_DETAIL },
-  { line1: 'IELTS Teacher · AIU International Education', line2: '', period: '2025', detail: PLACEHOLDER_DETAIL },
-  { line1: 'University of Edinburgh', line2: 'Master · TESOL', period: '2025', detail: PLACEHOLDER_DETAIL },
+  { line1: 'Lishui University', line2: 'Bachelor - English', period: '2021', photo: 'assets/images/experience-1-lishui.jpg', detail: PLACEHOLDER_DETAIL },
+  { line1: 'President · Psychological Health Association', line2: '', period: '2023', photo: 'assets/images/experience-2-psych-association.jpg', detail: PLACEHOLDER_DETAIL },
+  { line1: 'Project Lead · "New Sprout" Entrepreneurship Project', line2: '', period: '2023', photo: 'assets/images/experience-3-new-sprout.jpg', detail: PLACEHOLDER_DETAIL },
+  { line1: 'IELTS Teacher · AIU International Education', line2: '', period: '2025', photo: 'assets/images/experience-4-ielts.jpg', detail: PLACEHOLDER_DETAIL },
+  { line1: 'University of Edinburgh', line2: 'Master · TESOL', period: '2025', photo: 'assets/images/experience-5-edinburgh.jpg', detail: PLACEHOLDER_DETAIL },
 ];
 
 // Compass geometry ported from the reference TimelineArc.tsx: a very large
@@ -95,7 +95,7 @@ function buildFan() {
     el.innerHTML = `
       <span class="polaroid__flip">
         <span class="polaroid__face polaroid__face--front">
-          <span class="placeholder-img" style="min-height:220px;">[Photo placeholder: ${card.line1}]</span>
+          <img class="polaroid__photo" src="${card.photo}" alt="${card.line1}" />
           <span class="polaroid__caption">
             <strong>${card.line1}</strong>
             ${card.line2 ? `<span>${card.line2}</span>` : ''}
