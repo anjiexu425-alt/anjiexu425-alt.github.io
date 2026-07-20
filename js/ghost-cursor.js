@@ -1,7 +1,5 @@
 import { lerp, computeFadeOpacity } from './ghost-cursor-math.mjs';
 
-const THREE_BASE = 'https://cdn.jsdelivr.net/npm/three@0.160.0';
-
 const COLOR = '#3261d7';
 const BRIGHTNESS = 2;
 const TRAIL_LENGTH = 50;
@@ -58,12 +56,17 @@ function createDotTexture(THREE) {
 }
 
 async function loadThree() {
+  // Bare specifiers ('three', 'three/addons/...') — resolved via the
+  // <script type="importmap"> declared in each page's <head>. Three.js's
+  // own addon modules (EffectComposer.js etc.) import 'three' internally
+  // the same bare way, so without that importmap the browser can't
+  // resolve them even if this file used full CDN URLs directly.
   const [THREE, composerMod, renderMod, bloomMod, shaderMod] = await Promise.all([
-    import(`${THREE_BASE}/build/three.module.js`),
-    import(`${THREE_BASE}/examples/jsm/postprocessing/EffectComposer.js`),
-    import(`${THREE_BASE}/examples/jsm/postprocessing/RenderPass.js`),
-    import(`${THREE_BASE}/examples/jsm/postprocessing/UnrealBloomPass.js`),
-    import(`${THREE_BASE}/examples/jsm/postprocessing/ShaderPass.js`),
+    import('three'),
+    import('three/addons/postprocessing/EffectComposer.js'),
+    import('three/addons/postprocessing/RenderPass.js'),
+    import('three/addons/postprocessing/UnrealBloomPass.js'),
+    import('three/addons/postprocessing/ShaderPass.js'),
   ]);
   return {
     THREE,
