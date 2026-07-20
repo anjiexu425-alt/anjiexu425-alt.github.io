@@ -1,4 +1,4 @@
-import { createExperienceState, toggleFlip, computeFanOffsets, computeCompassTickAngles, computeCompassRotation } from './experience-state.mjs';
+import { createExperienceState, selectCard, computeCoverflowOffsets, computeCompassTickAngles, computeCompassRotation } from './experience-state.mjs';
 
 const PLACEHOLDER_DETAIL = '[Text placeholder: describe this experience — responsibilities, outcomes, and what stood out.]';
 
@@ -10,61 +10,68 @@ const CARDS = [
   { line1: 'University of Edinburgh', line2: 'Master · TESOL', period: '2025', detail: PLACEHOLDER_DETAIL },
 ];
 
-// Default pointer/highlight rests on the middle card when nothing is flipped.
-const DEFAULT_ACTIVE_INDEX = Math.floor((CARDS.length - 1) / 2);
-const COMPASS_RADIUS = 90;
-const COMPASS_LABEL_RADIUS = COMPASS_RADIUS + 34;
+// Compass geometry ported from the reference TimelineArc.tsx: a very large
+// radius circle whose center sits far below the visible box, so only its
+// near-flat top sliver shows — an elegant, gently-curved dome rather than a
+// tight arc. Values kept identical to the reference so the proportions
+// (dome flatness, tick spacing, pointer size) match exactly.
+const VIEW_W = 800;
+const VIEW_H = 320;
+const CX = 400;
+const CY = 650;
+const R = 500;
+const VISUAL_BUFFER_DEG = 80; // extra arc length so rotation never reveals a gap at the ends
 
 const tickAngles = computeCompassTickAngles(CARDS.length);
 
-let state = createExperienceState(CARDS.length);
+let state = createExperienceState(CARDS.length, 0);
 
-function pointOnCircle(radius, angleDeg) {
+function getXY(radius, angleDeg) {
   const rad = (angleDeg * Math.PI) / 180;
-  return { x: radius * Math.cos(rad), y: radius * Math.sin(rad) };
+  return { x: CX + radius * Math.cos(rad), y: CY + radius * Math.sin(rad) };
 }
 
 function render() {
-  const offsets = computeFanOffsets();
+  const offsets = computeCoverflowOffsets(state.cardCount, state.activeIndex);
 
   document.querySelectorAll('.polaroid').forEach((card, i) => {
     const offset = offsets[i];
-    const isFlipped = i === state.flippedIndex;
-    const scale = isFlipped ? 1.06 : 1;
-    card.style.transform = `translate(-50%, -50%) translate(${offset.translateX}px, ${offset.translateY}px) rotate(${offset.rotateDeg}deg) scale(${scale})`;
-    card.style.zIndex = isFlipped ? '999' : String(offset.index + 1);
-    card.classList.toggle('is-flipped', isFlipped);
+    card.style.transform = `translate(-50%, -50%) translate(${offset.translateX}px, ${offset.translateY}px) rotate(${offset.rotateDeg}deg) scale(${offset.scale})`;
+    card.style.zIndex = String(offset.zIndex);
+    card.classList.toggle('is-active', offset.isActive);
+    card.classList.toggle('is-flipped', offset.isActive && state.flipped);
   });
 
-  const activeIndex = state.flippedIndex === null ? DEFAULT_ACTIVE_INDEX : state.flippedIndex;
-  const dialRotation = computeCompassRotation(tickAngles, activeIndex);
-
+  const dialRotation = computeCompassRotation(tickAngles, state.activeIndex);
   const dial = document.querySelector('.experience-compass__dial');
   if (dial) {
-    dial.setAttribute('transform', `rotate(${dialRotation} ${COMPASS_RADIUS} ${COMPASS_RADIUS})`);
+    dial.setAttribute('transform', `rotate(${dialRotation} ${CX} ${CY})`);
   }
 
-  document.querySelectorAll('.experience-compass__label').forEach((label) => {
-    const i = Number(label.dataset.timelineIndex);
-    const angleDeg = tickAngles[i].angleDeg + dialRotation;
-    const point = pointOnCircle(COMPASS_LABEL_RADIUS, angleDeg);
-    label.style.left = `${COMPASS_LABEL_RADIUS + point.x}px`;
-    label.style.top = `${COMPASS_LABEL_RADIUS + point.y}px`;
-    label.classList.toggle('is-active', i === activeIndex);
+  document.querySelectorAll('[data-timeline-index]').forEach((el) => {
+    el.classList.toggle('is-active', Number(el.dataset.timelineIndex) === state.activeIndex);
   });
 
-  document.querySelectorAll('.experience-compass__dot').forEach((dot) => {
-    dot.classList.toggle('is-active', Number(dot.dataset.timelineIndex) === activeIndex);
-  });
+  const activeSegment = document.querySelector('.experience-compass__active-segment');
+  if (activeSegment) {
+    if (state.activeIndex > 0) {
+      const startPt = getXY(R, tickAngles[0].angleDeg);
+      const activePt = getXY(R, tickAngles[state.activeIndex].angleDeg);
+      activeSegment.setAttribute('d', `M ${startPt.x} ${startPt.y} A ${R} ${R} 0 0 1 ${activePt.x} ${activePt.y}`);
+      activeSegment.style.opacity = '1';
+    } else {
+      activeSegment.style.opacity = '0';
+    }
+  }
 
   const activePeriodText = document.querySelector('.experience-compass__active-period');
   if (activePeriodText) {
-    activePeriodText.innerHTML = `Active Period: <strong>${CARDS[activeIndex].period}</strong>`;
+    activePeriodText.innerHTML = `Active Period: <strong>${CARDS[state.activeIndex].period}</strong>`;
   }
 }
 
 function handleSelect(index) {
-  state = toggleFlip(state, index);
+  state = selectCard(state, index);
   render();
 }
 
@@ -78,7 +85,7 @@ function buildFan() {
     el.type = 'button';
     el.className = 'polaroid';
     const label = card.line2 ? `${card.line1}, ${card.line2}` : card.line1;
-    el.setAttribute('aria-label', `${label}, ${card.period}. Click to flip and read more.`);
+    el.setAttribute('aria-label', `${label}, ${card.period}. Click to select; click again to flip and read more.`);
     el.innerHTML = `
       <span class="polaroid__flip">
         <span class="polaroid__face polaroid__face--front">
@@ -105,60 +112,97 @@ function buildFan() {
 }
 
 function buildCompass(compass) {
-  const dialDiameter = COMPASS_RADIUS * 2;
   const svgNs = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNs, 'svg');
+  svg.setAttribute('class', 'experience-compass__svg');
+  svg.setAttribute('viewBox', `0 0 ${VIEW_W} ${VIEW_H}`);
 
-  const ring = document.createElementNS(svgNs, 'svg');
-  ring.setAttribute('class', 'experience-compass__ring');
-  ring.setAttribute('viewBox', `0 0 ${dialDiameter} ${dialDiameter}`);
-  ring.style.width = `${dialDiameter}px`;
-  ring.style.height = `${dialDiameter}px`;
+  const firstAngle = tickAngles[0].angleDeg;
+  const lastAngle = tickAngles[tickAngles.length - 1].angleDeg;
 
   const dial = document.createElementNS(svgNs, 'g');
   dial.setAttribute('class', 'experience-compass__dial');
+  dial.style.transformOrigin = `${CX}px ${CY}px`;
 
-  const circle = document.createElementNS(svgNs, 'circle');
-  circle.setAttribute('class', 'experience-compass__ring-line');
-  circle.setAttribute('cx', COMPASS_RADIUS);
-  circle.setAttribute('cy', COMPASS_RADIUS);
-  circle.setAttribute('r', COMPASS_RADIUS - 1);
-  dial.appendChild(circle);
+  const trackRadius = R - 35;
+  const trackStart = getXY(trackRadius, firstAngle - VISUAL_BUFFER_DEG);
+  const trackEnd = getXY(trackRadius, lastAngle + VISUAL_BUFFER_DEG);
+  const track = document.createElementNS(svgNs, 'path');
+  track.setAttribute('class', 'experience-compass__track');
+  track.setAttribute('d', `M ${trackStart.x} ${trackStart.y} A ${trackRadius} ${trackRadius} 0 1 1 ${trackEnd.x} ${trackEnd.y}`);
+  dial.appendChild(track);
+
+  const visualStart = getXY(R, firstAngle - VISUAL_BUFFER_DEG);
+  const visualEnd = getXY(R, lastAngle + VISUAL_BUFFER_DEG);
+  const arcLine = document.createElementNS(svgNs, 'path');
+  arcLine.setAttribute('class', 'experience-compass__arc-line');
+  arcLine.setAttribute('d', `M ${visualStart.x} ${visualStart.y} A ${R} ${R} 0 1 1 ${visualEnd.x} ${visualEnd.y}`);
+  dial.appendChild(arcLine);
+
+  const activeSegment = document.createElementNS(svgNs, 'path');
+  activeSegment.setAttribute('class', 'experience-compass__active-segment');
+  dial.appendChild(activeSegment);
 
   tickAngles.forEach(({ index, angleDeg }) => {
-    const point = pointOnCircle(COMPASS_RADIUS, angleDeg);
-    const dot = document.createElementNS(svgNs, 'circle');
-    dot.setAttribute('class', 'experience-compass__dot');
-    dot.setAttribute('cx', COMPASS_RADIUS + point.x);
-    dot.setAttribute('cy', COMPASS_RADIUS + point.y);
-    dot.setAttribute('r', 5);
-    dot.dataset.timelineIndex = index;
-    dial.appendChild(dot);
+    const lineStart = getXY(R + 2, angleDeg);
+    const lineEnd = getXY(R + 9, angleDeg);
+    const textPos = getXY(R + 22, angleDeg);
+
+    const connector = document.createElementNS(svgNs, 'line');
+    connector.setAttribute('class', 'experience-compass__connector');
+    connector.setAttribute('x1', lineStart.x);
+    connector.setAttribute('y1', lineStart.y);
+    connector.setAttribute('x2', lineEnd.x);
+    connector.setAttribute('y2', lineEnd.y);
+    connector.dataset.timelineIndex = index;
+    dial.appendChild(connector);
+
+    const text = document.createElementNS(svgNs, 'text');
+    text.setAttribute('class', 'experience-compass__label');
+    text.setAttribute('x', textPos.x);
+    text.setAttribute('y', textPos.y);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'middle');
+    text.setAttribute('tabindex', '0');
+    text.setAttribute('role', 'button');
+    text.setAttribute('aria-label', `Jump to ${CARDS[index].line1}, ${CARDS[index].period}`);
+    text.textContent = CARDS[index].period;
+    text.dataset.timelineIndex = index;
+    dial.appendChild(text);
+
+    const selectThisTick = () => handleSelect(index);
+    connector.addEventListener('click', selectThisTick);
+    text.addEventListener('click', selectThisTick);
+    text.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        selectThisTick();
+      }
+    });
   });
 
-  const dialBoxSize = COMPASS_LABEL_RADIUS * 2;
-  compass.style.width = `${dialBoxSize}px`;
-  compass.style.height = `${dialBoxSize}px`;
-  ring.style.left = `${COMPASS_LABEL_RADIUS - COMPASS_RADIUS}px`;
-  ring.style.top = `${COMPASS_LABEL_RADIUS - COMPASS_RADIUS}px`;
+  svg.appendChild(dial);
 
-  ring.appendChild(dial);
-  compass.appendChild(ring);
+  const pivot = document.createElementNS(svgNs, 'g');
+  pivot.setAttribute('class', 'experience-compass__pivot');
+  pivot.setAttribute('transform', `translate(${CX}, ${CY})`);
+  pivot.innerHTML = `
+    <circle r="14" class="experience-compass__pivot-outer" />
+    <circle r="8" class="experience-compass__pivot-mid" />
+    <circle r="4" class="experience-compass__pivot-center" />
+  `;
+  svg.appendChild(pivot);
 
-  const pointer = document.createElement('div');
-  pointer.className = 'experience-compass__pointer';
-  pointer.setAttribute('aria-hidden', 'true');
-  compass.appendChild(pointer);
+  const pointer = document.createElementNS(svgNs, 'g');
+  pointer.setAttribute('class', 'experience-compass__pointer');
+  pointer.innerHTML = `
+    <polygon points="400,158 392,177 408,177" class="experience-compass__pointer-shadow" transform="translate(0,2)" />
+    <polygon points="400,158 393,176 407,176" class="experience-compass__pointer-arrow" />
+    <line x1="400" y1="160" x2="400" y2="175" class="experience-compass__pointer-detail" />
+  `;
+  svg.appendChild(pointer);
 
-  CARDS.forEach((card, i) => {
-    const label = document.createElement('button');
-    label.type = 'button';
-    label.className = 'experience-compass__label';
-    label.textContent = card.period;
-    label.dataset.timelineIndex = i;
-    label.setAttribute('aria-label', `Jump to ${card.line1}, ${card.period}`);
-    label.addEventListener('click', () => handleSelect(i));
-    compass.appendChild(label);
-  });
+  compass.appendChild(svg);
 
   const activePeriod = document.createElement('p');
   activePeriod.className = 'experience-compass__active-period';

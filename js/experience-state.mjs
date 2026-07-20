@@ -1,35 +1,60 @@
-export function createExperienceState(cardCount) {
-  return { cardCount, flippedIndex: null };
+export function createExperienceState(cardCount, activeIndex = 0) {
+  return { cardCount, activeIndex, flipped: false };
 }
 
-export function toggleFlip(state, index) {
-  return { ...state, flippedIndex: state.flippedIndex === index ? null : index };
+// Clicking the already-active card flips it (to reveal detail text later);
+// clicking any other card makes it active instead, unflipped.
+export function selectCard(state, index) {
+  if (index === state.activeIndex) {
+    return { ...state, flipped: !state.flipped };
+  }
+  return { ...state, activeIndex: index, flipped: false };
 }
 
-// Exact per-card offsets for the 5 real Experience entries: horizontal
-// spread widening toward the edges, vertical arc lifting the middle card
-// highest (translateY least/most negative there) and dropping the outer
-// cards lower, rotation widening outward on the same side as translateX.
-const FAN_OFFSETS = [
-  { translateX: -230, translateY: 24, rotateDeg: -35 },
-  { translateX: -115, translateY: -30, rotateDeg: -17 },
-  { translateX: 0, translateY: -52, rotateDeg: 0 },
-  { translateX: 115, translateY: -30, rotateDeg: 17 },
-  { translateX: 230, translateY: 24, rotateDeg: 35 },
-];
+// Coverflow layout: each card's position is relative to how far it sits
+// from the active card (diff), not a fixed slot — so the whole fan
+// reflows around whichever card is active. Ported from the reference
+// TimelineCard.tsx: rotation and horizontal spread grow linearly with
+// diff, vertical position follows an arch (diff^2), the active card lifts
+// up and scales up, everything else scales down and sits further back.
+const FAN_ROTATE_STEP_DEG = 11;
+const FAN_TRANSLATE_STEP_PX = 140;
+const FAN_ARCH_COEFFICIENT_PX = 10;
+const FAN_ACTIVE_LIFT_PX = 32;
+const FAN_ACTIVE_SCALE = 1.05;
+const FAN_INACTIVE_SCALE = 0.94;
 
-export function computeFanOffsets() {
-  return FAN_OFFSETS.map((offset, index) => ({ index, ...offset }));
+export function computeCoverflowOffsets(cardCount, activeIndex) {
+  const offsets = [];
+  for (let i = 0; i < cardCount; i += 1) {
+    const diff = i - activeIndex;
+    const isActive = i === activeIndex;
+    const archY = diff * diff * FAN_ARCH_COEFFICIENT_PX;
+    offsets.push({
+      index: i,
+      isActive,
+      rotateDeg: diff * FAN_ROTATE_STEP_DEG,
+      translateX: diff * FAN_TRANSLATE_STEP_PX,
+      translateY: isActive ? archY - FAN_ACTIVE_LIFT_PX : archY,
+      scale: isActive ? FAN_ACTIVE_SCALE : FAN_INACTIVE_SCALE,
+      zIndex: isActive ? 50 : 20 - Math.abs(diff),
+    });
+  }
+  return offsets;
 }
 
-// Compass dial: `count` ticks evenly spaced around a full circle, index 0
-// starting straight up (-90deg) and proceeding clockwise. Angle convention
-// matches x = r + r*cos(angleDeg), y = r + r*sin(angleDeg): -90deg is up,
-// 0deg is right, 90deg is down, 180deg is left.
+// Compass dial: `count` ticks spread evenly across a 112deg arc centered on
+// straight up (-90deg), ported from the reference TimelineArc.tsx (112deg
+// span / 4 gaps = 28deg apart for 5 points). Angle convention matches
+// x = cx + r*cos(angleDeg), y = cy + r*sin(angleDeg): -90deg is up.
+const ARC_SPAN_DEG = 112;
+const ARC_START_DEG = -90 - ARC_SPAN_DEG / 2;
+
 export function computeCompassTickAngles(count) {
+  const step = count > 1 ? ARC_SPAN_DEG / (count - 1) : 0;
   const angles = [];
   for (let i = 0; i < count; i += 1) {
-    angles.push({ index: i, angleDeg: (360 / count) * i - 90 });
+    angles.push({ index: i, angleDeg: ARC_START_DEG + i * step });
   }
   return angles;
 }

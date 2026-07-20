@@ -1,54 +1,67 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createExperienceState, toggleFlip, computeFanOffsets, computeCompassTickAngles, computeCompassRotation } from './experience-state.mjs';
+import { createExperienceState, selectCard, computeCoverflowOffsets, computeCompassTickAngles, computeCompassRotation } from './experience-state.mjs';
 
-test('toggling flip on a card sets it as the flipped card', () => {
-  const state = createExperienceState(4);
-  const next = toggleFlip(state, 2);
-  assert.equal(next.flippedIndex, 2);
+test('selecting a non-active card makes it active and unflipped', () => {
+  const state = createExperienceState(5, 0);
+  const next = selectCard(state, 3);
+  assert.equal(next.activeIndex, 3);
+  assert.equal(next.flipped, false);
 });
 
-test('toggling the already-flipped card unflips it', () => {
-  const state = createExperienceState(4);
-  const flipped = toggleFlip(state, 2);
-  const unflipped = toggleFlip(flipped, 2);
-  assert.equal(unflipped.flippedIndex, null);
+test('selecting the already-active card toggles flip instead of changing selection', () => {
+  const state = createExperienceState(5, 1);
+  const flipped = selectCard(state, 1);
+  assert.equal(flipped.activeIndex, 1);
+  assert.equal(flipped.flipped, true);
+
+  const flippedBack = selectCard(flipped, 1);
+  assert.equal(flippedBack.activeIndex, 1);
+  assert.equal(flippedBack.flipped, false);
 });
 
-test('toggling a different card while one is flipped switches to the new card, not both', () => {
-  const state = createExperienceState(4);
-  const flipped = toggleFlip(state, 2);
-  const switched = toggleFlip(flipped, 0);
-  assert.equal(switched.flippedIndex, 0);
+test('coverflow: the active card sits centered, lifted up, and scaled up with the highest z-index', () => {
+  const offsets = computeCoverflowOffsets(5, 0);
+  const active = offsets[0];
+  assert.equal(active.isActive, true);
+  assert.equal(active.rotateDeg, 0);
+  assert.equal(active.translateX, 0);
+  assert.equal(active.translateY, -32);
+  assert.equal(active.scale, 1.05);
+  assert.equal(active.zIndex, 50);
 });
 
-test('fan offsets match the exact design-specified values for all 5 cards', () => {
-  const offsets = computeFanOffsets();
-  assert.deepEqual(offsets, [
-    { index: 0, translateX: -230, translateY: 24, rotateDeg: -35 },
-    { index: 1, translateX: -115, translateY: -30, rotateDeg: -17 },
-    { index: 2, translateX: 0, translateY: -52, rotateDeg: 0 },
-    { index: 3, translateX: 115, translateY: -30, rotateDeg: 17 },
-    { index: 4, translateX: 230, translateY: 24, rotateDeg: 35 },
-  ]);
+test('coverflow: rotation and horizontal spread grow linearly with distance from the active card', () => {
+  const offsets = computeCoverflowOffsets(5, 0);
+  assert.equal(offsets[1].rotateDeg, 11);
+  assert.equal(offsets[1].translateX, 140);
+  assert.equal(offsets[4].rotateDeg, 44);
+  assert.equal(offsets[4].translateX, 560);
 });
 
-test('the middle card sits highest (most negative translateY) and rotation is symmetric around it', () => {
-  const offsets = computeFanOffsets();
-  assert.ok(offsets[2].translateY < offsets[0].translateY);
-  assert.ok(offsets[2].translateY < offsets[4].translateY);
-  assert.equal(offsets[0].rotateDeg, -offsets[4].rotateDeg);
-  assert.equal(offsets[1].rotateDeg, -offsets[3].rotateDeg);
+test('coverflow: vertical position follows an arch, further cards sitting lower', () => {
+  const offsets = computeCoverflowOffsets(5, 0);
+  assert.equal(offsets[1].translateY, 10);
+  assert.equal(offsets[2].translateY, 40);
+  assert.equal(offsets[4].translateY, 160);
 });
 
-test('compass tick angles start straight up and spread evenly clockwise', () => {
+test('coverflow: reflows around whichever card becomes active, not fixed slots', () => {
+  const offsets = computeCoverflowOffsets(5, 3);
+  assert.equal(offsets[3].isActive, true);
+  assert.equal(offsets[3].translateX, 0);
+  assert.equal(offsets[0].translateX, -420);
+  assert.equal(offsets[4].translateX, 140);
+});
+
+test('compass tick angles spread evenly across a 112deg arc centered on straight up', () => {
   const angles = computeCompassTickAngles(5).map((t) => t.angleDeg);
-  assert.deepEqual(angles, [-90, -18, 54, 126, 198]);
+  assert.deepEqual(angles, [-146, -118, -90, -62, -34]);
 });
 
 test('compass rotation is zero when the tick already pointing up is active', () => {
   const angles = computeCompassTickAngles(5);
-  assert.equal(computeCompassRotation(angles, 0), 0);
+  assert.equal(computeCompassRotation(angles, 2), 0);
 });
 
 test('compass rotation brings any active tick to point straight up (-90deg) once applied', () => {
