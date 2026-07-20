@@ -190,3 +190,114 @@
   line-height: 1.5;
   margin-bottom: var(--space-3);
 }
+
+.experience-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-5) 0;
+}
+
+.experience-header__number {
+  font-family: var(--font-display);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.experience-header__glow {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 47, 167, 0.9), transparent 70%);
+  animation: breathe 4s ease-in-out infinite alternate;
+}
+
+.experience-fan {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  height: 380px;
+  margin-bottom: var(--space-4);
+}
+
+.polaroid {
+  position: absolute;
+  width: 220px;
+  padding: var(--space-1) var(--space-1) var(--space-2);
+  background: var(--color-surface);
+  border-radius: 4px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  border: none;
+  transition: transform var(--transition-slow);
+  perspective: 1000px;
+  text-align: left;
+}
+
+.polaroid__face {
+  display: block;
+  backface-visibility: hidden;
+  transition: transform var(--transition-slow);
+}
+
+.polaroid__face--back {
+  position: absolute;
+  inset: 0;
+  padding: var(--space-2);
+  transform: rotateY(180deg);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+}
+
+.polaroid.is-flipped .polaroid__face--front {
+  transform: rotateY(180deg);
+}
+
+.polaroid.is-flipped .polaroid__face--back {
+  transform: rotateY(0deg);
+}
+
+.polaroid__caption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: var(--space-1);
+  font-size: 0.8rem;
+}
+
+.experience-timeline__track {
+  display: flex;
+  justify-content: space-between;
+  border-top: 2px solid var(--color-klein-blue-soft);
+  padding-top: var(--space-2);
+}
+
+.experience-timeline__tick {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  padding: var(--space-1);
+  border-bottom: 2px solid transparent;
+}
+
+.experience-timeline__tick.is-active {
+  color: var(--color-klein-blue);
+  border-bottom-color: var(--color-klein-blue);
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .experience-fan {
+    overflow-x: auto;
+    justify-content: flex-start;
+    gap: var(--space-2);
+  }
+
+  .polaroid {
+    position: relative;
+    transform: none !important;
+  }
+}
