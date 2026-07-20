@@ -312,6 +312,36 @@
   stroke-width: 1;
 }
 
+.experience-timeline__connector {
+  stroke: var(--color-klein-blue-soft);
+  stroke-width: 1;
+  transition: stroke var(--transition-fast);
+}
+
+.experience-timeline__connector.is-active {
+  stroke: var(--color-klein-blue);
+}
+
+.experience-timeline__dot {
+  fill: var(--color-text-muted);
+  transition: fill var(--transition-fast);
+}
+
+.experience-timeline__dot.is-active {
+  fill: var(--color-klein-blue);
+}
+
+.experience-timeline__pointer-needle {
+  stroke: var(--color-klein-blue);
+  stroke-width: 2;
+  stroke-linecap: round;
+  transition: transform var(--transition-slow);
+}
+
+.experience-timeline__pointer-hub {
+  fill: var(--color-klein-blue);
+}
+
 .experience-timeline__tick {
   position: absolute;
   top: 0;
@@ -322,32 +352,15 @@
   cursor: pointer;
   color: var(--color-text-muted);
   font-family: var(--font-display);
-  font-size: 0.9rem;
-  letter-spacing: 0.06em;
-  padding: 4px 8px 12px;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
   transition: color var(--transition-fast);
-}
-
-.experience-timeline__tick::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: 4px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--color-klein-blue-soft);
-  transform: translateX(-50%);
-  transition: background var(--transition-fast);
 }
 
 .experience-timeline__tick.is-active {
   color: var(--color-klein-blue);
   font-weight: 700;
-}
-
-.experience-timeline__tick.is-active::after {
-  background: var(--color-klein-blue);
 }
 
 @media (max-width: 768px) {

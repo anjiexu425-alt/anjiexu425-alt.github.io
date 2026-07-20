@@ -10,12 +10,14 @@ const CARDS = [
   { line1: 'University of Edinburgh', line2: 'Master · TESOL', period: '2025', detail: PLACEHOLDER_DETAIL },
 ];
 
-// One tick per distinct year, in first-seen order; clicking a year flips
-// the first card that belongs to it.
-const YEARS = [...new Set(CARDS.map((card) => card.period))];
-const firstIndexForYear = (year) => CARDS.findIndex((card) => card.period === year);
+// One tick per card (years can repeat) — no dedup. Default pointer/highlight
+// rests on the middle card when nothing is flipped.
+const DEFAULT_ACTIVE_INDEX = Math.floor((CARDS.length - 1) / 2);
+const LABEL_ROW_PX = 32;
 
 let state = createExperienceState(CARDS.length);
+let timelineRadius = 150;
+let timelinePositions = computeArcTimelinePositions(CARDS.length, timelineRadius);
 
 function render() {
   const offsets = computeFanOffsets();
@@ -29,10 +31,17 @@ function render() {
     card.classList.toggle('is-flipped', isFlipped);
   });
 
-  const activeYear = state.flippedIndex === null ? null : CARDS[state.flippedIndex].period;
-  document.querySelectorAll('.experience-timeline__tick').forEach((tick) => {
-    tick.classList.toggle('is-active', tick.dataset.year === activeYear);
+  const activeIndex = state.flippedIndex === null ? DEFAULT_ACTIVE_INDEX : state.flippedIndex;
+
+  document.querySelectorAll('[data-timeline-index]').forEach((el) => {
+    el.classList.toggle('is-active', Number(el.dataset.timelineIndex) === activeIndex);
   });
+
+  const pointerNeedle = document.querySelector('.experience-timeline__pointer-needle');
+  if (pointerNeedle) {
+    const angleDeg = timelinePositions[activeIndex].angleDeg;
+    pointerNeedle.setAttribute('transform', `rotate(${angleDeg - 90} ${timelineRadius} 0)`);
+  }
 }
 
 function handleSelect(index) {
@@ -72,33 +81,70 @@ function buildFan() {
     fan.appendChild(el);
   });
 
-  const radius = Number(timeline.dataset.radius || 150);
-  const positions = computeArcTimelinePositions(YEARS.length, radius);
-  const labelBufferPx = 50;
-  timeline.style.width = `${radius * 2}px`;
-  timeline.style.height = `${radius + labelBufferPx}px`;
+  timelineRadius = Number(timeline.dataset.radius || 150);
+  timelinePositions = computeArcTimelinePositions(CARDS.length, timelineRadius);
+  timeline.style.width = `${timelineRadius * 2}px`;
+  timeline.style.height = `${timelineRadius + LABEL_ROW_PX}px`;
 
   const svgNs = 'http://www.w3.org/2000/svg';
   const arc = document.createElementNS(svgNs, 'svg');
   arc.setAttribute('class', 'experience-timeline__arc');
-  arc.setAttribute('viewBox', `0 0 ${radius * 2} ${radius}`);
-  arc.style.height = `${radius}px`;
+  arc.setAttribute('viewBox', `0 0 ${timelineRadius * 2} ${timelineRadius}`);
+  arc.style.top = `${LABEL_ROW_PX}px`;
+  arc.style.height = `${timelineRadius}px`;
+
   const arcLine = document.createElementNS(svgNs, 'path');
   arcLine.setAttribute('class', 'experience-timeline__arc-line');
-  arcLine.setAttribute('d', `M 0 0 A ${radius} ${radius} 0 0 1 ${radius * 2} 0`);
+  arcLine.setAttribute('d', `M 0 0 A ${timelineRadius} ${timelineRadius} 0 0 1 ${timelineRadius * 2} 0`);
   arc.appendChild(arcLine);
+
+  timelinePositions.forEach((pos, i) => {
+    const connector = document.createElementNS(svgNs, 'line');
+    connector.setAttribute('class', 'experience-timeline__connector');
+    connector.setAttribute('x1', pos.x);
+    connector.setAttribute('y1', 0);
+    connector.setAttribute('x2', pos.x);
+    connector.setAttribute('y2', pos.y);
+    connector.dataset.timelineIndex = i;
+    arc.appendChild(connector);
+
+    const dot = document.createElementNS(svgNs, 'circle');
+    dot.setAttribute('class', 'experience-timeline__dot');
+    dot.setAttribute('cx', pos.x);
+    dot.setAttribute('cy', pos.y);
+    dot.setAttribute('r', 4);
+    dot.dataset.timelineIndex = i;
+    arc.appendChild(dot);
+  });
+
+  const pointerLength = timelineRadius * 0.5;
+  const pointerHub = document.createElementNS(svgNs, 'circle');
+  pointerHub.setAttribute('class', 'experience-timeline__pointer-hub');
+  pointerHub.setAttribute('cx', timelineRadius);
+  pointerHub.setAttribute('cy', 0);
+  pointerHub.setAttribute('r', 4);
+  arc.appendChild(pointerHub);
+
+  const pointerNeedle = document.createElementNS(svgNs, 'line');
+  pointerNeedle.setAttribute('class', 'experience-timeline__pointer-needle');
+  pointerNeedle.setAttribute('x1', timelineRadius);
+  pointerNeedle.setAttribute('y1', 0);
+  pointerNeedle.setAttribute('x2', timelineRadius);
+  pointerNeedle.setAttribute('y2', pointerLength);
+  arc.appendChild(pointerNeedle);
+
   timeline.appendChild(arc);
 
-  YEARS.forEach((year, i) => {
+  CARDS.forEach((card, i) => {
     const tick = document.createElement('button');
     tick.type = 'button';
     tick.className = 'experience-timeline__tick';
-    tick.textContent = year;
-    tick.dataset.year = year;
-    tick.setAttribute('aria-label', `Jump to ${year}`);
-    tick.style.left = `${positions[i].x}px`;
-    tick.style.top = `${positions[i].y}px`;
-    tick.addEventListener('click', () => handleSelect(firstIndexForYear(year)));
+    tick.textContent = card.period;
+    tick.dataset.timelineIndex = i;
+    tick.setAttribute('aria-label', `Jump to ${card.line1}, ${card.period}`);
+    tick.style.left = `${timelinePositions[i].x}px`;
+    tick.style.top = `${LABEL_ROW_PX / 2}px`;
+    tick.addEventListener('click', () => handleSelect(i));
     timeline.appendChild(tick);
   });
 
