@@ -6,19 +6,20 @@ export function toggleFlip(state, index) {
   return { ...state, flippedIndex: state.flippedIndex === index ? null : index };
 }
 
-// Rotation only — the fan's overlap comes from CSS negative margin-left on
-// cards laid out in normal flex flow, each with transform-origin set to its
-// own bottom-center. Because the cards overlap so heavily, those pivot
-// points sit close together, so rotating each card by an evenly-increasing
-// angle reads as one shared hinge, like a fanned hand of photos, rather
-// than cards spinning independently around their own centers.
-export function computeFanRotations(cardCount, stepDeg = 10) {
-  const center = (cardCount - 1) / 2;
-  const rotations = [];
-  for (let i = 0; i < cardCount; i += 1) {
-    rotations.push({ index: i, rotateDeg: Math.round((i - center) * stepDeg) });
-  }
-  return rotations;
+// Exact per-card offsets for the 5 real Experience entries: horizontal
+// spread widening toward the edges, vertical arc lifting the middle card
+// highest (translateY least/most negative there) and dropping the outer
+// cards lower, rotation widening outward on the same side as translateX.
+const FAN_OFFSETS = [
+  { translateX: -230, translateY: 24, rotateDeg: -35 },
+  { translateX: -115, translateY: -30, rotateDeg: -17 },
+  { translateX: 0, translateY: -52, rotateDeg: 0 },
+  { translateX: 115, translateY: -30, rotateDeg: 17 },
+  { translateX: 230, translateY: 24, rotateDeg: 35 },
+];
+
+export function computeFanOffsets() {
+  return FAN_OFFSETS.map((offset, index) => ({ index, ...offset }));
 }
 
 // Distributes `count` points along the bottom half of a circle of the given

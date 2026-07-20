@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createExperienceState, toggleFlip, computeFanRotations, computeArcTimelinePositions } from './experience-state.mjs';
+import { createExperienceState, toggleFlip, computeFanOffsets, computeArcTimelinePositions } from './experience-state.mjs';
 
 test('toggling flip on a card sets it as the flipped card', () => {
   const state = createExperienceState(4);
@@ -22,19 +22,23 @@ test('toggling a different card while one is flipped switches to the new card, n
   assert.equal(switched.flippedIndex, 0);
 });
 
-test('fan rotations increase evenly from negative to positive around a centered middle card', () => {
-  const rotations = computeFanRotations(5, 10);
-  assert.deepEqual(rotations.map((r) => r.rotateDeg), [-20, -10, 0, 10, 20]);
+test('fan offsets match the exact design-specified values for all 5 cards', () => {
+  const offsets = computeFanOffsets();
+  assert.deepEqual(offsets, [
+    { index: 0, translateX: -230, translateY: 24, rotateDeg: -35 },
+    { index: 1, translateX: -115, translateY: -30, rotateDeg: -17 },
+    { index: 2, translateX: 0, translateY: -52, rotateDeg: 0 },
+    { index: 3, translateX: 115, translateY: -30, rotateDeg: 17 },
+    { index: 4, translateX: 230, translateY: 24, rotateDeg: 35 },
+  ]);
 });
 
-test('fan rotations stay symmetric and evenly spaced for an even card count', () => {
-  const rotations = computeFanRotations(4, 10).map((r) => r.rotateDeg);
-  assert.deepEqual(rotations, [-15, -5, 5, 15]);
-});
-
-test('a single card sits with no rotation', () => {
-  const rotations = computeFanRotations(1, 10);
-  assert.equal(rotations[0].rotateDeg, 0);
+test('the middle card sits highest (most negative translateY) and rotation is symmetric around it', () => {
+  const offsets = computeFanOffsets();
+  assert.ok(offsets[2].translateY < offsets[0].translateY);
+  assert.ok(offsets[2].translateY < offsets[4].translateY);
+  assert.equal(offsets[0].rotateDeg, -offsets[4].rotateDeg);
+  assert.equal(offsets[1].rotateDeg, -offsets[3].rotateDeg);
 });
 
 test('a single arc timeline position sits at the deepest point of the dip', () => {
