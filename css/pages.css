@@ -293,56 +293,48 @@
   font-size: 0.74rem;
 }
 
-.experience-timeline {
+.experience-compass {
   position: relative;
-  margin: 0 auto;
+  margin: var(--space-2) auto 0;
 }
 
-.experience-timeline__arc {
+.experience-compass__ring {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
   overflow: visible;
 }
 
-.experience-timeline__arc-line {
+.experience-compass__ring-line {
   fill: none;
   stroke: rgba(0, 47, 167, 0.22);
   stroke-width: 1;
 }
 
-.experience-timeline__connector {
-  stroke: var(--color-klein-blue-soft);
-  stroke-width: 1;
-  transition: stroke var(--transition-fast);
+.experience-compass__dial {
+  transition: transform var(--transition-slow);
 }
 
-.experience-timeline__connector.is-active {
-  stroke: var(--color-klein-blue);
-}
-
-.experience-timeline__dot {
+.experience-compass__dot {
   fill: var(--color-text-muted);
   transition: fill var(--transition-fast);
 }
 
-.experience-timeline__dot.is-active {
+.experience-compass__dot.is-active {
   fill: var(--color-klein-blue);
 }
 
-.experience-timeline__pointer-needle {
-  stroke: var(--color-klein-blue);
-  stroke-width: 2;
-  stroke-linecap: round;
-  transition: transform var(--transition-slow);
+.experience-compass__pointer {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 10px solid var(--color-klein-blue);
 }
 
-.experience-timeline__pointer-hub {
-  fill: var(--color-klein-blue);
-}
-
-.experience-timeline__tick {
+.experience-compass__label {
   position: absolute;
   top: 0;
   left: 0;
@@ -355,10 +347,25 @@
   font-size: 0.85rem;
   letter-spacing: 0.04em;
   padding: 2px 6px;
-  transition: color var(--transition-fast);
+  transition: color var(--transition-fast), left var(--transition-slow), top var(--transition-slow);
 }
 
-.experience-timeline__tick.is-active {
+.experience-compass__label.is-active {
+  color: var(--color-klein-blue);
+  font-weight: 700;
+}
+
+.experience-compass__active-period {
+  text-align: center;
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.experience-compass__active-period strong {
   color: var(--color-klein-blue);
   font-weight: 700;
 }
@@ -381,7 +388,7 @@
     transform: none !important;
   }
 
-  .experience-timeline {
+  .experience-compass {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -390,11 +397,12 @@
     height: auto !important;
   }
 
-  .experience-timeline__arc {
+  .experience-compass__ring,
+  .experience-compass__pointer {
     display: none;
   }
 
-  .experience-timeline__tick {
+  .experience-compass__label {
     position: relative;
     top: auto !important;
     left: auto !important;

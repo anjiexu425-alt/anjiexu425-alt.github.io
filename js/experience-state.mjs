@@ -22,23 +22,22 @@ export function computeFanOffsets() {
   return FAN_OFFSETS.map((offset, index) => ({ index, ...offset }));
 }
 
-// Distributes `count` points along the bottom half of a circle of the given
-// radius (angle 180deg at the left edge, through 90deg at the lowest point
-// of the dip, to 0deg at the right edge), so a timeline reads left-to-right
-// in a shallow downward arc. y=0 at the two edges, y=radius at the deepest
-// point in the middle.
-export function computeArcTimelinePositions(count, radius) {
-  const positions = [];
+// Compass dial: `count` ticks evenly spaced around a full circle, index 0
+// starting straight up (-90deg) and proceeding clockwise. Angle convention
+// matches x = r + r*cos(angleDeg), y = r + r*sin(angleDeg): -90deg is up,
+// 0deg is right, 90deg is down, 180deg is left.
+export function computeCompassTickAngles(count) {
+  const angles = [];
   for (let i = 0; i < count; i += 1) {
-    const t = count === 1 ? 0.5 : i / (count - 1);
-    const angleDeg = 180 - t * 180;
-    const angleRad = (angleDeg * Math.PI) / 180;
-    positions.push({
-      index: i,
-      x: radius + radius * Math.cos(angleRad),
-      y: radius * Math.sin(angleRad),
-      angleDeg,
-    });
+    angles.push({ index: i, angleDeg: (360 / count) * i - 90 });
   }
-  return positions;
+  return angles;
+}
+
+// The fixed pointer always points straight up (-90deg). This is how far the
+// whole dial must turn so the active tick's mark ends up under it.
+const COMPASS_POINTER_ANGLE_DEG = -90;
+
+export function computeCompassRotation(tickAngles, activeIndex) {
+  return COMPASS_POINTER_ANGLE_DEG - tickAngles[activeIndex].angleDeg;
 }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createExperienceState, toggleFlip, computeFanOffsets, computeArcTimelinePositions } from './experience-state.mjs';
+import { createExperienceState, toggleFlip, computeFanOffsets, computeCompassTickAngles, computeCompassRotation } from './experience-state.mjs';
 
 test('toggling flip on a card sets it as the flipped card', () => {
   const state = createExperienceState(4);
@@ -41,22 +41,21 @@ test('the middle card sits highest (most negative translateY) and rotation is sy
   assert.equal(offsets[1].rotateDeg, -offsets[3].rotateDeg);
 });
 
-test('a single arc timeline position sits at the deepest point of the dip', () => {
-  const [position] = computeArcTimelinePositions(1, 100);
-  assert.equal(position.x, 100);
-  assert.equal(position.y, 100);
+test('compass tick angles start straight up and spread evenly clockwise', () => {
+  const angles = computeCompassTickAngles(5).map((t) => t.angleDeg);
+  assert.deepEqual(angles, [-90, -18, 54, 126, 198]);
 });
 
-test('arc timeline endpoints sit at the two edges, level with y=0', () => {
-  const positions = computeArcTimelinePositions(4, 100);
-  assert.equal(positions[0].x, 0);
-  assert.ok(Math.abs(positions[0].y) < 1e-9);
-  assert.equal(positions[3].x, 200);
-  assert.ok(Math.abs(positions[3].y) < 1e-9);
+test('compass rotation is zero when the tick already pointing up is active', () => {
+  const angles = computeCompassTickAngles(5);
+  assert.equal(computeCompassRotation(angles, 0), 0);
 });
 
-test('arc timeline positions dip lowest in the middle, matching a downward arc', () => {
-  const positions = computeArcTimelinePositions(4, 100);
-  assert.ok(positions[1].y > positions[0].y);
-  assert.ok(positions[2].y > positions[3].y);
+test('compass rotation brings any active tick to point straight up (-90deg) once applied', () => {
+  const angles = computeCompassTickAngles(5);
+  for (let activeIndex = 0; activeIndex < 5; activeIndex += 1) {
+    const rotation = computeCompassRotation(angles, activeIndex);
+    const rotatedAngle = angles[activeIndex].angleDeg + rotation;
+    assert.equal(rotatedAngle, -90);
+  }
 });
