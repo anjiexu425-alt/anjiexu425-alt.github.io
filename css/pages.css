@@ -214,24 +214,29 @@
 
 .experience-fan {
   position: relative;
-  display: flex;
-  justify-content: center;
-  height: 380px;
-  margin-bottom: var(--space-4);
+  height: 420px;
+  margin-bottom: var(--space-5);
 }
 
 .polaroid {
   position: absolute;
-  width: 220px;
-  padding: var(--space-1) var(--space-1) var(--space-2);
+  top: 50%;
+  left: 50%;
+  width: 200px;
+  padding: 10px 10px 34px;
   background: var(--color-surface);
-  border-radius: 4px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+  border-radius: 3px;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.16);
   cursor: pointer;
   border: none;
-  transition: transform var(--transition-slow);
+  transition: transform var(--transition-slow), box-shadow var(--transition-slow);
   perspective: 1000px;
   text-align: left;
+}
+
+.polaroid:hover,
+.polaroid.is-flipped {
+  box-shadow: 0 20px 36px rgba(0, 0, 0, 0.24);
 }
 
 .polaroid__face {
@@ -240,14 +245,21 @@
   transition: transform var(--transition-slow);
 }
 
+.polaroid__face--front .placeholder-img {
+  min-height: 220px;
+  margin: 0;
+  border-radius: 1px;
+}
+
 .polaroid__face--back {
   position: absolute;
   inset: 0;
   padding: var(--space-2);
   transform: rotateY(180deg);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--color-text-muted);
   background: var(--color-surface);
+  overflow-y: auto;
 }
 
 .polaroid.is-flipped .polaroid__face--front {
@@ -259,45 +271,83 @@
 }
 
 .polaroid__caption {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-top: var(--space-1);
-  font-size: 0.8rem;
+  display: block;
+  padding-top: 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.experience-timeline__track {
-  display: flex;
-  justify-content: space-between;
-  border-top: 2px solid var(--color-klein-blue-soft);
-  padding-top: var(--space-2);
+.polaroid__caption strong {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.experience-timeline {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  height: 170px;
+  margin: 0 auto;
 }
 
 .experience-timeline__tick {
-  background: none;
-  border: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -50%);
+  background: var(--color-surface);
+  border: 1px solid var(--color-klein-blue-soft);
+  border-radius: 999px;
   cursor: pointer;
   color: var(--color-text-muted);
-  font-size: 0.85rem;
-  padding: var(--space-1);
-  border-bottom: 2px solid transparent;
+  font-size: 0.8rem;
+  padding: 6px 14px;
+  transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
 }
 
 .experience-timeline__tick.is-active {
-  color: var(--color-klein-blue);
-  border-bottom-color: var(--color-klein-blue);
+  color: #fff;
+  background: var(--color-klein-blue);
+  border-color: var(--color-klein-blue);
   font-weight: 700;
 }
 
 @media (max-width: 768px) {
   .experience-fan {
+    position: static;
+    display: flex;
     overflow-x: auto;
-    justify-content: flex-start;
-    gap: var(--space-2);
+    gap: var(--space-3);
+    height: auto;
+    padding: var(--space-2) var(--space-1) var(--space-3);
   }
 
   .polaroid {
     position: relative;
+    top: auto;
+    left: auto;
+    flex-shrink: 0;
+    transform: none !important;
+  }
+
+  .experience-timeline {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-1);
+    height: auto;
+    max-width: none;
+  }
+
+  .experience-timeline__tick {
+    position: relative;
+    top: auto !important;
+    left: auto !important;
     transform: none !important;
   }
 }

@@ -1,4 +1,4 @@
-import { createExperienceState, selectCard, computeFanOffsets } from './experience-state.mjs';
+import { createExperienceState, toggleFlip, computeScatterOffsets, computeArcTimelinePositions } from './experience-state.mjs';
 
 const CARDS = [
   {
@@ -27,61 +27,68 @@ const CARDS = [
   },
 ];
 
-let state = createExperienceState(CARDS.length, 0);
+let state = createExperienceState(CARDS.length);
 
 function render() {
-  const offsets = computeFanOffsets(state.cardCount, state.activeIndex);
+  const offsets = computeScatterOffsets(state.cardCount);
 
   document.querySelectorAll('.polaroid').forEach((card, i) => {
     const offset = offsets[i];
-    const scale = offset.isActive ? 1.08 : 0.94;
-    card.style.transform = `translateX(${offset.translateX}px) rotate(${offset.rotateDeg}deg) scale(${scale})`;
-    card.style.zIndex = String(offset.zIndex);
-    card.classList.toggle('is-active', offset.isActive);
-    card.classList.toggle('is-flipped', offset.isActive && state.flipped);
+    const isFlipped = i === state.flippedIndex;
+    const scale = isFlipped ? 1.06 : 1;
+    card.style.transform = `translate(-50%, -50%) translate(${offset.translateX}px, ${offset.translateY}px) rotate(${offset.rotateDeg}deg) scale(${scale})`;
+    card.style.zIndex = String(isFlipped ? 999 : offset.zIndex);
+    card.classList.toggle('is-flipped', isFlipped);
   });
 
   document.querySelectorAll('.experience-timeline__tick').forEach((tick, i) => {
-    tick.classList.toggle('is-active', i === state.activeIndex);
+    tick.classList.toggle('is-active', i === state.flippedIndex);
   });
 }
 
 function handleSelect(index) {
-  state = selectCard(state, index);
+  state = toggleFlip(state, index);
   render();
 }
 
 function buildFan() {
   const fan = document.querySelector('.experience-fan');
-  const track = document.querySelector('.experience-timeline__track');
-  if (!fan || !track) return;
+  const timeline = document.querySelector('.experience-timeline');
+  if (!fan || !timeline) return;
 
   CARDS.forEach((card, i) => {
     const el = document.createElement('button');
     el.type = 'button';
     el.className = 'polaroid';
-    el.setAttribute('aria-label', `${card.org}, ${card.role}, ${card.period}. Click to select, click again to flip.`);
+    el.setAttribute('aria-label', `${card.org}, ${card.role}, ${card.period}. Click to flip and read more.`);
     el.innerHTML = `
       <span class="polaroid__face polaroid__face--front">
-        <span class="placeholder-img" style="min-height:160px;">[Photo placeholder: ${card.org}]</span>
-        <span class="polaroid__caption">
-          <strong>${card.org}</strong>
-          <span>${card.role}</span>
-          <span>${card.period}</span>
-        </span>
+        <span class="placeholder-img" style="min-height:220px;">[Photo placeholder: ${card.org}]</span>
+        <span class="polaroid__caption"><strong>${card.org}</strong> · ${card.period}</span>
       </span>
-      <span class="polaroid__face polaroid__face--back">${card.detail}</span>
+      <span class="polaroid__face polaroid__face--back">
+        <strong>${card.org}</strong><br />
+        ${card.role}, ${card.period}<br /><br />
+        ${card.detail}
+      </span>
     `;
     el.addEventListener('click', () => handleSelect(i));
     fan.appendChild(el);
+  });
 
+  const radius = Number(timeline.dataset.radius || 130);
+  const positions = computeArcTimelinePositions(CARDS.length, radius);
+
+  CARDS.forEach((card, i) => {
     const tick = document.createElement('button');
     tick.type = 'button';
     tick.className = 'experience-timeline__tick';
     tick.textContent = card.period;
     tick.setAttribute('aria-label', `Select ${card.org}, ${card.period}`);
+    tick.style.left = `${positions[i].x}px`;
+    tick.style.top = `${positions[i].y}px`;
     tick.addEventListener('click', () => handleSelect(i));
-    track.appendChild(tick);
+    timeline.appendChild(tick);
   });
 
   render();

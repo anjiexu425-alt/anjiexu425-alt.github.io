@@ -1,37 +1,57 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createExperienceState, selectCard, computeFanOffsets } from './experience-state.mjs';
+import { createExperienceState, toggleFlip, computeScatterOffsets, computeArcTimelinePositions } from './experience-state.mjs';
 
-test('selecting a non-active card makes it active and unflipped', () => {
-  const state = createExperienceState(4, 0);
-  const next = selectCard(state, 2);
-  assert.equal(next.activeIndex, 2);
-  assert.equal(next.flipped, false);
+test('toggling flip on a card sets it as the flipped card', () => {
+  const state = createExperienceState(4);
+  const next = toggleFlip(state, 2);
+  assert.equal(next.flippedIndex, 2);
 });
 
-test('selecting the already-active card toggles flip instead of changing selection', () => {
-  const state = createExperienceState(4, 1);
-  const flipped = selectCard(state, 1);
-  assert.equal(flipped.activeIndex, 1);
-  assert.equal(flipped.flipped, true);
-
-  const flippedBack = selectCard(flipped, 1);
-  assert.equal(flippedBack.activeIndex, 1);
-  assert.equal(flippedBack.flipped, false);
+test('toggling the already-flipped card unflips it', () => {
+  const state = createExperienceState(4);
+  const flipped = toggleFlip(state, 2);
+  const unflipped = toggleFlip(flipped, 2);
+  assert.equal(unflipped.flippedIndex, null);
 });
 
-test('active card sits centered with no rotation and the highest z-index', () => {
-  const offsets = computeFanOffsets(5, 2);
-  const active = offsets[2];
-  assert.equal(active.isActive, true);
-  assert.equal(active.rotateDeg, 0);
-  assert.equal(active.translateX, 0);
-  assert.equal(active.zIndex, 5);
+test('toggling a different card while one is flipped switches to the new card, not both', () => {
+  const state = createExperienceState(4);
+  const flipped = toggleFlip(state, 2);
+  const switched = toggleFlip(flipped, 0);
+  assert.equal(switched.flippedIndex, 0);
 });
 
-test('cards further from the active index fan out further and sit lower in the stack', () => {
-  const offsets = computeFanOffsets(5, 2);
-  assert.equal(offsets[0].rotateDeg, -12);
-  assert.equal(offsets[4].rotateDeg, 12);
-  assert.ok(offsets[0].zIndex < offsets[2].zIndex);
+test('scatter offsets center the spread around zero and stack later cards on top', () => {
+  const offsets = computeScatterOffsets(4);
+  assert.equal(offsets[0].translateX, -194);
+  assert.equal(offsets[3].translateX, 196);
+  assert.ok(offsets[0].zIndex < offsets[3].zIndex);
+});
+
+test('scatter offsets give each card a distinct, non-zero rotation', () => {
+  const offsets = computeScatterOffsets(4);
+  const rotations = offsets.map((o) => o.rotateDeg);
+  assert.ok(rotations.every((deg) => deg !== 0));
+  assert.equal(new Set(rotations).size, rotations.length);
+});
+
+test('a single arc timeline position sits at the deepest point of the dip', () => {
+  const [position] = computeArcTimelinePositions(1, 100);
+  assert.equal(position.x, 100);
+  assert.equal(position.y, 100);
+});
+
+test('arc timeline endpoints sit at the two edges, level with y=0', () => {
+  const positions = computeArcTimelinePositions(4, 100);
+  assert.equal(positions[0].x, 0);
+  assert.ok(Math.abs(positions[0].y) < 1e-9);
+  assert.equal(positions[3].x, 200);
+  assert.ok(Math.abs(positions[3].y) < 1e-9);
+});
+
+test('arc timeline positions dip lowest in the middle, matching a downward arc', () => {
+  const positions = computeArcTimelinePositions(4, 100);
+  assert.ok(positions[1].y > positions[0].y);
+  assert.ok(positions[2].y > positions[3].y);
 });
