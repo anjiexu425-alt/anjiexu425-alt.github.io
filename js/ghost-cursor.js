@@ -82,105 +82,122 @@ async function initGhostCursor() {
   try {
     modules = await loadThree();
   } catch (error) {
-    return; // CDN unreachable, offline, blocked, etc. — skip the effect, don't break the page
+    console.error('Ghost cursor: failed to load Three.js from CDN, effect disabled.', error);
+    return;
   }
   const { THREE, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass } = modules;
+  console.info('Ghost cursor: Three.js modules loaded, setting up scene.');
 
-  const canvas = document.createElement('canvas');
-  canvas.className = 'ghost-cursor-canvas';
-  canvas.setAttribute('aria-hidden', 'true');
-  document.body.appendChild(canvas);
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.className = 'ghost-cursor-canvas';
+    canvas.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(canvas);
 
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(window.innerWidth, window.innerHeight);
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
 
-  const scene = new THREE.Scene();
-  // top=0/bottom=height (inverted) so world coordinates match DOM client
-  // coordinates directly: y=0 at the visual top, y=height at the bottom.
-  const camera = new THREE.OrthographicCamera(0, window.innerWidth, 0, window.innerHeight, -10, 10);
-  camera.position.z = 5;
+    const scene = new THREE.Scene();
+    // top=0/bottom=height (inverted) so world coordinates match DOM client
+    // coordinates directly: y=0 at the visual top, y=height at the bottom.
+    const camera = new THREE.OrthographicCamera(0, window.innerWidth, 0, window.innerHeight, -10, 10);
+    camera.position.z = 5;
 
-  const dotTexture = createDotTexture(THREE);
-  const trailPoints = [];
-  const sprites = [];
+    const dotTexture = createDotTexture(THREE);
+    const trailPoints = [];
+    const sprites = [];
 
-  for (let i = 0; i < TRAIL_LENGTH; i += 1) {
-    trailPoints.push({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-    const material = new THREE.SpriteMaterial({
-      map: dotTexture,
-      color: new THREE.Color(COLOR),
-      transparent: true,
-      opacity: 0,
-      blending: THREE.AdditiveBlending,
-      depthTest: false,
-    });
-    const sprite = new THREE.Sprite(material);
-    scene.add(sprite);
-    sprites.push(sprite);
-  }
-
-  const composer = new EffectComposer(renderer);
-  composer.addPass(new RenderPass(scene, camera));
-  const bloomPass = new UnrealBloomPass(
-    new THREE.Vector2(window.innerWidth, window.innerHeight),
-    BLOOM_STRENGTH,
-    BLOOM_RADIUS,
-    BLOOM_THRESHOLD,
-  );
-  composer.addPass(bloomPass);
-  const grainPass = new ShaderPass(GRAIN_SHADER);
-  composer.addPass(grainPass);
-
-  function resize() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    renderer.setSize(width, height);
-    composer.setSize(width, height);
-    camera.right = width;
-    camera.bottom = height;
-    camera.updateProjectionMatrix();
-  }
-  window.addEventListener('resize', resize);
-
-  let targetX = window.innerWidth / 2;
-  let targetY = window.innerHeight / 2;
-  let lastMoveMs = performance.now();
-
-  window.addEventListener('mousemove', (event) => {
-    targetX = event.clientX;
-    targetY = event.clientY;
-    lastMoveMs = performance.now();
-  });
-
-  const followFactor = 1 - INERTIA;
-
-  function animate(timestampMs) {
-    trailPoints[0].x = lerp(trailPoints[0].x, targetX, followFactor);
-    trailPoints[0].y = lerp(trailPoints[0].y, targetY, followFactor);
-    for (let i = 1; i < trailPoints.length; i += 1) {
-      trailPoints[i].x = lerp(trailPoints[i].x, trailPoints[i - 1].x, followFactor);
-      trailPoints[i].y = lerp(trailPoints[i].y, trailPoints[i - 1].y, followFactor);
+    for (let i = 0; i < TRAIL_LENGTH; i += 1) {
+      trailPoints.push({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+      const material = new THREE.SpriteMaterial({
+        map: dotTexture,
+        color: new THREE.Color(COLOR),
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthTest: false,
+      });
+      const sprite = new THREE.Sprite(material);
+      scene.add(sprite);
+      sprites.push(sprite);
     }
 
-    const fade = computeFadeOpacity(timestampMs - lastMoveMs, FADE_DELAY_MS, FADE_DURATION_MS);
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      BLOOM_STRENGTH,
+      BLOOM_RADIUS,
+      BLOOM_THRESHOLD,
+    );
+    composer.addPass(bloomPass);
+    const grainPass = new ShaderPass(GRAIN_SHADER);
+    composer.addPass(grainPass);
 
-    sprites.forEach((sprite, i) => {
-      const point = trailPoints[i];
-      const t = 1 - i / trailPoints.length;
-      sprite.position.set(point.x, point.y, 0);
-      const scale = 6 + t * 18;
-      sprite.scale.set(scale, scale, 1);
-      sprite.material.opacity = t * fade * BRIGHTNESS * 0.35;
+    function resize() {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      renderer.setSize(width, height);
+      composer.setSize(width, height);
+      camera.right = width;
+      camera.bottom = height;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resize);
+
+    let targetX = window.innerWidth / 2;
+    let targetY = window.innerHeight / 2;
+    let lastMoveMs = performance.now();
+
+    window.addEventListener('mousemove', (event) => {
+      targetX = event.clientX;
+      targetY = event.clientY;
+      lastMoveMs = performance.now();
     });
 
-    grainPass.uniforms.time.value = timestampMs * 0.001;
+    const followFactor = 1 - INERTIA;
+    let loggedFirstFrame = false;
 
-    composer.render();
+    function animate(timestampMs) {
+      trailPoints[0].x = lerp(trailPoints[0].x, targetX, followFactor);
+      trailPoints[0].y = lerp(trailPoints[0].y, targetY, followFactor);
+      for (let i = 1; i < trailPoints.length; i += 1) {
+        trailPoints[i].x = lerp(trailPoints[i].x, trailPoints[i - 1].x, followFactor);
+        trailPoints[i].y = lerp(trailPoints[i].y, trailPoints[i - 1].y, followFactor);
+      }
+
+      const fade = computeFadeOpacity(timestampMs - lastMoveMs, FADE_DELAY_MS, FADE_DURATION_MS);
+
+      sprites.forEach((sprite, i) => {
+        const point = trailPoints[i];
+        const t = 1 - i / trailPoints.length;
+        sprite.position.set(point.x, point.y, 0);
+        const scale = 6 + t * 18;
+        sprite.scale.set(scale, scale, 1);
+        sprite.material.opacity = t * fade * BRIGHTNESS * 0.35;
+      });
+
+      grainPass.uniforms.time.value = timestampMs * 0.001;
+
+      composer.render();
+
+      if (!loggedFirstFrame) {
+        loggedFirstFrame = true;
+        console.info('Ghost cursor: first frame rendered.', {
+          canvasSize: [canvas.width, canvas.height],
+          headSpriteOpacity: sprites[0].material.opacity,
+          headSpritePosition: sprites[0].position.toArray(),
+        });
+      }
+
+      requestAnimationFrame(animate);
+    }
+
     requestAnimationFrame(animate);
+  } catch (error) {
+    console.error('Ghost cursor: setup failed after Three.js loaded.', error);
   }
-
-  requestAnimationFrame(animate);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
