@@ -6,7 +6,7 @@ const CARDS = [
   { line1: 'Lishui University', line2: 'Bachelor - English', period: '2021', photo: 'assets/images/experience-1-lishui.jpg', detail: PLACEHOLDER_DETAIL },
   { line1: 'President · Psychological Health Association', line2: '', period: '2023', photo: 'assets/images/experience-2-psych-association.jpg', detail: PLACEHOLDER_DETAIL },
   { line1: 'Project Lead · "New Sprout" Entrepreneurship Project', line2: '', period: '2023', photo: 'assets/images/experience-3-new-sprout.jpg', detail: PLACEHOLDER_DETAIL },
-  { line1: 'IELTS Teacher · AIU International Education', line2: '', period: '2025', photo: 'assets/images/experience-4-ielts.jpg', detail: PLACEHOLDER_DETAIL },
+  { line1: 'IELTS Teacher · Aiyoumi International Education', line2: '', period: '2025', photo: 'assets/images/experience-4-ielts.jpg', detail: PLACEHOLDER_DETAIL },
   { line1: 'University of Edinburgh', line2: 'Master · TESOL', period: '2025', photo: 'assets/images/experience-5-edinburgh.jpg', detail: PLACEHOLDER_DETAIL },
 ];
 
