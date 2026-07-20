@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createExperienceState, toggleFlip, computeScatterOffsets, computeArcTimelinePositions } from './experience-state.mjs';
+import { createExperienceState, toggleFlip, computeFanRotations, computeArcTimelinePositions } from './experience-state.mjs';
 
 test('toggling flip on a card sets it as the flipped card', () => {
   const state = createExperienceState(4);
@@ -22,18 +22,19 @@ test('toggling a different card while one is flipped switches to the new card, n
   assert.equal(switched.flippedIndex, 0);
 });
 
-test('scatter offsets center the spread around zero and stack later cards on top', () => {
-  const offsets = computeScatterOffsets(4);
-  assert.equal(offsets[0].translateX, -194);
-  assert.equal(offsets[3].translateX, 196);
-  assert.ok(offsets[0].zIndex < offsets[3].zIndex);
+test('fan rotations increase evenly from negative to positive around a centered middle card', () => {
+  const rotations = computeFanRotations(5, 10);
+  assert.deepEqual(rotations.map((r) => r.rotateDeg), [-20, -10, 0, 10, 20]);
 });
 
-test('scatter offsets give each card a distinct, non-zero rotation', () => {
-  const offsets = computeScatterOffsets(4);
-  const rotations = offsets.map((o) => o.rotateDeg);
-  assert.ok(rotations.every((deg) => deg !== 0));
-  assert.equal(new Set(rotations).size, rotations.length);
+test('fan rotations stay symmetric and evenly spaced for an even card count', () => {
+  const rotations = computeFanRotations(4, 10).map((r) => r.rotateDeg);
+  assert.deepEqual(rotations, [-15, -5, 5, 15]);
+});
+
+test('a single card sits with no rotation', () => {
+  const rotations = computeFanRotations(1, 10);
+  assert.equal(rotations[0].rotateDeg, 0);
 });
 
 test('a single arc timeline position sits at the deepest point of the dip', () => {

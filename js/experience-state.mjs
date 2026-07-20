@@ -1,11 +1,3 @@
-// Fixed jitter patterns (not Math.random) so the scatter is deterministic
-// and testable, while still reading as an irregular, hand-tossed spread of
-// photos. Cycled by index % length if there are ever more cards than entries.
-const ROTATE_JITTER_DEG = [-18, 12, -24, 20, -9, 16, -22, 8];
-const OFFSET_X_JITTER_PX = [-14, 10, -8, 16, -12, 6, -18, 14];
-const OFFSET_Y_JITTER_PX = [10, -18, 14, -6, 18, -14, 8, -20];
-const CARD_SPACING_PX = 120;
-
 export function createExperienceState(cardCount) {
   return { cardCount, flippedIndex: null };
 }
@@ -14,20 +6,19 @@ export function toggleFlip(state, index) {
   return { ...state, flippedIndex: state.flippedIndex === index ? null : index };
 }
 
-export function computeScatterOffsets(cardCount) {
+// Rotation only — the fan's overlap comes from CSS negative margin-left on
+// cards laid out in normal flex flow, each with transform-origin set to its
+// own bottom-center. Because the cards overlap so heavily, those pivot
+// points sit close together, so rotating each card by an evenly-increasing
+// angle reads as one shared hinge, like a fanned hand of photos, rather
+// than cards spinning independently around their own centers.
+export function computeFanRotations(cardCount, stepDeg = 10) {
   const center = (cardCount - 1) / 2;
-  const offsets = [];
+  const rotations = [];
   for (let i = 0; i < cardCount; i += 1) {
-    const baseX = (i - center) * CARD_SPACING_PX;
-    offsets.push({
-      index: i,
-      rotateDeg: ROTATE_JITTER_DEG[i % ROTATE_JITTER_DEG.length],
-      translateX: Math.round(baseX + OFFSET_X_JITTER_PX[i % OFFSET_X_JITTER_PX.length]),
-      translateY: OFFSET_Y_JITTER_PX[i % OFFSET_Y_JITTER_PX.length],
-      zIndex: i + 1,
-    });
+    rotations.push({ index: i, rotateDeg: Math.round((i - center) * stepDeg) });
   }
-  return offsets;
+  return rotations;
 }
 
 // Distributes `count` points along the bottom half of a circle of the given

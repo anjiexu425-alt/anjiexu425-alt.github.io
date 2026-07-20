@@ -1,4 +1,6 @@
-import { createExperienceState, toggleFlip, computeScatterOffsets, computeArcTimelinePositions } from './experience-state.mjs';
+import { createExperienceState, toggleFlip, computeFanRotations, computeArcTimelinePositions } from './experience-state.mjs';
+
+const FAN_STEP_DEG = 10;
 
 const PLACEHOLDER_DETAIL = '[Text placeholder: describe this experience — responsibilities, outcomes, and what stood out.]';
 
@@ -18,14 +20,13 @@ const firstIndexForYear = (year) => CARDS.findIndex((card) => card.period === ye
 let state = createExperienceState(CARDS.length);
 
 function render() {
-  const offsets = computeScatterOffsets(state.cardCount);
+  const rotations = computeFanRotations(state.cardCount, FAN_STEP_DEG);
 
   document.querySelectorAll('.polaroid').forEach((card, i) => {
-    const offset = offsets[i];
     const isFlipped = i === state.flippedIndex;
     const scale = isFlipped ? 1.06 : 1;
-    card.style.transform = `translate(-50%, -50%) translate(${offset.translateX}px, ${offset.translateY}px) rotate(${offset.rotateDeg}deg) scale(${scale})`;
-    card.style.zIndex = String(isFlipped ? 999 : offset.zIndex);
+    card.style.transform = `rotate(${rotations[i].rotateDeg}deg) scale(${scale})`;
+    card.style.zIndex = isFlipped ? '999' : '';
     card.classList.toggle('is-flipped', isFlipped);
   });
 
