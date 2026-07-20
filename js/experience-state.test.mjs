@@ -34,9 +34,9 @@ test('coverflow: the active card sits centered, lifted up, and scaled up with th
 test('coverflow: rotation and horizontal spread grow linearly with distance from the active card', () => {
   const offsets = computeCoverflowOffsets(5, 0);
   assert.equal(offsets[1].rotateDeg, 11);
-  assert.equal(offsets[1].translateX, 140);
+  assert.equal(offsets[1].translateX, 180);
   assert.equal(offsets[4].rotateDeg, 44);
-  assert.equal(offsets[4].translateX, 560);
+  assert.equal(offsets[4].translateX, 720);
 });
 
 test('coverflow: vertical position follows an arch, further cards sitting lower', () => {
@@ -50,8 +50,8 @@ test('coverflow: reflows around whichever card becomes active, not fixed slots',
   const offsets = computeCoverflowOffsets(5, 3);
   assert.equal(offsets[3].isActive, true);
   assert.equal(offsets[3].translateX, 0);
-  assert.equal(offsets[0].translateX, -420);
-  assert.equal(offsets[4].translateX, 140);
+  assert.equal(offsets[0].translateX, -540);
+  assert.equal(offsets[4].translateX, 180);
 });
 
 test('compass tick angles spread evenly across a 112deg arc centered on straight up', () => {

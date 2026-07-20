@@ -18,7 +18,7 @@ export function selectCard(state, index) {
 // diff, vertical position follows an arch (diff^2), the active card lifts
 // up and scales up, everything else scales down and sits further back.
 const FAN_ROTATE_STEP_DEG = 11;
-const FAN_TRANSLATE_STEP_PX = 140;
+const FAN_TRANSLATE_STEP_PX = 180;
 const FAN_ARCH_COEFFICIENT_PX = 10;
 const FAN_ACTIVE_LIFT_PX = 32;
 const FAN_ACTIVE_SCALE = 1.05;
