@@ -52,18 +52,20 @@ function buildFan() {
     const label = card.line2 ? `${card.line1}, ${card.line2}` : card.line1;
     el.setAttribute('aria-label', `${label}, ${card.period}. Click to flip and read more.`);
     el.innerHTML = `
-      <span class="polaroid__face polaroid__face--front">
-        <span class="placeholder-img" style="min-height:220px;">[Photo placeholder: ${card.line1}]</span>
-        <span class="polaroid__caption">
-          <strong>${card.line1}</strong>
-          ${card.line2 ? `<span>${card.line2}</span>` : ''}
+      <span class="polaroid__flip">
+        <span class="polaroid__face polaroid__face--front">
+          <span class="placeholder-img" style="min-height:220px;">[Photo placeholder: ${card.line1}]</span>
+          <span class="polaroid__caption">
+            <strong>${card.line1}</strong>
+            ${card.line2 ? `<span>${card.line2}</span>` : ''}
+          </span>
         </span>
-      </span>
-      <span class="polaroid__face polaroid__face--back">
-        <strong>${card.line1}</strong><br />
-        ${card.line2 ? `${card.line2}<br />` : ''}
-        ${card.period}<br /><br />
-        ${card.detail}
+        <span class="polaroid__face polaroid__face--back">
+          <strong>${card.line1}</strong><br />
+          ${card.line2 ? `${card.line2}<br />` : ''}
+          ${card.period}<br /><br />
+          ${card.detail}
+        </span>
       </span>
     `;
     el.addEventListener('click', () => handleSelect(i));

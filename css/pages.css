@@ -230,13 +230,18 @@
   cursor: pointer;
   border: none;
   transition: transform var(--transition-slow), box-shadow var(--transition-slow);
-  perspective: 1000px;
   text-align: left;
 }
 
 .polaroid:hover,
 .polaroid.is-flipped {
   box-shadow: 0 20px 36px rgba(0, 0, 0, 0.24);
+}
+
+.polaroid__flip {
+  position: relative;
+  display: block;
+  perspective: 1000px;
 }
 
 .polaroid__face {
