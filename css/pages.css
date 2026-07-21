@@ -520,6 +520,11 @@
   position: relative;
   display: flex;
   perspective: 2000px;
+  /* Fixed so the book doesn't resize as pages with more/fewer photos are
+     shown — sized to comfortably fit the two-photo page (the tallest
+     regular entry); pages with fewer photos just have their image(s)
+     stretch to fill the same box instead of leaving it shorter. */
+  height: 560px;
 }
 
 .diary-page {
@@ -530,12 +535,24 @@
 .diary-page--left {
   border-right: 1px solid rgba(0, 0, 0, 0.06);
   padding-right: var(--space-3);
+  overflow-y: auto;
 }
 
 .diary-page--right {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  overflow-y: auto;
+}
+
+.diary-page--right .placeholder-img,
+.diary-page__photo {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  height: 100%;
+  border-radius: var(--radius-md);
+  object-fit: cover;
 }
 
 .diary-page__number {
@@ -564,11 +581,6 @@
   margin: var(--space-2) 0;
 }
 
-.diary-page__photo {
-  width: 100%;
-  border-radius: var(--radius-md);
-  object-fit: cover;
-}
 
 /* Real 3D page-turn: a half-width sheet with two backface-hidden faces
    rotates around the book's spine; the perspective on .diary-stage does
@@ -853,10 +865,17 @@
   .diary-stage {
     flex-direction: column;
     perspective: none;
+    height: auto;
   }
 
   .diary-page {
     width: 100%;
+  }
+
+  .diary-page__photo,
+  .diary-page--right .placeholder-img {
+    height: auto;
+    min-height: 240px;
   }
 
   .diary-page--left {
