@@ -681,6 +681,30 @@
   text-align: center;
 }
 
+.diary-mood-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.diary-mood-btn {
+  padding: 4px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 999px;
+  background: var(--color-bg);
+  font-family: var(--font-body);
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.diary-mood-btn:hover {
+  background: var(--color-surface);
+  border-color: var(--color-klein-blue);
+}
+
 /* Washi tape "holding" the polaroid to the page — a torn-paper edge via
    a zigzag clip-path rather than hand-authored path data. */
 .diary-polaroid__tape {
@@ -1086,6 +1110,56 @@
 
 .diary-lightbox__close:hover {
   background: #fff;
+}
+
+.diary-mood-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+  z-index: 100;
+}
+
+.diary-mood-modal-backdrop[hidden] {
+  display: none;
+}
+
+.diary-mood-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  max-width: 340px;
+  width: 100%;
+  padding: var(--space-4);
+}
+
+.diary-mood-modal__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: var(--space-3) 0;
+}
+
+.diary-mood-modal__option {
+  padding: 6px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 999px;
+  background: var(--color-bg);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.diary-mood-modal__option:hover {
+  background: var(--color-surface);
+  border-color: var(--color-klein-blue);
+}
+
+.diary-mood-modal__clear {
+  width: 100%;
 }
 
 .diary-modal {

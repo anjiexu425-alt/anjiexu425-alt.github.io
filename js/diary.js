@@ -51,6 +51,13 @@ const DIARY_TAGLINE = 'Abroad & Reflection Sanctuary';
 const DIARY_BRAND = 'Abroad in Serenity';
 const DIARY_EDITION = '2026 Edition';
 
+const MOOD_OPTIONS = ['😊 Happy', '😌 Calm', '🥰 Loved', '😔 Sad', '😆 Excited', '😴 Tired'];
+const WEATHER_OPTIONS = ['☀️ Sunny', '⛅ Cloudy', '🌧️ Rainy', '❄️ Snowy', '🌬️ Windy', '🌈 Rainbow'];
+
+// Which entry + which of the two fields (mood or weather) the mood modal
+// is currently editing — null when the modal is closed.
+let moodModalTarget = null;
+
 // Body text with a blank line between lines is rendered as separate
 // paragraphs, matching the "title + quote + two body paragraphs" layout.
 function bodyParagraphsHTML(body) {
@@ -129,17 +136,18 @@ function mediaGridStyle(count) {
 }
 
 function rightPageHTML(entry, active = true) {
+  const index = ENTRIES.indexOf(entry);
   const urls = entry.media.urls;
   const isGrid = urls.length > 1;
   const gridStyle = mediaGridStyle(urls.length);
-  const itemsHTML = urls.map((url, index) => mediaItemHTML(entry, url, index, urls.length, active)).join('');
+  const itemsHTML = urls.map((url, i) => mediaItemHTML(entry, url, i, urls.length, active)).join('');
   const badgeHTML = isGrid ? '<span class="diary-polaroid__badge">Gallery</span>' : '';
   const captionHTML = entry.media.caption ? `<p class="diary-polaroid__caption">${entry.media.caption}</p>` : '';
   const countLabel = entry.media.type === 'video' ? '1 Video' : `${urls.length} Snapshot${urls.length === 1 ? '' : 's'}`;
 
   return `
     <div class="diary-page__header">
-      <span class="diary-page__label">Page Spread ${ENTRIES.indexOf(entry) + 1} of ${ENTRIES.length}</span>
+      <span class="diary-page__label">Page Spread ${index + 1} of ${ENTRIES.length}</span>
       <span class="diary-page__count">${countLabel}</span>
     </div>
     <div class="diary-polaroid">
@@ -147,6 +155,10 @@ function rightPageHTML(entry, active = true) {
       ${badgeHTML}
       <div class="diary-page__media" style="${gridStyle}">${itemsHTML}</div>
       ${captionHTML}
+      <div class="diary-mood-row">
+        <button type="button" class="diary-mood-btn" data-mood-kind="mood" data-mood-index="${index}">${entry.mood || '+ Mood'}</button>
+        <button type="button" class="diary-mood-btn" data-mood-kind="weather" data-mood-index="${index}">${entry.weather || '+ Weather'}</button>
+      </div>
     </div>
     <div class="diary-page__footer diary-page__footer--right">
       <span>${DIARY_BRAND}</span>
@@ -182,6 +194,29 @@ function closeLightbox() {
   const backdrop = document.querySelector('.diary-lightbox-backdrop');
   backdrop.hidden = true;
   document.querySelector('.diary-lightbox__image').src = '';
+}
+
+function openMoodModal(index, kind) {
+  moodModalTarget = { index, kind };
+  const options = kind === 'mood' ? MOOD_OPTIONS : WEATHER_OPTIONS;
+  document.querySelector('.diary-mood-modal__title').textContent = kind === 'mood' ? 'Mood' : 'Weather';
+  document.querySelector('.diary-mood-modal__options').innerHTML = options
+    .map((option) => `<button type="button" class="diary-mood-modal__option" data-value="${option}">${option}</button>`)
+    .join('');
+  document.querySelector('.diary-mood-modal-backdrop').hidden = false;
+}
+
+function closeMoodModal() {
+  document.querySelector('.diary-mood-modal-backdrop').hidden = true;
+  moodModalTarget = null;
+}
+
+function setMood(value) {
+  if (!moodModalTarget) return;
+  ENTRIES[moodModalTarget.index][moodModalTarget.kind] = value;
+  saveEntries();
+  closeMoodModal();
+  renderStatic();
 }
 
 function handleDiscard(index) {
@@ -468,6 +503,11 @@ document.addEventListener('DOMContentLoaded', () => {
       handleDiscard(Number(discardBtn.dataset.discardIndex));
       return;
     }
+    const moodBtn = event.target.closest('.diary-mood-btn');
+    if (moodBtn) {
+      openMoodModal(Number(moodBtn.dataset.moodIndex), moodBtn.dataset.moodKind);
+      return;
+    }
     const photo = event.target.closest('.diary-page__photo');
     if (photo) openLightbox(photo.src, photo.alt);
   });
@@ -475,6 +515,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('.diary-lightbox__close').addEventListener('click', closeLightbox);
   document.querySelector('.diary-lightbox-backdrop').addEventListener('click', (event) => {
     if (event.target === event.currentTarget) closeLightbox();
+  });
+
+  document.querySelector('.diary-mood-modal__close').addEventListener('click', closeMoodModal);
+  document.querySelector('.diary-mood-modal__clear').addEventListener('click', () => setMood(''));
+  document.querySelector('.diary-mood-modal__options').addEventListener('click', (event) => {
+    const option = event.target.closest('.diary-mood-modal__option');
+    if (option) setMood(option.dataset.value);
+  });
+  document.querySelector('.diary-mood-modal-backdrop').addEventListener('click', (event) => {
+    if (event.target === event.currentTarget) closeMoodModal();
   });
 
   document.querySelector('.diary-nav--next').addEventListener('click', (event) => {
@@ -488,7 +538,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeLightbox();
+    if (event.key === 'Escape') {
+      closeLightbox();
+      closeMoodModal();
+    }
     if (!state.isOpen) return;
     if (event.key === 'ArrowRight') playFlip('next');
     if (event.key === 'ArrowLeft') playFlip('prev');
