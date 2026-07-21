@@ -15,35 +15,7 @@ function isPlaceholder(value) {
   return value.startsWith('[');
 }
 
-const ENTRIES = [
-  {
-    number: '01',
-    category: 'On Arrival',
-    date: '2026.02.02',
-    title: 'First Week',
-    quote: '',
-    body: '[Text placeholder: describe your first impressions of the city and program.]',
-    media: { type: 'image', urls: ['[Photo placeholder: arrival photo]'], caption: '' },
-  },
-  {
-    number: '02',
-    category: 'On Everyday Life',
-    date: '2026.03.14',
-    title: 'Between Classes',
-    quote: '',
-    body: '[Text placeholder: describe a typical day, a favorite spot, or a small ritual.]',
-    media: { type: 'image', urls: ['[Photo placeholder: campus photo]', '[Photo placeholder: street photo]'], caption: '' },
-  },
-  {
-    number: '03',
-    category: 'On Reflection',
-    date: '2026.05.28',
-    title: 'What Changed',
-    quote: '',
-    body: '[Text placeholder: describe how the experience shifted your perspective.]',
-    media: { type: 'image', urls: ['[Photo placeholder: reflection photo]'], caption: '' },
-  },
-];
+const ENTRIES = [];
 
 let state = createDiaryState(ENTRIES.length);
 let isFlipping = false;
@@ -193,7 +165,8 @@ function handleDiscard(index) {
 }
 
 function updateChrome() {
-  document.querySelector('.diary-pagination__count').textContent = `${state.current + 1} / ${state.totalPages}`;
+  const countLabel = state.totalPages === 0 ? '0 / 0' : `${state.current + 1} / ${state.totalPages}`;
+  document.querySelector('.diary-pagination__count').textContent = countLabel;
   document.querySelectorAll('.diary-pagination__dot').forEach((dot, i) => {
     dot.classList.toggle('is-active', i === state.current);
   });
