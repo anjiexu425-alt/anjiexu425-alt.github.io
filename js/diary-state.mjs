@@ -23,3 +23,8 @@ export function canGoNext(state) {
 export function canGoPrevious(state) {
   return state.current > 0;
 }
+
+export function goToPage(state, index) {
+  const clamped = Math.max(0, Math.min(state.totalPages - 1, index));
+  return { ...state, current: clamped };
+}

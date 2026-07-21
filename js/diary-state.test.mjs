@@ -7,6 +7,7 @@ import {
   goToPrevious,
   canGoNext,
   canGoPrevious,
+  goToPage,
 } from './diary-state.mjs';
 
 test('starts closed on the first page', () => {
@@ -37,4 +38,16 @@ test('next moves forward and is clamped at the last page', () => {
 
   const stillLast = goToNext(state);
   assert.equal(stillLast.current, 2);
+});
+
+test('goToPage jumps directly to a given page', () => {
+  const state = createDiaryState(5);
+  const jumped = goToPage(state, 3);
+  assert.equal(jumped.current, 3);
+});
+
+test('goToPage clamps to the valid range', () => {
+  const state = createDiaryState(5);
+  assert.equal(goToPage(state, -2).current, 0);
+  assert.equal(goToPage(state, 99).current, 4);
 });

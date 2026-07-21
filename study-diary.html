@@ -38,14 +38,12 @@
 
       <div class="diary-book">
         <button type="button" class="diary-nav diary-nav--prev" aria-label="Previous page">‹</button>
-        <div class="diary-page diary-page--left">
-          <p class="diary-page__number"></p>
-          <p class="diary-page__category"></p>
-          <h2 class="diary-page__title"></h2>
-          <p class="diary-page__body"></p>
-        </div>
-        <div class="diary-page diary-page--right diary-page__images"></div>
+        <div class="diary-stage"></div>
         <button type="button" class="diary-nav diary-nav--next" aria-label="Next page">›</button>
+      </div>
+
+      <div class="diary-toolbar">
+        <button type="button" class="diary-write-btn">Write Diary</button>
       </div>
 
       <div class="diary-pagination">
@@ -54,6 +52,52 @@
       </div>
     </section>
   </main>
+
+  <div class="diary-modal-backdrop" hidden>
+    <div class="diary-modal">
+      <div class="diary-modal__header">
+        <h3>Write a Diary Entry</h3>
+        <button type="button" class="diary-modal__close" aria-label="Close">×</button>
+      </div>
+      <form class="diary-form">
+        <div class="diary-form__row">
+          <label class="diary-form__field">
+            <span>Category</span>
+            <select name="category">
+              <option value="On Arrival">On Arrival</option>
+              <option value="On Everyday Life">On Everyday Life</option>
+              <option value="On Reflection">On Reflection</option>
+              <option value="Travel">Travel</option>
+              <option value="Coursework">Coursework</option>
+            </select>
+          </label>
+          <label class="diary-form__field">
+            <span>Date</span>
+            <input type="text" name="date" placeholder="YYYY.MM.DD" required />
+          </label>
+        </div>
+        <label class="diary-form__field">
+          <span>Title</span>
+          <input type="text" name="title" placeholder="e.g. Rainy afternoon in the library" required />
+        </label>
+        <label class="diary-form__field">
+          <span>Quote / motto (optional)</span>
+          <input type="text" name="quote" placeholder="A line that captures the day" />
+        </label>
+        <label class="diary-form__field">
+          <span>Diary content</span>
+          <textarea name="body" rows="6" placeholder="What happened, what you noticed, how it felt." required></textarea>
+        </label>
+        <label class="diary-form__field">
+          <span>Image URL (optional)</span>
+          <input type="text" name="image" placeholder="Leave blank to use a placeholder" />
+        </label>
+        <div class="diary-form__actions">
+          <button type="submit" class="button button--primary">Save entry</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <footer class="site-footer">
     <p>&copy; 2026 Anjie</p>
