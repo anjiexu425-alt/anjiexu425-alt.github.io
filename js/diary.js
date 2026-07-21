@@ -22,7 +22,7 @@ const ENTRIES = [
     title: 'First Week',
     quote: '',
     body: '[Text placeholder: describe your first impressions of the city and program.]',
-    images: ['[Photo placeholder: arrival photo]'],
+    media: { type: 'image', urls: ['[Photo placeholder: arrival photo]'], caption: '' },
   },
   {
     number: '02',
@@ -31,7 +31,7 @@ const ENTRIES = [
     title: 'Between Classes',
     quote: '',
     body: '[Text placeholder: describe a typical day, a favorite spot, or a small ritual.]',
-    images: ['[Photo placeholder: campus photo]', '[Photo placeholder: street photo]'],
+    media: { type: 'image', urls: ['[Photo placeholder: campus photo]', '[Photo placeholder: street photo]'], caption: '' },
   },
   {
     number: '03',
@@ -40,18 +40,19 @@ const ENTRIES = [
     title: 'What Changed',
     quote: '',
     body: '[Text placeholder: describe how the experience shifted your perspective.]',
-    images: ['[Photo placeholder: reflection photo]'],
+    media: { type: 'image', urls: ['[Photo placeholder: reflection photo]'], caption: '' },
   },
 ];
 
 let state = createDiaryState(ENTRIES.length);
 let isFlipping = false;
 
-function buildImagesHTML(entry) {
-  return entry.images
-    .map((src) => (isPlaceholder(src)
-      ? `<div class="placeholder-img">${src}</div>`
-      : `<img class="diary-page__photo" src="${src}" alt="${entry.title}" />`))
+// Body text with a blank line between lines is rendered as separate
+// paragraphs, matching the "title + quote + two body paragraphs" layout.
+function bodyParagraphsHTML(body) {
+  return body
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p class="diary-page__body">${paragraph}</p>`)
     .join('');
 }
 
@@ -61,12 +62,29 @@ function leftPageHTML(entry) {
     <p class="diary-page__category">${entry.category} <span class="diary-page__date">${entry.date}</span></p>
     <h2 class="diary-page__title">${entry.title}</h2>
     ${entry.quote ? `<p class="diary-page__quote">${entry.quote}</p>` : ''}
-    <p class="diary-page__body">${entry.body}</p>
+    ${bodyParagraphsHTML(entry.body)}
   `;
 }
 
+// A single photo/video fills the whole media area; 2-4 photos assemble
+// into a grid (up to 2x2). Each URL/path is used directly as the src —
+// works equally for a full network URL or a local relative path like
+// assets/images/photo.jpg, since the browser resolves both the same way.
+function mediaItemHTML(entry, url) {
+  if (isPlaceholder(url)) return `<div class="placeholder-img">${url}</div>`;
+  return entry.media.type === 'video'
+    ? `<video class="diary-page__video" src="${url}" muted loop playsinline controls></video>`
+    : `<img class="diary-page__photo" src="${url}" alt="${entry.title}" />`;
+}
+
 function rightPageHTML(entry) {
-  return buildImagesHTML(entry);
+  const urls = entry.media.urls;
+  const gridStyle = urls.length <= 1
+    ? 'display:block;'
+    : `display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(${urls.length <= 2 ? 1 : 2},1fr); gap:var(--space-1);`;
+  const itemsHTML = urls.map((url) => mediaItemHTML(entry, url)).join('');
+  const captionHTML = entry.media.caption ? `<p class="diary-page__caption">${entry.media.caption}</p>` : '';
+  return `<div class="diary-page__media" style="${gridStyle}">${itemsHTML}</div>${captionHTML}`;
 }
 
 function renderStatic() {
@@ -248,6 +266,15 @@ function openCover(button) {
   updateChrome();
 }
 
+function setMediaType(type) {
+  document.querySelectorAll('.diary-form__tab').forEach((tab) => {
+    tab.classList.toggle('is-active', tab.dataset.mediaType === type);
+  });
+  document.querySelectorAll('.diary-form__media-group').forEach((group) => {
+    group.hidden = group.dataset.mediaGroup !== type;
+  });
+}
+
 function openWriteModal() {
   document.querySelector('.diary-modal-backdrop').hidden = false;
 }
@@ -256,6 +283,7 @@ function closeWriteModal() {
   const backdrop = document.querySelector('.diary-modal-backdrop');
   backdrop.hidden = true;
   document.querySelector('.diary-form').reset();
+  setMediaType('image');
 }
 
 function handleFormSubmit(event) {
@@ -267,7 +295,18 @@ function handleFormSubmit(event) {
   const date = data.get('date').trim();
   if (!title || !body || !date) return;
 
-  const imageUrl = data.get('image').trim();
+  const mediaType = document.querySelector('.diary-form__tab.is-active').dataset.mediaType;
+  let urls;
+  if (mediaType === 'video') {
+    const videoUrl = data.get('video').trim();
+    urls = [videoUrl || '[Photo placeholder: new entry video]'];
+  } else {
+    urls = ['image1', 'image2', 'image3', 'image4']
+      .map((field) => data.get(field).trim())
+      .filter(Boolean);
+    if (urls.length === 0) urls = ['[Photo placeholder: new entry photo]'];
+  }
+
   ENTRIES.push({
     number: String(ENTRIES.length + 1).padStart(2, '0'),
     category: data.get('category'),
@@ -275,7 +314,7 @@ function handleFormSubmit(event) {
     title,
     quote: data.get('quote').trim(),
     body,
-    images: [imageUrl || '[Photo placeholder: new entry photo]'],
+    media: { type: mediaType, urls, caption: data.get('caption').trim() },
   });
 
   state = goToPage(openBook(createDiaryState(ENTRIES.length)), ENTRIES.length - 1);
@@ -311,8 +350,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelector('.diary-write-btn').addEventListener('click', openWriteModal);
   document.querySelector('.diary-modal__close').addEventListener('click', closeWriteModal);
+  document.querySelector('.diary-form__cancel').addEventListener('click', closeWriteModal);
   document.querySelector('.diary-modal-backdrop').addEventListener('click', (event) => {
     if (event.target === event.currentTarget) closeWriteModal();
+  });
+  document.querySelectorAll('.diary-form__tab').forEach((tab) => {
+    tab.addEventListener('click', () => setMediaType(tab.dataset.mediaType));
   });
   document.querySelector('.diary-form').addEventListener('submit', handleFormSubmit);
 });

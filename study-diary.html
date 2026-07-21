@@ -64,11 +64,13 @@
           <label class="diary-form__field">
             <span>Category</span>
             <select name="category">
-              <option value="On Arrival">On Arrival</option>
-              <option value="On Everyday Life">On Everyday Life</option>
-              <option value="On Reflection">On Reflection</option>
-              <option value="Travel">Travel</option>
-              <option value="Coursework">Coursework</option>
+              <option value="Abroad / Travel">✈️ Abroad / Travel</option>
+              <option value="Chill Beach">🏖️ Chill Beach</option>
+              <option value="Cozy Coffee Shop">☕ Cozy Coffee Shop</option>
+              <option value="Quiet Nature">🌳 Quiet Nature</option>
+              <option value="City Sunset">🌆 City Sunset</option>
+              <option value="Rainy Reflection">🌧️ Rainy Reflection</option>
+              <option value="Midnight Wanderer">🌙 Midnight Wanderer</option>
             </select>
           </label>
           <label class="diary-form__field">
@@ -81,19 +83,56 @@
           <input type="text" name="title" placeholder="e.g. Rainy afternoon in the library" required />
         </label>
         <label class="diary-form__field">
-          <span>Quote / motto (optional)</span>
+          <span>Quote / mood (optional)</span>
           <input type="text" name="quote" placeholder="A line that captures the day" />
         </label>
         <label class="diary-form__field">
           <span>Diary content</span>
-          <textarea name="body" rows="6" placeholder="What happened, what you noticed, how it felt." required></textarea>
+          <textarea name="body" rows="6" placeholder="What happened, what you noticed, how it felt. Leave a blank line between paragraphs." required></textarea>
         </label>
+
+        <div class="diary-form__field">
+          <span>Media type</span>
+          <div class="diary-form__tabs">
+            <button type="button" class="diary-form__tab is-active" data-media-type="image">Image</button>
+            <button type="button" class="diary-form__tab" data-media-type="video">Video</button>
+          </div>
+        </div>
+
+        <div class="diary-form__media-group" data-media-group="image">
+          <label class="diary-form__field">
+            <span>Image 1 (URL or local path, e.g. assets/images/photo.jpg)</span>
+            <input type="text" name="image1" placeholder="Leave blank to use a placeholder" />
+          </label>
+          <label class="diary-form__field">
+            <span>Image 2 (optional)</span>
+            <input type="text" name="image2" />
+          </label>
+          <label class="diary-form__field">
+            <span>Image 3 (optional)</span>
+            <input type="text" name="image3" />
+          </label>
+          <label class="diary-form__field">
+            <span>Image 4 (optional)</span>
+            <input type="text" name="image4" />
+          </label>
+        </div>
+
+        <div class="diary-form__media-group" data-media-group="video" hidden>
+          <label class="diary-form__field">
+            <span>Video (URL or local path, e.g. assets/videos/clip.mp4)</span>
+            <input type="text" name="video" placeholder="Leave blank to use a placeholder" />
+          </label>
+        </div>
+
         <label class="diary-form__field">
-          <span>Image URL (optional)</span>
-          <input type="text" name="image" placeholder="Leave blank to use a placeholder" />
+          <span>Media caption (optional)</span>
+          <input type="text" name="caption" placeholder="A short caption for the photo(s) or video" />
         </label>
+
         <div class="diary-form__actions">
-          <button type="submit" class="button button--primary">Save entry</button>
+          <button type="button" class="button diary-form__cancel">Cancel</button>
+          <button type="submit" class="button button--primary">Insert to Abroad Diary</button>
         </div>
       </form>
     </div>
