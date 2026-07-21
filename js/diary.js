@@ -102,12 +102,21 @@ function placeholderHTML(value) {
 // URL/path is used directly as the src — works equally for a full network
 // URL or a local relative path like assets/images/photo.jpg, since the
 // browser resolves both the same way.
-function mediaItemHTML(entry, url, index, total) {
+//
+// `active` distinguishes the real, settled page (rendered by renderStatic)
+// from the throwaway duplicates rendered mid-flip (the static half still
+// under the moving sheet, and the sheet's own front/back faces) — those
+// duplicates are visible for under a second and then discarded, so their
+// videos get preload="none" rather than letting the browser start
+// buffering data no one will watch.
+function mediaItemHTML(entry, url, index, total, active) {
   const spanAttr = total === 3 && index === 0 ? ' style="grid-row: span 2;"' : '';
   if (isPlaceholder(url)) return `<div class="diary-placeholder"${spanAttr}>${placeholderHTML(url)}</div>`;
-  return entry.media.type === 'video'
-    ? `<video class="diary-page__video" src="${url}" muted loop playsinline controls${spanAttr}></video>`
-    : `<img class="diary-page__photo" src="${url}" alt="${entry.title}"${spanAttr} />`;
+  if (entry.media.type === 'video') {
+    const preloadAttr = active ? '' : ' preload="none"';
+    return `<video class="diary-page__video" src="${url}" muted loop playsinline controls${preloadAttr}${spanAttr}></video>`;
+  }
+  return `<img class="diary-page__photo" src="${url}" alt="${entry.title}"${spanAttr} />`;
 }
 
 function mediaGridStyle(count) {
@@ -116,11 +125,11 @@ function mediaGridStyle(count) {
   return 'display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(2,1fr); gap:2px;';
 }
 
-function rightPageHTML(entry) {
+function rightPageHTML(entry, active = true) {
   const urls = entry.media.urls;
   const isGrid = urls.length > 1;
   const gridStyle = mediaGridStyle(urls.length);
-  const itemsHTML = urls.map((url, index) => mediaItemHTML(entry, url, index, urls.length)).join('');
+  const itemsHTML = urls.map((url, index) => mediaItemHTML(entry, url, index, urls.length, active)).join('');
   const badgeHTML = isGrid ? '<span class="diary-polaroid__badge">Gallery</span>' : '';
   const captionHTML = entry.media.caption ? `<p class="diary-polaroid__caption">${entry.media.caption}</p>` : '';
   const countLabel = entry.media.type === 'video' ? '1 Video' : `${urls.length} Snapshot${urls.length === 1 ? '' : 's'}`;
@@ -249,18 +258,24 @@ function playFlip(direction) {
   const oldEntry = ENTRIES[oldIndex];
   const newEntry = ENTRIES[newIndex];
   const stage = document.querySelector('.diary-stage');
+  // Stop decode immediately rather than waiting on GC of the removed
+  // elements — cheap insurance against multiple videos competing for the
+  // hardware decoder mid-flip.
+  stage.querySelectorAll('video').forEach((video) => video.pause());
   stage.innerHTML = '';
 
   const leftEntry = direction === 'next' ? oldEntry : newEntry;
   const rightEntry = direction === 'next' ? newEntry : oldEntry;
 
+  // Every page rendered during the flip is transitional — none of it is the
+  // settled foreground page, so media loads inactive (see mediaItemHTML).
   const leftPage = document.createElement('div');
   leftPage.className = 'diary-page diary-page--left';
   leftPage.innerHTML = leftPageHTML(leftEntry);
 
   const rightPage = document.createElement('div');
   rightPage.className = 'diary-page diary-page--right';
-  rightPage.innerHTML = rightPageHTML(rightEntry);
+  rightPage.innerHTML = rightPageHTML(rightEntry, false);
 
   // The static half NOT under the moving sheet fades a shadow in (the
   // turning page casting a shadow as it lifts); the half already revealed
@@ -290,11 +305,11 @@ function playFlip(direction) {
   back.className = 'diary-flip-sheet__face diary-flip-sheet__face--back';
 
   if (direction === 'next') {
-    front.innerHTML = `<div class="diary-page diary-page--right">${rightPageHTML(oldEntry)}</div>`;
+    front.innerHTML = `<div class="diary-page diary-page--right">${rightPageHTML(oldEntry, false)}</div>`;
     back.innerHTML = `<div class="diary-page diary-page--left">${leftPageHTML(newEntry)}</div>`;
   } else {
     front.innerHTML = `<div class="diary-page diary-page--left">${leftPageHTML(oldEntry)}</div>`;
-    back.innerHTML = `<div class="diary-page diary-page--right">${rightPageHTML(newEntry)}</div>`;
+    back.innerHTML = `<div class="diary-page diary-page--right">${rightPageHTML(newEntry, false)}</div>`;
   }
 
   // Curl shadow riding the turning sheet itself: strongest near the spine

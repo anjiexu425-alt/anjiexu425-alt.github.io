@@ -561,6 +561,11 @@
   position: relative;
   width: 50%;
   padding: 0 var(--space-1);
+  /* Forces its own GPU compositing layer so it doesn't get repainted as
+     part of the neighboring 3D flip-sheet's animation. */
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 /* Inner shadow where each page tucks into the spine. */
@@ -869,33 +874,40 @@
   -webkit-transform-style: preserve-3d;
   transform-style: preserve-3d;
   will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
   pointer-events: none;
   transition: transform 0.7s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
+/* translate3d(0,0,0) alongside the rotation forces this onto its own GPU
+   layer for the whole transition instead of only once the rotation makes
+   it "3D enough" to qualify — avoids a layer-promotion hitch right as the
+   flip starts. */
 .diary-flip-sheet--next {
   left: 50%;
   transform-origin: left center;
-  transform: rotateY(0deg);
+  transform: translate3d(0, 0, 0) rotateY(0deg);
 }
 
 .diary-flip-sheet--next.is-flipped {
-  transform: rotateY(-180deg);
+  transform: translate3d(0, 0, 0) rotateY(-180deg);
 }
 
 .diary-flip-sheet--prev {
   left: 0;
   transform-origin: right center;
-  transform: rotateY(0deg);
+  transform: translate3d(0, 0, 0) rotateY(0deg);
 }
 
 .diary-flip-sheet--prev.is-flipped {
-  transform: rotateY(180deg);
+  transform: translate3d(0, 0, 0) rotateY(180deg);
 }
 
 .diary-flip-sheet__face {
   position: absolute;
   inset: 0;
+  transform: translate3d(0, 0, 0);
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
   overflow: hidden;
@@ -903,7 +915,7 @@
 }
 
 .diary-flip-sheet__face--back {
-  transform: rotateY(180deg);
+  transform: translate3d(0, 0, 0) rotateY(180deg);
 }
 
 /* Static halves beneath the turning sheet: one side darkens as the page
