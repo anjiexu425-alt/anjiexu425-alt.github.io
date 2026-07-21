@@ -47,6 +47,12 @@ const ENTRIES = [
 let state = createDiaryState(ENTRIES.length);
 let isFlipping = false;
 
+// Static, per-book branding — not tied to any one entry, printed on every
+// spread like a running header/footer in a real printed book.
+const DIARY_TAGLINE = 'Abroad & Reflection Sanctuary';
+const DIARY_BRAND = 'Abroad in Serenity';
+const DIARY_EDITION = '2026 Edition';
+
 // Body text with a blank line between lines is rendered as separate
 // paragraphs, matching the "title + quote + two body paragraphs" layout.
 function bodyParagraphsHTML(body) {
@@ -57,12 +63,19 @@ function bodyParagraphsHTML(body) {
 }
 
 function leftPageHTML(entry) {
+  const index = ENTRIES.indexOf(entry);
   return `
-    <p class="diary-page__number">${entry.number}</p>
-    <p class="diary-page__category">${entry.category} <span class="diary-page__date">${entry.date}</span></p>
+    <div class="diary-page__header">
+      <span class="diary-page__label">${entry.number} / ${entry.category.toUpperCase()}</span>
+      <span class="diary-page__date">${entry.date}</span>
+    </div>
     <h2 class="diary-page__title">${entry.title}</h2>
-    ${entry.quote ? `<p class="diary-page__quote">${entry.quote}</p>` : ''}
+    ${entry.quote ? `<blockquote class="diary-page__quote">${entry.quote}</blockquote>` : ''}
     <div class="diary-page__ruled">${bodyParagraphsHTML(entry.body)}</div>
+    <div class="diary-page__footer">
+      <span class="diary-page__tagline">${DIARY_TAGLINE}</span>
+      <button type="button" class="diary-page__discard" data-discard-index="${index}">Discard</button>
+    </div>
   `;
 }
 
@@ -79,27 +92,54 @@ function mediaItemHTML(entry, url) {
 
 function rightPageHTML(entry) {
   const urls = entry.media.urls;
-  const gridStyle = urls.length <= 1
-    ? 'display:block;'
-    : `display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(${urls.length <= 2 ? 1 : 2},1fr); gap:var(--space-1);`;
+  const isGrid = urls.length > 1;
+  const gridStyle = isGrid
+    ? `display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(${urls.length <= 2 ? 1 : 2},1fr); gap:2px; background:#000; padding:2px;`
+    : 'display:block;';
   const itemsHTML = urls.map((url) => mediaItemHTML(entry, url)).join('');
+  const badgeHTML = isGrid ? '<span class="diary-polaroid__badge">Gallery</span>' : '';
   const captionHTML = entry.media.caption ? `<p class="diary-polaroid__caption">${entry.media.caption}</p>` : '';
+  const countLabel = entry.media.type === 'video' ? '1 Video' : `${urls.length} Snapshot${urls.length === 1 ? '' : 's'}`;
+
   return `
+    <div class="diary-page__header">
+      <span class="diary-page__label">Page Spread ${ENTRIES.indexOf(entry) + 1} of ${ENTRIES.length}</span>
+      <span class="diary-page__count">${countLabel}</span>
+    </div>
     <div class="diary-polaroid">
       <span class="diary-polaroid__tape" aria-hidden="true"></span>
+      ${badgeHTML}
       <div class="diary-page__media" style="${gridStyle}">${itemsHTML}</div>
       ${captionHTML}
+    </div>
+    <div class="diary-page__footer diary-page__footer--right">
+      <span>${DIARY_BRAND}</span>
+      <span>${DIARY_EDITION}</span>
     </div>
   `;
 }
 
 function renderStatic() {
   const stage = document.querySelector('.diary-stage');
+  if (ENTRIES.length === 0) {
+    stage.innerHTML = '<p class="diary-empty">No diary pages yet — click "Write Diary" to add one.</p>';
+    return;
+  }
   const entry = ENTRIES[state.current];
   stage.innerHTML = `
     <div class="diary-page diary-page--left">${leftPageHTML(entry)}</div>
     <div class="diary-page diary-page--right">${rightPageHTML(entry)}</div>
   `;
+}
+
+function handleDiscard(index) {
+  if (!window.confirm("Discard this diary page? This can't be undone.")) return;
+  ENTRIES.splice(index, 1);
+  const nextIndex = Math.max(0, Math.min(state.current, ENTRIES.length - 1));
+  state = goToPage(openBook(createDiaryState(ENTRIES.length)), nextIndex);
+  buildDots();
+  renderStatic();
+  updateChrome();
 }
 
 function updateChrome() {
@@ -334,6 +374,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelector('.diary-cover__open').addEventListener('click', (event) => {
     openCover(event.currentTarget);
+  });
+
+  // Delegated: discard buttons are re-created on every render, so a single
+  // listener on the stage catches all of them without re-binding each time.
+  document.querySelector('.diary-stage').addEventListener('click', (event) => {
+    const discardBtn = event.target.closest('.diary-page__discard');
+    if (discardBtn) handleDiscard(Number(discardBtn.dataset.discardIndex));
   });
 
   document.querySelector('.diary-nav--next').addEventListener('click', (event) => {
