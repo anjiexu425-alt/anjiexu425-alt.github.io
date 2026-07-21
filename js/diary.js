@@ -152,11 +152,29 @@ function playFlip(direction) {
 
   const leftPage = document.createElement('div');
   leftPage.className = 'diary-page diary-page--left';
+  leftPage.style.position = 'relative';
   leftPage.innerHTML = leftPageHTML(leftEntry);
 
   const rightPage = document.createElement('div');
   rightPage.className = 'diary-page diary-page--right';
+  rightPage.style.position = 'relative';
   rightPage.innerHTML = rightPageHTML(rightEntry);
+
+  // The static half NOT under the moving sheet fades a shadow in (the
+  // turning page casting a shadow as it lifts); the half already revealed
+  // underneath fades its shadow out (was dark under the page, now landing
+  // in the light). Which side is which flips with direction.
+  const underlayIn = document.createElement('div');
+  underlayIn.className = 'diary-underlay-shadow diary-underlay-shadow--in';
+  const underlayOut = document.createElement('div');
+  underlayOut.className = 'diary-underlay-shadow diary-underlay-shadow--out';
+  if (direction === 'next') {
+    leftPage.appendChild(underlayIn);
+    rightPage.appendChild(underlayOut);
+  } else {
+    rightPage.appendChild(underlayIn);
+    leftPage.appendChild(underlayOut);
+  }
 
   stage.appendChild(leftPage);
   stage.appendChild(rightPage);
@@ -176,6 +194,29 @@ function playFlip(direction) {
     front.innerHTML = `<div class="diary-page diary-page--left">${leftPageHTML(oldEntry)}</div>`;
     back.innerHTML = `<div class="diary-page diary-page--right">${rightPageHTML(newEntry)}</div>`;
   }
+
+  // Curl shadow riding the turning sheet itself: strongest near the spine
+  // it's pivoting on, easing off across the transition (deepens, then
+  // settles — not a flat fade) on the front face; the back face starts
+  // partly shadowed and clears as it comes fully face-up. The gradient
+  // direction is fixed per face in local (pre-rotation) space — the back
+  // face's own static rotateY(180deg) mirrors it back to the correct side
+  // once flipped, so front/back keep the same two directions regardless of
+  // next/prev... except next/prev mount the sheet at opposite spines, so
+  // the directions swap between the two directions too.
+  const frontShadow = document.createElement('div');
+  frontShadow.className = 'diary-flip-shadow diary-flip-shadow--front';
+  frontShadow.style.background = direction === 'next'
+    ? 'linear-gradient(to right, rgba(0,0,0,0.25), rgba(0,0,0,0.05) 40%, transparent)'
+    : 'linear-gradient(to left, rgba(0,0,0,0.25), rgba(0,0,0,0.05) 40%, transparent)';
+  front.appendChild(frontShadow);
+
+  const backShadow = document.createElement('div');
+  backShadow.className = 'diary-flip-shadow diary-flip-shadow--back';
+  backShadow.style.background = direction === 'next'
+    ? 'linear-gradient(to left, rgba(0,0,0,0.25), rgba(0,0,0,0.05) 40%, transparent)'
+    : 'linear-gradient(to right, rgba(0,0,0,0.25), rgba(0,0,0,0.05) 40%, transparent)';
+  back.appendChild(backShadow);
 
   sheet.appendChild(front);
   sheet.appendChild(back);

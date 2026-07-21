@@ -571,9 +571,12 @@
 }
 
 /* Real 3D page-turn: a half-width sheet with two backface-hidden faces
-   rotates around the book's spine. A fixed directional shading gradient on
-   each face (not animated) reads as the paper catching light as it curls
-   through profile — the perspective on .diary-stage does the rest. */
+   rotates around the book's spine; the perspective on .diary-stage does
+   the foreshortening. Shadow casting is animated (not a static gradient):
+   the static half not under the sheet fades a shadow in as the turning
+   page lifts off it, the half already revealed underneath fades its
+   shadow out as it lands in the light, and each sheet face carries its
+   own curl shadow that deepens then eases as it rotates through profile. */
 .diary-flip-sheet {
   position: absolute;
   top: 0;
@@ -613,23 +616,73 @@
   background: var(--color-surface);
 }
 
-.diary-flip-sheet__face::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.diary-flip-sheet__face--front::after {
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.22), transparent 55%);
-}
-
 .diary-flip-sheet__face--back {
   transform: rotateY(180deg);
 }
 
-.diary-flip-sheet__face--back::after {
-  background: linear-gradient(to left, rgba(0, 0, 0, 0.22), transparent 55%);
+/* Static halves beneath the turning sheet: one side darkens as the page
+   lifts off it, the other brightens as it's revealed. Colors/opacities
+   and 0.9s duration match the sheet's own 0.7s rotation closely enough to
+   read as one continuous motion without being perfectly locked together. */
+.diary-underlay-shadow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  z-index: 15;
+}
+
+.diary-underlay-shadow--in {
+  background: rgba(0, 0, 0, 0.15);
+  animation: diary-underlay-in 0.9s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.diary-underlay-shadow--out {
+  background: rgba(0, 0, 0, 0.25);
+  animation: diary-underlay-out 0.9s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes diary-underlay-in {
+  from { opacity: 0; }
+  to { opacity: 0.6; }
+}
+
+@keyframes diary-underlay-out {
+  from { opacity: 0.7; }
+  to { opacity: 0; }
+}
+
+/* Curl shadow riding the sheet itself, strongest near whichever edge it's
+   pivoting on (gradient direction is set inline per instance in JS, since
+   it depends on both the face and the flip direction). The front face's
+   shadow deepens then eases; the back face starts partly shadowed and
+   clears as it comes face-up. */
+.diary-flip-shadow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  z-index: 2;
+}
+
+.diary-flip-shadow--front {
+  animation: diary-face-shadow-front 0.9s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.diary-flip-shadow--back {
+  animation: diary-face-shadow-back 0.9s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes diary-face-shadow-front {
+  0% { opacity: 0; }
+  50% { opacity: 0.45; }
+  100% { opacity: 0.2; }
+}
+
+@keyframes diary-face-shadow-back {
+  0% { opacity: 0.3; }
+  50% { opacity: 0.45; }
+  100% { opacity: 0; }
 }
 
 .diary-toolbar {
