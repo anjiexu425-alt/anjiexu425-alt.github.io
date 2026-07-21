@@ -548,6 +548,7 @@
 .diary-stage {
   position: relative;
   display: flex;
+  -webkit-perspective: 2000px;
   perspective: 2000px;
   /* Fixed so the book doesn't resize as pages with more/fewer photos are
      shown — sized to comfortably fit the two-photo page (the tallest
@@ -853,7 +854,9 @@
   width: 50%;
   height: 100%;
   z-index: 20;
+  -webkit-transform-style: preserve-3d;
   transform-style: preserve-3d;
+  will-change: transform;
   pointer-events: none;
   transition: transform 0.7s cubic-bezier(0.25, 1, 0.5, 1);
 }
@@ -881,6 +884,7 @@
 .diary-flip-sheet__face {
   position: absolute;
   inset: 0;
+  -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
   overflow: hidden;
   background: var(--color-surface);
@@ -894,11 +898,14 @@
    lifts off it, the other brightens as it's revealed. Colors/opacities
    and 0.9s duration match the sheet's own 0.7s rotation closely enough to
    read as one continuous motion without being perfectly locked together. */
+/* mix-blend-mode intentionally omitted: these are pure-black overlays, so
+   multiply and normal alpha compositing are mathematically identical here
+   — and mix-blend-mode next to the sheet's preserve-3d rotation is a known
+   Safari/Chrome trigger for flicker during the animation. */
 .diary-underlay-shadow {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  mix-blend-mode: multiply;
   z-index: 15;
 }
 
@@ -927,11 +934,11 @@
    it depends on both the face and the flip direction). The front face's
    shadow deepens then eases; the back face starts partly shadowed and
    clears as it comes face-up. */
+/* Same reasoning as .diary-underlay-shadow above: no mix-blend-mode. */
 .diary-flip-shadow {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  mix-blend-mode: multiply;
   z-index: 2;
 }
 
