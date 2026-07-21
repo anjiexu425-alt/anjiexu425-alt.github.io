@@ -688,7 +688,6 @@
   aspect-ratio: 1 / 1;
 }
 
-.diary-page__photo,
 .diary-page__video {
   width: 100%;
   height: 100%;
@@ -697,9 +696,20 @@
   object-fit: cover;
 }
 
-/* Refined stand-in for a missing photo/video: a dashed cardstock tile
-   rather than bare placeholder text, so an all-placeholder entry still
-   reads as a considered page instead of an unfinished one. */
+/* Only real photos are enlargeable — the cursor signals it. */
+.diary-page__photo {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-radius: 2px;
+  object-fit: cover;
+  cursor: zoom-in;
+}
+
+/* Refined stand-in for a missing photo/video: a dashed cardstock tile with
+   a faint paper-grain texture, rather than bare placeholder text, so an
+   all-placeholder entry still reads as a considered page instead of an
+   unfinished one. */
 .diary-placeholder {
   width: 100%;
   height: 100%;
@@ -710,15 +720,17 @@
   justify-content: center;
   gap: 6px;
   padding: var(--space-2);
-  background: #f4f2ee;
+  background-color: #f4f2ee;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.06) 1px, transparent 0);
+  background-size: 10px 10px;
   border: 1.5px dashed rgba(0, 0, 0, 0.18);
   border-radius: 2px;
   text-align: center;
-  transition: background var(--transition-fast);
+  transition: background-color var(--transition-fast);
 }
 
 .diary-placeholder:hover {
-  background: #efece4;
+  background-color: #efece4;
 }
 
 .diary-placeholder__icon {
@@ -998,6 +1010,49 @@
 
 .diary-modal-backdrop[hidden] {
   display: none;
+}
+
+.diary-lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  z-index: 200;
+}
+
+.diary-lightbox-backdrop[hidden] {
+  display: none;
+}
+
+.diary-lightbox__image {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+}
+
+.diary-lightbox__close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-text);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.diary-lightbox__close:hover {
+  background: #fff;
 }
 
 .diary-modal {

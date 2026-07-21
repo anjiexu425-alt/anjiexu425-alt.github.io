@@ -156,6 +156,22 @@ function renderStatic() {
   `;
 }
 
+// Only real photos are zoomable — placeholders have nothing to enlarge, and
+// video already has its own native fullscreen control via `controls`.
+function openLightbox(src, alt) {
+  const backdrop = document.querySelector('.diary-lightbox-backdrop');
+  const img = document.querySelector('.diary-lightbox__image');
+  img.src = src;
+  img.alt = alt;
+  backdrop.hidden = false;
+}
+
+function closeLightbox() {
+  const backdrop = document.querySelector('.diary-lightbox-backdrop');
+  backdrop.hidden = true;
+  document.querySelector('.diary-lightbox__image').src = '';
+}
+
 function handleDiscard(index) {
   if (!window.confirm("Discard this diary page? This can't be undone.")) return;
   ENTRIES.splice(index, 1);
@@ -400,11 +416,22 @@ document.addEventListener('DOMContentLoaded', () => {
     openCover(event.currentTarget);
   });
 
-  // Delegated: discard buttons are re-created on every render, so a single
-  // listener on the stage catches all of them without re-binding each time.
+  // Delegated: discard buttons and photos are re-created on every render,
+  // so a single listener on the stage catches all of them without
+  // re-binding each time.
   document.querySelector('.diary-stage').addEventListener('click', (event) => {
     const discardBtn = event.target.closest('.diary-page__discard');
-    if (discardBtn) handleDiscard(Number(discardBtn.dataset.discardIndex));
+    if (discardBtn) {
+      handleDiscard(Number(discardBtn.dataset.discardIndex));
+      return;
+    }
+    const photo = event.target.closest('.diary-page__photo');
+    if (photo) openLightbox(photo.src, photo.alt);
+  });
+
+  document.querySelector('.diary-lightbox__close').addEventListener('click', closeLightbox);
+  document.querySelector('.diary-lightbox-backdrop').addEventListener('click', (event) => {
+    if (event.target === event.currentTarget) closeLightbox();
   });
 
   document.querySelector('.diary-nav--next').addEventListener('click', (event) => {
@@ -418,6 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeLightbox();
     if (!state.isOpen) return;
     if (event.key === 'ArrowRight') playFlip('next');
     if (event.key === 'ArrowLeft') playFlip('prev');
