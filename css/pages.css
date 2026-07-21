@@ -1009,10 +1009,14 @@
   color: #fff;
 }
 
+/* No backdrop-filter: a blurred modal scrim compositing above the flip
+   sheet's preserve-3d/translate3d layers is a known GPU layer-blend
+   flicker trigger (same reasoning as .site-nav.is-scrolled below) — a
+   darker, more opaque flat scrim reads just as well without it. */
 .diary-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(10, 10, 10, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
