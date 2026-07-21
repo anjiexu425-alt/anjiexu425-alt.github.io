@@ -15,7 +15,32 @@ function isPlaceholder(value) {
   return value.startsWith('[');
 }
 
-const ENTRIES = [];
+// Entries persist across reloads via localStorage (this static site has no
+// backend/database) — anything written through the "Write Diary" form, or
+// discarded, is saved right after the change so a refresh doesn't lose it.
+const DIARY_STORAGE_KEY = 'anjie-study-diary-entries';
+
+function loadStoredEntries() {
+  try {
+    const raw = localStorage.getItem(DIARY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveEntries() {
+  try {
+    localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(ENTRIES));
+  } catch {
+    // Storage can fail (quota exceeded, private browsing) — the diary
+    // still works for the current session, it just won't persist.
+  }
+}
+
+const ENTRIES = loadStoredEntries();
 
 let state = createDiaryState(ENTRIES.length);
 let isFlipping = false;
@@ -157,6 +182,7 @@ function closeLightbox() {
 function handleDiscard(index) {
   if (!window.confirm("Discard this diary page? This can't be undone.")) return;
   ENTRIES.splice(index, 1);
+  saveEntries();
   const nextIndex = Math.max(0, Math.min(state.current, ENTRIES.length - 1));
   state = goToPage(openBook(createDiaryState(ENTRIES.length)), nextIndex);
   buildDots();
@@ -411,6 +437,7 @@ function handleFormSubmit(event) {
     body,
     media: { type: mediaType, urls, caption: data.get('caption').trim() },
   });
+  saveEntries();
 
   state = goToPage(openBook(createDiaryState(ENTRIES.length)), ENTRIES.length - 1);
   document.querySelector('.diary').classList.add('is-open');
