@@ -6,6 +6,7 @@ import {
   canGoNext,
   canGoPrevious,
   goToPage,
+  isSheetTransformEnd,
 } from './diary-state.mjs';
 
 // Placeholder image labels always start with '[' (site-wide convention);
@@ -347,14 +348,36 @@ function playFlip(direction) {
     sheet.classList.add('is-flipped');
   });
 
-  sheet.addEventListener('transitionend', function onDone(event) {
-    if (event.propertyName !== 'transform') return;
-    sheet.removeEventListener('transitionend', onDone);
+  // Completing the flip must happen exactly once, triggered by whichever
+  // comes first: the sheet's own rotation finishing, or (if that event
+  // never arrives — observed in some WebKit/embedded-WebView builds) a
+  // fallback timeout. isSheetTransformEnd rejects transitionend events
+  // bubbled up from a descendant (transitionend bubbles like any other DOM
+  // event), so a child's unrelated transition can't end the flip early.
+  let flipFinished = false;
+  function finishFlip() {
+    if (flipFinished) return;
+    flipFinished = true;
+    sheet.removeEventListener('transitionend', onSheetTransitionEnd);
+    clearTimeout(fallbackTimer);
     state = direction === 'next' ? goToNext(state) : goToPrevious(state);
     isFlipping = false;
     renderStatic();
     updateChrome();
-  });
+  }
+
+  function onSheetTransitionEnd(event) {
+    if (isSheetTransformEnd(event, sheet)) finishFlip();
+  }
+
+  sheet.addEventListener('transitionend', onSheetTransitionEnd);
+
+  // Read the duration straight off the sheet's own computed style rather
+  // than hardcoding a second copy of it — this can never drift out of
+  // sync with --diary-flip-duration (the CSS custom property that also
+  // drives the shadow animations' duration) however that value changes.
+  const flipDurationMs = parseFloat(getComputedStyle(sheet).transitionDuration) * 1000 || 700;
+  const fallbackTimer = setTimeout(finishFlip, flipDurationMs + 150);
 }
 
 function openCover(button) {

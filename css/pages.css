@@ -447,6 +447,16 @@
 .diary {
   position: relative;
   min-height: 70vh;
+  /* Single source of truth for the page-flip's timing: the flip sheet's
+     own rotation and every shadow effect that accompanies it read from
+     this one value, so they can never drift out of sync with each other
+     (they previously ran 0.7s vs 0.9s, so the DOM got torn down and
+     rebuilt at 0.7s while the shadows still had 0.2s left to fade,
+     reading as a flicker/snap). js/diary.js also reads this duration off
+     the sheet's computed style for its completion-timeout fallback.
+     Change this one value to retime the whole flip; nothing else needs
+     to change. */
+  --diary-flip-duration: 0.7s;
 }
 
 .diary-cover {
@@ -877,7 +887,7 @@
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
   pointer-events: none;
-  transition: transform 0.7s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: transform var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 /* translate3d(0,0,0) alongside the rotation forces this onto its own GPU
@@ -919,9 +929,12 @@
 }
 
 /* Static halves beneath the turning sheet: one side darkens as the page
-   lifts off it, the other brightens as it's revealed. Colors/opacities
-   and 0.9s duration match the sheet's own 0.7s rotation closely enough to
-   read as one continuous motion without being perfectly locked together. */
+   lifts off it, the other brightens as it's revealed. Duration shares
+   --diary-flip-duration with the sheet's own rotation (see .diary) so
+   they always finish at exactly the same moment — they used to run on a
+   separate, slightly longer hardcoded duration than the sheet's rotation,
+   so the DOM got torn down and rebuilt while these were still fading,
+   reading as a flicker/snap. */
 /* mix-blend-mode intentionally omitted: these are pure-black overlays, so
    multiply and normal alpha compositing are mathematically identical here
    — and mix-blend-mode next to the sheet's preserve-3d rotation is a known
@@ -935,12 +948,12 @@
 
 .diary-underlay-shadow--in {
   background: rgba(0, 0, 0, 0.15);
-  animation: diary-underlay-in 0.9s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  animation: diary-underlay-in var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 .diary-underlay-shadow--out {
   background: rgba(0, 0, 0, 0.25);
-  animation: diary-underlay-out 0.9s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  animation: diary-underlay-out var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 @keyframes diary-underlay-in {
@@ -967,11 +980,11 @@
 }
 
 .diary-flip-shadow--front {
-  animation: diary-face-shadow-front 0.9s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  animation: diary-face-shadow-front var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 .diary-flip-shadow--back {
-  animation: diary-face-shadow-back 0.9s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  animation: diary-face-shadow-back var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 @keyframes diary-face-shadow-front {
