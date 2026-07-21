@@ -711,13 +711,17 @@
   object-fit: cover;
 }
 
-/* Only real photos are enlargeable — the cursor signals it. */
+/* Only real photos are enlargeable — the cursor signals it. object-fit:
+   contain (not cover) so the whole photo is always visible rather than
+   cropped to fill its square cell — any leftover space around a photo
+   that isn't itself square just shows the polaroid's white card behind
+   it, reading as a photo mat rather than an empty gap. */
 .diary-page__photo {
   width: 100%;
   height: 100%;
   min-height: 0;
   border-radius: 2px;
-  object-fit: cover;
+  object-fit: contain;
   cursor: zoom-in;
 }
 
