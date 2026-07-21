@@ -62,7 +62,7 @@ function leftPageHTML(entry) {
     <p class="diary-page__category">${entry.category} <span class="diary-page__date">${entry.date}</span></p>
     <h2 class="diary-page__title">${entry.title}</h2>
     ${entry.quote ? `<p class="diary-page__quote">${entry.quote}</p>` : ''}
-    ${bodyParagraphsHTML(entry.body)}
+    <div class="diary-page__ruled">${bodyParagraphsHTML(entry.body)}</div>
   `;
 }
 
@@ -83,8 +83,14 @@ function rightPageHTML(entry) {
     ? 'display:block;'
     : `display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(${urls.length <= 2 ? 1 : 2},1fr); gap:var(--space-1);`;
   const itemsHTML = urls.map((url) => mediaItemHTML(entry, url)).join('');
-  const captionHTML = entry.media.caption ? `<p class="diary-page__caption">${entry.media.caption}</p>` : '';
-  return `<div class="diary-page__media" style="${gridStyle}">${itemsHTML}</div>${captionHTML}`;
+  const captionHTML = entry.media.caption ? `<p class="diary-polaroid__caption">${entry.media.caption}</p>` : '';
+  return `
+    <div class="diary-polaroid">
+      <span class="diary-polaroid__tape" aria-hidden="true"></span>
+      <div class="diary-page__media" style="${gridStyle}">${itemsHTML}</div>
+      ${captionHTML}
+    </div>
+  `;
 }
 
 function renderStatic() {
@@ -170,12 +176,10 @@ function playFlip(direction) {
 
   const leftPage = document.createElement('div');
   leftPage.className = 'diary-page diary-page--left';
-  leftPage.style.position = 'relative';
   leftPage.innerHTML = leftPageHTML(leftEntry);
 
   const rightPage = document.createElement('div');
   rightPage.className = 'diary-page diary-page--right';
-  rightPage.style.position = 'relative';
   rightPage.innerHTML = rightPageHTML(rightEntry);
 
   // The static half NOT under the moving sheet fades a shadow in (the
