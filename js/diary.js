@@ -118,7 +118,12 @@ function mediaItemHTML(entry, url, index, total, active) {
 }
 
 function mediaGridStyle(count) {
-  if (count <= 1) return 'display:grid; grid-template-columns:1fr; grid-template-rows:1fr;';
+  // A single photo gets a taller, portrait-friendly box (3:4) instead of a
+  // square one — object-fit:contain already shows the whole photo without
+  // cropping, but a square box leaves wide empty margins on either side of
+  // a portrait photo; 3:4 fits that common shape much more closely so the
+  // photo reads larger with far less empty mat around it.
+  if (count <= 1) return 'display:grid; grid-template-columns:1fr; grid-template-rows:1fr; aspect-ratio:3/4;';
   if (count === 2) return 'display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:1fr; gap:2px;';
   return 'display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(2,1fr); gap:2px;';
 }
