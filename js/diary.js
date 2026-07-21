@@ -112,8 +112,8 @@ function mediaItemHTML(entry, url, index, total) {
 
 function mediaGridStyle(count) {
   if (count <= 1) return 'display:grid; grid-template-columns:1fr; grid-template-rows:1fr;';
-  if (count === 2) return 'display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:1fr; gap:2px; background:#000; padding:2px;';
-  return 'display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(2,1fr); gap:2px; background:#000; padding:2px;';
+  if (count === 2) return 'display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:1fr; gap:2px;';
+  return 'display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(2,1fr); gap:2px;';
 }
 
 function rightPageHTML(entry) {
