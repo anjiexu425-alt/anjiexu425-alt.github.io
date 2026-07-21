@@ -79,24 +79,48 @@ function leftPageHTML(entry) {
   `;
 }
 
-// A single photo/video fills the whole media area; 2-4 photos assemble
-// into a grid (up to 2x2). Each URL/path is used directly as the src —
-// works equally for a full network URL or a local relative path like
-// assets/images/photo.jpg, since the browser resolves both the same way.
-function mediaItemHTML(entry, url) {
-  if (isPlaceholder(url)) return `<div class="placeholder-img">${url}</div>`;
+// Placeholder strings look like "[Photo placeholder: campus photo]" — pull
+// the human-readable part out for the placeholder card's label, falling
+// back to a generic prompt if the text doesn't match that shape.
+function placeholderLabel(value) {
+  const match = value.match(/:\s*([^\]]+)\]/);
+  const text = match ? match[1].trim() : 'a photo';
+  return text.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function placeholderHTML(value) {
+  return `
+    <span class="diary-placeholder__icon" aria-hidden="true">&#10022;</span>
+    <span class="diary-placeholder__label">${placeholderLabel(value)}</span>
+    <span class="diary-placeholder__hint">[ Tap to Upload ]</span>
+  `;
+}
+
+// A single photo/video fills the whole media area; multiple photos assemble
+// into a grid that adapts to the count rather than always forcing 2x2 — 3
+// photos get a magazine-collage layout (first spans both rows). Each
+// URL/path is used directly as the src — works equally for a full network
+// URL or a local relative path like assets/images/photo.jpg, since the
+// browser resolves both the same way.
+function mediaItemHTML(entry, url, index, total) {
+  const spanAttr = total === 3 && index === 0 ? ' style="grid-row: span 2;"' : '';
+  if (isPlaceholder(url)) return `<div class="diary-placeholder"${spanAttr}>${placeholderHTML(url)}</div>`;
   return entry.media.type === 'video'
-    ? `<video class="diary-page__video" src="${url}" muted loop playsinline controls></video>`
-    : `<img class="diary-page__photo" src="${url}" alt="${entry.title}" />`;
+    ? `<video class="diary-page__video" src="${url}" muted loop playsinline controls${spanAttr}></video>`
+    : `<img class="diary-page__photo" src="${url}" alt="${entry.title}"${spanAttr} />`;
+}
+
+function mediaGridStyle(count) {
+  if (count <= 1) return 'display:grid; grid-template-columns:1fr; grid-template-rows:1fr;';
+  if (count === 2) return 'display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:1fr; gap:2px; background:#000; padding:2px;';
+  return 'display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(2,1fr); gap:2px; background:#000; padding:2px;';
 }
 
 function rightPageHTML(entry) {
   const urls = entry.media.urls;
   const isGrid = urls.length > 1;
-  const gridStyle = isGrid
-    ? `display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(${urls.length <= 2 ? 1 : 2},1fr); gap:2px; background:#000; padding:2px;`
-    : 'display:block;';
-  const itemsHTML = urls.map((url) => mediaItemHTML(entry, url)).join('');
+  const gridStyle = mediaGridStyle(urls.length);
+  const itemsHTML = urls.map((url, index) => mediaItemHTML(entry, url, index, urls.length)).join('');
   const badgeHTML = isGrid ? '<span class="diary-polaroid__badge">Gallery</span>' : '';
   const captionHTML = entry.media.caption ? `<p class="diary-polaroid__caption">${entry.media.caption}</p>` : '';
   const countLabel = entry.media.type === 'video' ? '1 Video' : `${urls.length} Snapshot${urls.length === 1 ? '' : 's'}`;

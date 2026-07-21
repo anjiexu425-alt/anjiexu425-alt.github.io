@@ -609,16 +609,20 @@
 .diary-page--right {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   overflow-y: auto;
 }
 
 /* Polaroid frame: white cardstock, a wide bottom margin for a caption, a
    soft stack of shadows, and a slight resting tilt that straightens on
    hover — reads as something physically set down on the page, not a
-   flat rectangle. */
+   flat rectangle. A fixed, responsive width (not flex:1) keeps it from
+   being squeezed narrow or stretched full-bleed across the page. */
 .diary-polaroid {
-  flex: 1;
-  min-height: 0;
+  flex: none;
+  width: 330px;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -634,11 +638,6 @@
 
 .diary-polaroid:hover {
   transform: rotate(0deg);
-}
-
-.diary-polaroid .diary-page__media {
-  flex: 1;
-  min-height: 0;
 }
 
 .diary-polaroid__badge {
@@ -658,7 +657,7 @@
 }
 
 .diary-polaroid__caption {
-  margin: 10px 0 0;
+  margin: 14px 0 2px;
   font-family: var(--font-display);
   font-style: italic;
   font-size: 0.8rem;
@@ -685,11 +684,9 @@
 }
 
 .diary-page__media {
-  flex: 1;
-  min-height: 0;
+  aspect-ratio: 1 / 1;
 }
 
-.diary-page__media .placeholder-img,
 .diary-page__photo,
 .diary-page__video {
   width: 100%;
@@ -697,6 +694,65 @@
   min-height: 0;
   border-radius: 2px;
   object-fit: cover;
+}
+
+/* Refined stand-in for a missing photo/video: a dashed cardstock tile
+   rather than bare placeholder text, so an all-placeholder entry still
+   reads as a considered page instead of an unfinished one. */
+.diary-placeholder {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--space-2);
+  background: #f4f2ee;
+  border: 1.5px dashed rgba(0, 0, 0, 0.18);
+  border-radius: 2px;
+  text-align: center;
+  transition: background var(--transition-fast);
+}
+
+.diary-placeholder:hover {
+  background: #efece4;
+}
+
+.diary-placeholder__icon {
+  font-size: 1.4rem;
+  color: var(--color-klein-blue);
+  opacity: 0.55;
+  transform: scale(1);
+  filter: drop-shadow(0 0 6px rgba(0, 47, 167, 0.25));
+  transition: transform var(--transition-slow), opacity var(--transition-slow);
+}
+
+.diary-placeholder:hover .diary-placeholder__icon {
+  opacity: 0.9;
+  transform: scale(1.15);
+}
+
+.diary-placeholder__label {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.diary-placeholder__hint {
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.35);
+}
+
+/* Tablet-width step between the 768px stacked layout and full desktop. */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .diary-polaroid {
+    width: 310px;
+  }
 }
 
 .diary-page__header {
@@ -1112,11 +1168,8 @@
     width: 100%;
   }
 
-  .diary-page__photo,
-  .diary-page__video,
-  .diary-page__media .placeholder-img {
-    height: auto;
-    min-height: 240px;
+  .diary-polaroid {
+    width: 270px;
   }
 
   .diary-page--left {
