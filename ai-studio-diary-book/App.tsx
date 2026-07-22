@@ -537,12 +537,11 @@ export default function App() {
     }
   };
 
-  // Create a new spread
+  // Create a new spread, or apply edits to an existing one
   const handleSaveEntry = (e: React.FormEvent) => {
     e.preventDefault();
     if (!writingTitle.trim() || !writingBody.trim()) return;
 
-    const newSpreadId = `spread-${Date.now()}`;
     const mediaUrl = useCustomMedia ? customMediaUrl : selectedMedia.url;
     const mediaType = useCustomMedia ? customMediaType : selectedMedia.type;
 
@@ -551,6 +550,42 @@ export default function App() {
       ? [customMediaUrl, ...customImageUrls].map(u => u.trim()).filter(Boolean)
       : [];
 
+    if (editingSpreadId) {
+      // Edit mode: replace the matching spread's content in place, keeping
+      // its id and its original category number prefix (the "01" in
+      // "01 / CHILL BEACH") so re-saving never renumbers pages.
+      setSpreads(prevSpreads => prevSpreads.map(s => {
+        if (s.id !== editingSpreadId) return s;
+
+        const prefix = s.leftPage.category?.includes('/')
+          ? s.leftPage.category.split('/')[0].trim()
+          : '00';
+
+        return {
+          ...s,
+          leftPage: {
+            ...s.leftPage,
+            category: `${prefix} / ${writingCategory.toUpperCase()}`,
+            date: writingDate || curDate(),
+            title: writingTitle,
+            quote: customQuote || s.leftPage.quote,
+            bodyText: writingBody
+          },
+          rightPage: {
+            type: mediaType,
+            url: mediaUrl || PRESET_MEDIA_LIST[0].url,
+            ...(activeUrls.length > 1 ? { urls: activeUrls } : {}),
+            caption: mediaCaption || s.rightPage.caption
+          }
+        };
+      }));
+
+      resetWriterForm();
+      setIsWriting(false);
+      return;
+    }
+
+    const newSpreadId = `spread-${Date.now()}`;
     const newSpread: DiarySpread = {
       id: newSpreadId,
       leftPage: {
@@ -578,7 +613,7 @@ export default function App() {
     // Switch filter to 'All' so they can see it and jump to it
     setSelectedCategory('All');
     setIsOpen(true);
-    
+
     // Jump to the newly added page
     setTimeout(() => {
       setCurrentIndex(updated.length - 1);
