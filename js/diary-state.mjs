@@ -53,9 +53,13 @@ export function computeDragProgress(deltaX, pageWidth) {
 // that caused stutter in the earlier @keyframes-based design.
 export function computeFlipVisualState(progress, direction) {
   const sign = direction === 'next' ? -1 : 1;
+  // `+ 0` normalizes a -0 result (e.g. progress === 0) to 0 — Object.is
+  // (used by node:assert's strict .equal) treats -0 and 0 as unequal.
+  // Adding 0 rather than `|| 0` keeps a NaN input surfacing as NaN instead
+  // of silently becoming 0.
   return {
-    rotateDeg: (sign * progress * 180) || 0,
-    liftPx: (-16 * Math.sin(progress * Math.PI)) || 0,
+    rotateDeg: sign * progress * 180 + 0,
+    liftPx: -16 * Math.sin(progress * Math.PI) + 0,
     opacity: 1 - 0.35 * Math.sin(progress * Math.PI),
   };
 }
