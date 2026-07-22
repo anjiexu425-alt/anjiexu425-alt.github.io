@@ -1,0 +1,104 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Space+Grotesk:wght@300..700&family=Inter:wght@300..800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Playfair Display", Georgia, serif;
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-brand-blue: #0031c4;
+  --color-brand-blue-hover: #0028a3;
+  --color-cream-dark: #e8e6df;
+  --color-cream-light: #fafaf9;
+}
+
+/* Custom CSS animations for background blobs */
+@keyframes float-blob-1 {
+  0% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(40px, -60px) scale(1.1); }
+  66% { transform: translate(-30px, 30px) scale(0.95); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+@keyframes float-blob-2 {
+  0% { transform: translate(0px, 0px) scale(1); }
+  50% { transform: translate(-50px, 40px) scale(1.15); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+@keyframes float-blob-3 {
+  0% { transform: translate(0px, 0px) scale(1); }
+  40% { transform: translate(50px, 50px) scale(0.9); }
+  80% { transform: translate(-20px, -40px) scale(1.05); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+.animate-blob-1 {
+  animation: float-blob-1 22s infinite ease-in-out;
+}
+
+.animate-blob-2 {
+  animation: float-blob-2 18s infinite ease-in-out;
+}
+
+.animate-blob-3 {
+  animation: float-blob-3 25s infinite ease-in-out;
+}
+
+/* Book tactile effects */
+.book-shadow {
+  box-shadow: 
+    0 15px 35px rgba(0, 0, 0, 0.15),
+    0 5px 15px rgba(0, 0, 0, 0.1),
+    0 30px 60px -12px rgba(0, 49, 196, 0.08);
+}
+
+.book-page-left-shadow {
+  background-image: linear-gradient(to right, rgba(0, 0, 0, 0) 90%, rgba(0, 0, 0, 0.04) 97%, rgba(0, 0, 0, 0.12) 100%);
+}
+
+.book-page-right-shadow {
+  background-image: linear-gradient(to left, rgba(0, 0, 0, 0) 90%, rgba(0, 0, 0, 0.04) 97%, rgba(0, 0, 0, 0.12) 100%);
+}
+
+.book-crease-highlight {
+  background: linear-gradient(to right, 
+    rgba(255, 255, 255, 0) 0%, 
+    rgba(255, 255, 255, 0.4) 10%, 
+    rgba(0, 0, 0, 0.18) 48%, 
+    rgba(0, 0, 0, 0.22) 50%, 
+    rgba(0, 0, 0, 0.18) 52%, 
+    rgba(255, 255, 255, 0.4) 90%, 
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+/* Scrollbar customization for diary writing */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Realistic paper look */
+.paper-texture {
+  background-color: var(--color-cream-light);
+  background-image: 
+    radial-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 0),
+    radial-gradient(rgba(0, 0, 0, 0.015) 1px, transparent 0);
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px;
+}
