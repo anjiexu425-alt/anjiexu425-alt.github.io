@@ -374,12 +374,15 @@ function prefersInstantTransition() {
 
 // A real 3D page-turn: a half-width "sheet" with two faces (front = the page
 // currently showing, back = the page it reveals) sits over the static pages
-// beneath it and rotates -180deg/180deg around the book's spine. Both faces
-// use backface-visibility:hidden so only one is ever shown at a time as it
-// turns through profile. Built via requestAnimationFrame + transitionend
-// (not framer-motion, which needs a bundler) — the sheet's initial transform
-// must be committed to layout before the target transform is set, or the
-// change happens in the same tick and the transition never plays.
+// beneath it and rotates -180deg/180deg around the book's spine, with an
+// arc lift and mid-rotation opacity dip layered on via the diary-flip-next/
+// diary-flip-prev @keyframes. Both faces use backface-visibility:hidden so
+// only one is ever shown at a time as it turns through profile. Driven by
+// requestAnimationFrame + animationend (not framer-motion, which needs a
+// bundler) — the initial state is committed to layout before the
+// is-flipped class (which starts the @keyframes animation) is added, kept
+// from the transition-based version out of caution even though a CSS
+// animation doesn't strictly require it the way a transition did.
 function playFlip(direction) {
   if (isFlipping) return;
   const oldIndex = state.current;
