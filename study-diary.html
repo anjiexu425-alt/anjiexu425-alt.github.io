@@ -43,7 +43,8 @@
       </div>
 
       <div class="diary-toolbar">
-        <button type="button" class="diary-write-btn">Write Diary</button>
+        <button type="button" class="diary-write-btn" hidden>Write Diary</button>
+        <button type="button" class="diary-login-btn">Log In</button>
       </div>
 
       <div class="diary-pagination">
@@ -151,6 +152,30 @@
       </div>
       <div class="diary-mood-modal__options"></div>
       <button type="button" class="button diary-mood-modal__clear">Clear</button>
+    </div>
+  </div>
+
+  <div class="diary-login-modal-backdrop" hidden>
+    <div class="diary-login-modal">
+      <div class="diary-modal__header">
+        <h3>Log In</h3>
+        <button type="button" class="diary-login-modal__close" aria-label="Close">×</button>
+      </div>
+      <form class="diary-login-form">
+        <label class="diary-form__field">
+          <span>Email</span>
+          <input type="email" name="email" required />
+        </label>
+        <label class="diary-form__field">
+          <span>Password</span>
+          <input type="password" name="password" required />
+        </label>
+        <p class="diary-form__error" hidden></p>
+        <div class="diary-form__actions">
+          <button type="button" class="button diary-login-form__cancel">Cancel</button>
+          <button type="submit" class="button button--primary">Log In</button>
+        </div>
+      </form>
     </div>
   </div>
 

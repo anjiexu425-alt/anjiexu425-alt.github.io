@@ -8,7 +8,7 @@ import {
   goToPage,
   isSheetTransformEnd,
 } from './diary-state.mjs';
-import { fetchEntries } from './diary-supabase.js';
+import { fetchEntries, signIn, signOut, getSession, onAuthStateChange } from './diary-supabase.js';
 import { supabaseRowToEntry } from './diary-validation.mjs';
 
 // Placeholder image labels always start with '[' (site-wide convention);
@@ -39,6 +39,12 @@ const WEATHER_OPTIONS = ['☀️ Sunny', '⛅ Cloudy', '🌧️ Rainy', '❄️ 
 // is currently editing — null when the modal is closed.
 let moodModalTarget = null;
 
+// Only true once a real Supabase session exists — controls whether the
+// Write Diary button, per-entry Discard buttons, and Mood/Weather buttons
+// render at all. This is a UX nicety, not the real security boundary —
+// that's the database's Row Level Security policies (see Prerequisites).
+let isLoggedIn = false;
+
 // Body text with a blank line between lines is rendered as separate
 // paragraphs, matching the "title + quote + two body paragraphs" layout.
 function bodyParagraphsHTML(body) {
@@ -50,6 +56,9 @@ function bodyParagraphsHTML(body) {
 
 function leftPageHTML(entry) {
   const index = ENTRIES.indexOf(entry);
+  const discardHTML = isLoggedIn
+    ? `<button type="button" class="diary-page__discard" data-discard-index="${index}">Discard</button>`
+    : '';
   return `
     <div class="diary-page__header">
       <span class="diary-page__label">${entry.number} / ${entry.category.toUpperCase()}</span>
@@ -60,7 +69,7 @@ function leftPageHTML(entry) {
     <div class="diary-page__ruled">${bodyParagraphsHTML(entry.body)}</div>
     <div class="diary-page__footer">
       <span class="diary-page__tagline">${DIARY_TAGLINE}</span>
-      <button type="button" class="diary-page__discard" data-discard-index="${index}">Discard</button>
+      ${discardHTML}
     </div>
   `;
 }
@@ -125,6 +134,12 @@ function rightPageHTML(entry, active = true) {
   const badgeHTML = isGrid ? '<span class="diary-polaroid__badge">Gallery</span>' : '';
   const captionHTML = entry.media.caption ? `<p class="diary-polaroid__caption">${entry.media.caption}</p>` : '';
   const countLabel = entry.media.type === 'video' ? '1 Video' : `${urls.length} Snapshot${urls.length === 1 ? '' : 's'}`;
+  const moodRowHTML = isLoggedIn
+    ? `<div class="diary-mood-row">
+        <button type="button" class="diary-mood-btn" data-mood-kind="mood" data-mood-index="${index}">${entry.mood || '+ Mood'}</button>
+        <button type="button" class="diary-mood-btn" data-mood-kind="weather" data-mood-index="${index}">${entry.weather || '+ Weather'}</button>
+      </div>`
+    : '';
 
   return `
     <div class="diary-page__header">
@@ -136,10 +151,7 @@ function rightPageHTML(entry, active = true) {
       ${badgeHTML}
       <div class="diary-page__media" style="${gridStyle}">${itemsHTML}</div>
       ${captionHTML}
-      <div class="diary-mood-row">
-        <button type="button" class="diary-mood-btn" data-mood-kind="mood" data-mood-index="${index}">${entry.mood || '+ Mood'}</button>
-        <button type="button" class="diary-mood-btn" data-mood-kind="weather" data-mood-index="${index}">${entry.weather || '+ Weather'}</button>
-      </div>
+      ${moodRowHTML}
     </div>
     <div class="diary-page__footer diary-page__footer--right">
       <span>${DIARY_BRAND}</span>
@@ -211,6 +223,46 @@ function openMoodModal(index, kind) {
 function closeMoodModal() {
   document.querySelector('.diary-mood-modal-backdrop').hidden = true;
   moodModalTarget = null;
+}
+
+function applyAuthState(session) {
+  isLoggedIn = Boolean(session);
+  document.querySelector('.diary-write-btn').hidden = !isLoggedIn;
+  document.querySelector('.diary-login-btn').textContent = isLoggedIn ? 'Log Out' : 'Log In';
+  renderStatic();
+}
+
+function openLoginModal() {
+  document.querySelector('.diary-login-form .diary-form__error').hidden = true;
+  document.querySelector('.diary-login-modal-backdrop').hidden = false;
+}
+
+function closeLoginModal() {
+  document.querySelector('.diary-login-modal-backdrop').hidden = true;
+  document.querySelector('.diary-login-form').reset();
+}
+
+async function handleLoginSubmit(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  const errorEl = document.querySelector('.diary-login-form .diary-form__error');
+  errorEl.hidden = true;
+  try {
+    await signIn(data.get('email').trim(), data.get('password'));
+    closeLoginModal();
+  } catch (error) {
+    errorEl.textContent = 'Incorrect email or password.';
+    errorEl.hidden = false;
+  }
+}
+
+async function handleLoginBtnClick() {
+  if (isLoggedIn) {
+    await signOut();
+  } else {
+    openLoginModal();
+  }
 }
 
 function setMood(value) {
@@ -526,6 +578,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (event.target === event.currentTarget) closeMoodModal();
   });
 
+  document.querySelector('.diary-login-btn').addEventListener('click', handleLoginBtnClick);
+  document.querySelector('.diary-login-modal__close').addEventListener('click', closeLoginModal);
+  document.querySelector('.diary-login-form__cancel').addEventListener('click', closeLoginModal);
+  document.querySelector('.diary-login-modal-backdrop').addEventListener('click', (event) => {
+    if (event.target === event.currentTarget) closeLoginModal();
+  });
+  document.querySelector('.diary-login-form').addEventListener('submit', handleLoginSubmit);
+
+  onAuthStateChange((session) => applyAuthState(session));
+  getSession().then((session) => applyAuthState(session));
+
   document.querySelector('.diary-nav--next').addEventListener('click', (event) => {
     flashClicked(event.currentTarget);
     playFlip('next');
@@ -540,6 +603,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (event.key === 'Escape') {
       closeLightbox();
       closeMoodModal();
+      closeLoginModal();
     }
     if (!state.isOpen) return;
     if (event.key === 'ArrowRight') playFlip('next');

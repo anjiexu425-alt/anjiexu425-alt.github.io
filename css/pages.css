@@ -1030,6 +1030,8 @@
 .diary-toolbar {
   display: flex;
   justify-content: center;
+  align-items: center;
+  gap: var(--space-2);
   margin-top: var(--space-3);
 }
 
@@ -1160,6 +1162,60 @@
 
 .diary-mood-modal__clear {
   width: 100%;
+}
+
+.diary-login-btn {
+  background: none;
+  border: none;
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.diary-login-btn:hover {
+  color: var(--color-klein-blue);
+}
+
+.diary-login-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+  z-index: 100;
+}
+
+.diary-login-modal-backdrop[hidden] {
+  display: none;
+}
+
+.diary-login-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  max-width: 340px;
+  width: 100%;
+  padding: var(--space-4);
+}
+
+.diary-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.diary-form__error {
+  color: #b3261e;
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.diary-form__error[hidden] {
+  display: none;
 }
 
 .diary-modal {
