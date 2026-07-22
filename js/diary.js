@@ -6,7 +6,10 @@ import {
   canGoNext,
   canGoPrevious,
   goToPage,
-  isSheetAnimationEnd,
+  isSheetEventTarget,
+  computeDragProgress,
+  computeFlipVisualState,
+  shouldCompleteFlip,
 } from './diary-state.mjs';
 import {
   fetchEntries,
@@ -372,35 +375,14 @@ function prefersInstantTransition() {
   );
 }
 
-// A real 3D page-turn: a half-width "sheet" with two faces (front = the page
-// currently showing, back = the page it reveals) sits over the static pages
-// beneath it and rotates -180deg/180deg around the book's spine, with an
-// arc lift and mid-rotation opacity dip layered on via the diary-flip-next/
-// diary-flip-prev @keyframes. Both faces use backface-visibility:hidden so
-// only one is ever shown at a time as it turns through profile. Driven by
-// requestAnimationFrame + animationend (not framer-motion, which needs a
-// bundler) — the initial state is committed to layout before the
-// is-flipped class (which starts the @keyframes animation) is added, kept
-// from the transition-based version out of caution even though a CSS
-// animation doesn't strictly require it the way a transition did.
-function playFlip(direction) {
-  if (isFlipping) return;
-  const oldIndex = state.current;
-  const newIndex = direction === 'next' ? oldIndex + 1 : oldIndex - 1;
-  if (newIndex < 0 || newIndex >= state.totalPages) return;
-
-  if (prefersInstantTransition()) {
-    state = direction === 'next' ? goToNext(state) : goToPrevious(state);
-    renderStatic();
-    updateChrome();
-    return;
-  }
-
-  isFlipping = true;
-  updateChrome();
-
-  const oldEntry = ENTRIES[oldIndex];
-  const newEntry = ENTRIES[newIndex];
+// Builds the static halves (with underlay shadows) and the flip sheet
+// (with front/back faces and curl shadows) for a flip in progress, and
+// appends everything to .diary-stage. Shared by the click/keyboard-
+// triggered animated flip (playFlip) and the pointer-driven drag flip —
+// both need the identical visual structure, they just drive the sheet's
+// transform/opacity differently afterward (a CSS animation vs. live
+// pointer tracking). Returns the sheet element.
+function buildFlipDOM(direction, oldEntry, newEntry) {
   const stage = document.querySelector('.diary-stage');
   // Stop decode immediately rather than waiting on GC of the removed
   // elements — cheap insurance against multiple videos competing for the
@@ -483,6 +465,40 @@ function playFlip(direction) {
   sheet.appendChild(back);
   stage.appendChild(sheet);
 
+  return sheet;
+}
+
+// A real 3D page-turn: a half-width "sheet" with two faces (front = the page
+// currently showing, back = the page it reveals) sits over the static pages
+// beneath it and rotates -180deg/180deg around the book's spine, with an
+// arc lift and mid-rotation opacity dip layered on via the diary-flip-next/
+// diary-flip-prev @keyframes. Both faces use backface-visibility:hidden so
+// only one is ever shown at a time as it turns through profile. Driven by
+// requestAnimationFrame + animationend (not framer-motion, which needs a
+// bundler) — the initial state is committed to layout before the
+// is-flipped class (which starts the @keyframes animation) is added, kept
+// from the transition-based version out of caution even though a CSS
+// animation doesn't strictly require it the way a transition did.
+function playFlip(direction) {
+  if (isFlipping) return;
+  const oldIndex = state.current;
+  const newIndex = direction === 'next' ? oldIndex + 1 : oldIndex - 1;
+  if (newIndex < 0 || newIndex >= state.totalPages) return;
+
+  if (prefersInstantTransition()) {
+    state = direction === 'next' ? goToNext(state) : goToPrevious(state);
+    renderStatic();
+    updateChrome();
+    return;
+  }
+
+  isFlipping = true;
+  updateChrome();
+
+  const oldEntry = ENTRIES[oldIndex];
+  const newEntry = ENTRIES[newIndex];
+  const sheet = buildFlipDOM(direction, oldEntry, newEntry);
+
   // Force layout so the un-flipped starting transform is committed before
   // the target class gets added on the next frame.
   void sheet.offsetHeight;
@@ -494,7 +510,7 @@ function playFlip(direction) {
   // Completing the flip must happen exactly once, triggered by whichever
   // comes first: the sheet's own flip animation finishing, or (if that
   // event never arrives — observed in some WebKit/embedded-WebView builds)
-  // a fallback timeout. isSheetAnimationEnd rejects animationend events
+  // a fallback timeout. isSheetEventTarget rejects animationend events
   // bubbled up from a descendant (animationend bubbles like any other DOM
   // event), so a child's unrelated animation can't end the flip early.
   let flipFinished = false;
@@ -510,7 +526,7 @@ function playFlip(direction) {
   }
 
   function onSheetAnimationEnd(event) {
-    if (isSheetAnimationEnd(event, sheet)) finishFlip();
+    if (isSheetEventTarget(event, sheet)) finishFlip();
   }
 
   sheet.addEventListener('animationend', onSheetAnimationEnd);
