@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DiarySpread, PresetMedia } from './types';
-import { INITIAL_SPREADS, PRESET_MEDIA_LIST, AMBIENT_TRACKS, curDate, BLANK_SPREAD } from './data';
+import { INITIAL_SPREADS, PRESET_MEDIA_LIST, AMBIENT_TRACKS, curDate, BLANK_SPREAD, CATEGORY_OPTIONS } from './data';
 
 /* =======================================================
    REUSABLE SUB-COMPONENTS FOR 3D STAGE & PAGE TRANSITIONS
@@ -1334,13 +1334,9 @@ export default function App() {
                         onChange={(e) => setWritingCategory(e.target.value)}
                         className="px-3 py-2 text-xs bg-neutral-50 border border-neutral-300/60 rounded-xl focus:border-brand-blue focus:ring-1 focus:ring-brand-blue focus:outline-none"
                       >
-                        <option value="Abroad">✈️ Abroad / Travel</option>
-                        <option value="Chill Beach">🏖️ Chill Beach</option>
-                        <option value="Cozy">☕ Cozy Coffee Shop</option>
-                        <option value="Nature">🌳 Quiet Nature</option>
-                        <option value="City">🌆 City Sunset</option>
-                        <option value="Rain">🌧️ Rainy Reflection</option>
-                        <option value="Night">🌙 Midnight Wanderer</option>
+                        {CATEGORY_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
                       </select>
                     </div>
 

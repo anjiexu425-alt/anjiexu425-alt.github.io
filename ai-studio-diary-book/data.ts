@@ -151,3 +151,18 @@ export const AMBIENT_TRACKS = [
     url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3'
   }
 ];
+
+export interface CategoryOption {
+  value: string;
+  label: string;
+}
+
+export const CATEGORY_OPTIONS: CategoryOption[] = [
+  { value: 'Abroad', label: '✈️ Abroad / Travel' },
+  { value: 'Chill Beach', label: '🏖️ Chill Beach' },
+  { value: 'Cozy', label: '☕ Cozy Coffee Shop' },
+  { value: 'Nature', label: '🌳 Quiet Nature' },
+  { value: 'City', label: '🌆 City Sunset' },
+  { value: 'Rain', label: '🌧️ Rainy Reflection' },
+  { value: 'Night', label: '🌙 Midnight Wanderer' }
+];
