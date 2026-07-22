@@ -29,11 +29,37 @@ export function goToPage(state, index) {
   return { ...state, current: clamped };
 }
 
-// animationend bubbles: a descendant of the flip sheet (e.g. a child
-// element with its own CSS animation) firing one must not be mistaken for
-// the sheet's own flip animation finishing. Only an event whose target IS
-// the sheet itself counts — AnimationEvent has no propertyName the way
-// TransitionEvent does, so there's no second property to check here.
-export function isSheetAnimationEnd(event, sheet) {
+// Both animationend (the click/keyboard flip's @keyframes) and
+// transitionend (the drag flip's post-release settle transition) bubble:
+// a descendant firing one must not be mistaken for the sheet's own flip
+// finishing. Only an event whose target IS the sheet itself counts.
+export function isSheetEventTarget(event, sheet) {
   return event.target === sheet;
+}
+
+// deltaX is the pixel distance dragged in the direction that progresses
+// the flip (the caller is responsible for giving this the right sign
+// based on which way the page is being dragged) — always returns a value
+// clamped to [0, 1].
+export function computeDragProgress(deltaX, pageWidth) {
+  if (pageWidth <= 0) return 0;
+  return Math.max(0, Math.min(1, deltaX / pageWidth));
+}
+
+// A continuous curve (not fixed keyframe stops) driven directly by live
+// drag progress: rotation is linear in progress, lift and opacity each
+// follow a single-peaked sine curve (zero/full at both ends, peak at the
+// midpoint) so there's no plateau or velocity discontinuity of the kind
+// that caused stutter in the earlier @keyframes-based design.
+export function computeFlipVisualState(progress, direction) {
+  const sign = direction === 'next' ? -1 : 1;
+  return {
+    rotateDeg: (sign * progress * 180) || 0,
+    liftPx: (-16 * Math.sin(progress * Math.PI)) || 0,
+    opacity: 1 - 0.35 * Math.sin(progress * Math.PI),
+  };
+}
+
+export function shouldCompleteFlip(progress) {
+  return progress >= 0.5;
 }
