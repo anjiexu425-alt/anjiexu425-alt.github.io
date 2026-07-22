@@ -603,15 +603,6 @@
   overflow-y: auto;
 }
 
-/* Dotted ruled lines (not solid bands): one row of dots per 28px tile,
-   repeated across and down, lined up with .diary-page__body's line-height. */
-.diary-page__ruled {
-  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.22) 1px, transparent 1.3px);
-  background-size: 7px 28px;
-  background-position: 0 27px;
-  background-repeat: repeat;
-}
-
 .diary-page__body {
   line-height: 28px;
   margin: 0 0 28px;
