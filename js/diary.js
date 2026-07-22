@@ -8,6 +8,8 @@ import {
   goToPage,
   isSheetTransformEnd,
 } from './diary-state.mjs';
+import { fetchEntries } from './diary-supabase.js';
+import { supabaseRowToEntry } from './diary-validation.mjs';
 
 // Placeholder image labels always start with '[' (site-wide convention);
 // anything else is treated as a real image URL/path.
@@ -15,32 +17,11 @@ function isPlaceholder(value) {
   return value.startsWith('[');
 }
 
-// Entries persist across reloads via localStorage (this static site has no
-// backend/database) — anything written through the "Write Diary" form, or
-// discarded, is saved right after the change so a refresh doesn't lose it.
-const DIARY_STORAGE_KEY = 'anjie-study-diary-entries';
-
-function loadStoredEntries() {
-  try {
-    const raw = localStorage.getItem(DIARY_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveEntries() {
-  try {
-    localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(ENTRIES));
-  } catch {
-    // Storage can fail (quota exceeded, private browsing) — the diary
-    // still works for the current session, it just won't persist.
-  }
-}
-
-const ENTRIES = loadStoredEntries();
+// Entries live in Supabase now (see js/diary-supabase.js) — this array is
+// populated asynchronously by initEntries() on page load, and mutated in
+// place by handleDiscard/setMood/handleFormSubmit after each successful
+// write so the UI stays in sync with the database.
+let ENTRIES = [];
 
 let state = createDiaryState(ENTRIES.length);
 let isFlipping = false;
@@ -180,6 +161,27 @@ function renderStatic() {
   `;
 }
 
+// Runs once on page load. Shows a loading message inside .diary-stage
+// (invisible until the book is opened, since .diary-book is display:none
+// until .diary.is-open) so that by the time the user clicks the cover
+// open, real content is already in place.
+async function initEntries() {
+  const stage = document.querySelector('.diary-stage');
+  stage.innerHTML = '<p class="diary-empty">Loading diary…</p>';
+  try {
+    const rows = await fetchEntries();
+    ENTRIES = rows.map(supabaseRowToEntry);
+  } catch (error) {
+    stage.innerHTML = '<p class="diary-empty">Couldn’t load diary entries. Please check your connection and try again.</p>';
+    console.error('Failed to load diary entries', error);
+    return;
+  }
+  state = createDiaryState(ENTRIES.length);
+  buildDots();
+  renderStatic();
+  updateChrome();
+}
+
 // Only real photos are zoomable — placeholders have nothing to enlarge, and
 // video already has its own native fullscreen control via `controls`.
 function openLightbox(src, alt) {
@@ -214,7 +216,6 @@ function closeMoodModal() {
 function setMood(value) {
   if (!moodModalTarget) return;
   ENTRIES[moodModalTarget.index][moodModalTarget.kind] = value;
-  saveEntries();
   closeMoodModal();
   renderStatic();
 }
@@ -222,7 +223,6 @@ function setMood(value) {
 function handleDiscard(index) {
   if (!window.confirm("Discard this diary page? This can't be undone.")) return;
   ENTRIES.splice(index, 1);
-  saveEntries();
   const nextIndex = Math.max(0, Math.min(state.current, ENTRIES.length - 1));
   state = goToPage(openBook(createDiaryState(ENTRIES.length)), nextIndex);
   buildDots();
@@ -477,7 +477,6 @@ function handleFormSubmit(event) {
     body,
     media: { type: mediaType, urls, caption: data.get('caption').trim() },
   });
-  saveEntries();
 
   state = goToPage(openBook(createDiaryState(ENTRIES.length)), ENTRIES.length - 1);
   document.querySelector('.diary').classList.add('is-open');
@@ -488,7 +487,7 @@ function handleFormSubmit(event) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  buildDots();
+  initEntries();
 
   document.querySelector('.diary-cover__open').addEventListener('click', (event) => {
     openCover(event.currentTarget);
