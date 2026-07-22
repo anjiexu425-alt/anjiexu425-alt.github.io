@@ -902,25 +902,20 @@
   z-index: 20;
   -webkit-transform-style: preserve-3d;
   transform-style: preserve-3d;
-  will-change: transform;
+  will-change: transform, opacity;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
   pointer-events: none;
-  transition: transform var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 /* translate3d(0,0,0) alongside the rotation forces this onto its own GPU
-   layer for the whole transition instead of only once the rotation makes
-   it "3D enough" to qualify — avoids a layer-promotion hitch right as the
-   flip starts. */
+   layer from the start instead of only once the rotation makes it "3D
+   enough" to qualify — avoids a layer-promotion hitch right as the flip
+   starts. */
 .diary-flip-sheet--next {
   left: 50%;
   transform-origin: left center;
   transform: translate3d(0, 0, 0) rotateY(0deg);
-}
-
-.diary-flip-sheet--next.is-flipped {
-  transform: translate3d(0, 0, 0) rotateY(-180deg);
 }
 
 .diary-flip-sheet--prev {
@@ -929,8 +924,37 @@
   transform: translate3d(0, 0, 0) rotateY(0deg);
 }
 
+/* Real 3D page-turn, redesigned: instead of a plain two-point rotateY
+   transition, an @keyframes animation adds an arc lift (the page rises
+   as it turns, like being picked up rather than pivoting flat) and dips
+   opacity through the ~40%-60% window where the rotation is nearest
+   edge-on to the viewer. That window is exactly where Safari renders
+   live text/photos inside a preserve-3d rotation as garbled/broken (a
+   WebKit text-rasterization quirk, confirmed via systematic-debugging —
+   not a paint-performance problem, which is why contain/font-smoothing
+   didn't fix it) — fading the content there masks the artifact instead
+   of fighting it, and reads naturally since a real page mid-turn isn't
+   legible either. */
+.diary-flip-sheet--next.is-flipped {
+  animation: diary-flip-next var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
 .diary-flip-sheet--prev.is-flipped {
-  transform: translate3d(0, 0, 0) rotateY(180deg);
+  animation: diary-flip-prev var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes diary-flip-next {
+  0% { transform: translate3d(0, 0, 0) rotateY(0deg); opacity: 1; }
+  40% { transform: translate3d(0, -16px, 0) rotateY(-72deg); opacity: 0.65; }
+  60% { transform: translate3d(0, -16px, 0) rotateY(-108deg); opacity: 0.65; }
+  100% { transform: translate3d(0, 0, 0) rotateY(-180deg); opacity: 1; }
+}
+
+@keyframes diary-flip-prev {
+  0% { transform: translate3d(0, 0, 0) rotateY(0deg); opacity: 1; }
+  40% { transform: translate3d(0, -16px, 0) rotateY(72deg); opacity: 0.65; }
+  60% { transform: translate3d(0, -16px, 0) rotateY(108deg); opacity: 0.65; }
+  100% { transform: translate3d(0, 0, 0) rotateY(180deg); opacity: 1; }
 }
 
 .diary-flip-sheet__face {
@@ -941,13 +965,6 @@
   backface-visibility: hidden;
   overflow: hidden;
   background: var(--color-surface);
-  /* Each face renders a full page's worth of text/photo content while
-     being 3D-rotated — containment tells the browser this subtree's
-     layout/paint can't affect anything outside it, so it can isolate and
-     cache the repaint instead of re-rasterizing the whole face on every
-     animation frame (a common source of visible jank/stutter for complex
-     content inside a rotating 3D transform). */
-  contain: layout paint style;
 }
 
 .diary-flip-sheet__face--back {
