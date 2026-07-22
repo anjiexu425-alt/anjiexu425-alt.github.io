@@ -1376,8 +1376,12 @@ export default function App() {
                     <PenTool size={15} />
                   </div>
                   <div>
-                    <h3 className="font-serif font-bold text-lg text-neutral-900 leading-tight">Write Abroad Reflection</h3>
-                    <p className="text-[11px] text-neutral-400 font-mono tracking-wide mt-0.5 uppercase">Draft new page spread</p>
+                    <h3 className="font-serif font-bold text-lg text-neutral-900 leading-tight">
+                      {editingSpreadId ? 'Edit Reflection' : 'Write Abroad Reflection'}
+                    </h3>
+                    <p className="text-[11px] text-neutral-400 font-mono tracking-wide mt-0.5 uppercase">
+                      {editingSpreadId ? 'Update this page spread' : 'Draft new page spread'}
+                    </p>
                   </div>
                 </div>
                 <button
@@ -1807,8 +1811,8 @@ export default function App() {
                   form="write-diary-form"
                   className="px-5 py-2 bg-brand-blue text-white rounded-full font-medium text-xs shadow-md shadow-brand-blue/25 hover:bg-brand-blue-hover hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center gap-1"
                 >
-                  <PenTool size={13} />
-                  <span>Insert to Abroad Diary</span>
+                  {editingSpreadId ? <Check size={13} /> : <PenTool size={13} />}
+                  <span>{editingSpreadId ? 'Save Changes' : 'Insert to Abroad Diary'}</span>
                 </button>
               </div>
 
