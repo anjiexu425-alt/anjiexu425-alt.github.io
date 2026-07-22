@@ -11,6 +11,8 @@ import {
 import {
   fetchEntries,
   insertEntry,
+  deleteEntry,
+  updateEntry,
   uploadFile,
   signIn,
   signOut,
@@ -70,7 +72,7 @@ function bodyParagraphsHTML(body) {
 function leftPageHTML(entry) {
   const index = ENTRIES.indexOf(entry);
   const discardHTML = isLoggedIn
-    ? `<button type="button" class="diary-page__discard" data-discard-index="${index}">Discard</button>`
+    ? `<button type="button" class="diary-page__discard" data-entry-id="${entry.id}">Discard</button>`
     : '';
   return `
     <div class="diary-page__header">
@@ -149,8 +151,8 @@ function rightPageHTML(entry, active = true) {
   const countLabel = entry.media.type === 'video' ? '1 Video' : `${urls.length} Snapshot${urls.length === 1 ? '' : 's'}`;
   const moodRowHTML = isLoggedIn
     ? `<div class="diary-mood-row">
-        <button type="button" class="diary-mood-btn" data-mood-kind="mood" data-mood-index="${index}">${entry.mood || '+ Mood'}</button>
-        <button type="button" class="diary-mood-btn" data-mood-kind="weather" data-mood-index="${index}">${entry.weather || '+ Weather'}</button>
+        <button type="button" class="diary-mood-btn" data-mood-kind="mood" data-entry-id="${entry.id}">${entry.mood || '+ Mood'}</button>
+        <button type="button" class="diary-mood-btn" data-mood-kind="weather" data-entry-id="${entry.id}">${entry.weather || '+ Weather'}</button>
       </div>`
     : '';
 
@@ -223,8 +225,8 @@ function closeLightbox() {
   document.querySelector('.diary-lightbox__image').src = '';
 }
 
-function openMoodModal(index, kind) {
-  moodModalTarget = { index, kind };
+function openMoodModal(id, kind) {
+  moodModalTarget = { id, kind };
   const options = kind === 'mood' ? MOOD_OPTIONS : WEATHER_OPTIONS;
   document.querySelector('.diary-mood-modal__title').textContent = kind === 'mood' ? 'Mood' : 'Weather';
   document.querySelector('.diary-mood-modal__options').innerHTML = options
@@ -278,16 +280,32 @@ async function handleLoginBtnClick() {
   }
 }
 
-function setMood(value) {
+async function setMood(value) {
   if (!moodModalTarget) return;
-  ENTRIES[moodModalTarget.index][moodModalTarget.kind] = value;
+  const { id, kind } = moodModalTarget;
+  try {
+    await updateEntry(id, { [kind]: value || null });
+  } catch (error) {
+    window.alert('Could not save that. Please try again.');
+    return;
+  }
+  const entry = ENTRIES.find((e) => e.id === id);
+  if (entry) entry[kind] = value;
   closeMoodModal();
   renderStatic();
 }
 
-function handleDiscard(index) {
+async function handleDiscard(id) {
   if (!window.confirm("Discard this diary page? This can't be undone.")) return;
-  ENTRIES.splice(index, 1);
+  try {
+    await deleteEntry(id);
+  } catch (error) {
+    window.alert('Could not discard this entry. Please try again.');
+    return;
+  }
+  const removedIndex = ENTRIES.findIndex((entry) => entry.id === id);
+  if (removedIndex === -1) return;
+  ENTRIES.splice(removedIndex, 1);
   const nextIndex = Math.max(0, Math.min(state.current, ENTRIES.length - 1));
   state = goToPage(openBook(createDiaryState(ENTRIES.length)), nextIndex);
   buildDots();
@@ -601,12 +619,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('.diary-stage').addEventListener('click', (event) => {
     const discardBtn = event.target.closest('.diary-page__discard');
     if (discardBtn) {
-      handleDiscard(Number(discardBtn.dataset.discardIndex));
+      handleDiscard(discardBtn.dataset.entryId);
       return;
     }
     const moodBtn = event.target.closest('.diary-mood-btn');
     if (moodBtn) {
-      openMoodModal(Number(moodBtn.dataset.moodIndex), moodBtn.dataset.moodKind);
+      openMoodModal(moodBtn.dataset.entryId, moodBtn.dataset.moodKind);
       return;
     }
     const photo = event.target.closest('.diary-page__photo');
