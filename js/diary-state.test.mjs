@@ -8,7 +8,7 @@ import {
   canGoNext,
   canGoPrevious,
   goToPage,
-  isSheetTransformEnd,
+  isSheetAnimationEnd,
 } from './diary-state.mjs';
 
 test('starts closed on the first page', () => {
@@ -53,18 +53,13 @@ test('goToPage clamps to the valid range', () => {
   assert.equal(goToPage(state, 99).current, 4);
 });
 
-test('isSheetTransformEnd is true only for the sheet element itself finishing its transform', () => {
+test('isSheetAnimationEnd is true only for the sheet element itself', () => {
   const sheet = {};
-  assert.equal(isSheetTransformEnd({ target: sheet, propertyName: 'transform' }, sheet), true);
+  assert.equal(isSheetAnimationEnd({ target: sheet }, sheet), true);
 });
 
-test('isSheetTransformEnd rejects a transitionend bubbled up from a child element', () => {
+test('isSheetAnimationEnd rejects an animationend bubbled up from a child element', () => {
   const sheet = {};
   const childElement = {};
-  assert.equal(isSheetTransformEnd({ target: childElement, propertyName: 'transform' }, sheet), false);
-});
-
-test('isSheetTransformEnd rejects the sheet transitioning a property other than transform', () => {
-  const sheet = {};
-  assert.equal(isSheetTransformEnd({ target: sheet, propertyName: 'opacity' }, sheet), false);
+  assert.equal(isSheetAnimationEnd({ target: childElement }, sheet), false);
 });

@@ -29,10 +29,11 @@ export function goToPage(state, index) {
   return { ...state, current: clamped };
 }
 
-// transitionend bubbles: a descendant of the flip sheet (e.g. a hovered
-// child element with its own transform transition) firing one must not be
-// mistaken for the sheet's own rotation finishing. Only an event whose
-// target IS the sheet itself, for the "transform" property, counts.
-export function isSheetTransformEnd(event, sheet) {
-  return event.target === sheet && event.propertyName === 'transform';
+// animationend bubbles: a descendant of the flip sheet (e.g. a child
+// element with its own CSS animation) firing one must not be mistaken for
+// the sheet's own flip animation finishing. Only an event whose target IS
+// the sheet itself counts — AnimationEvent has no propertyName the way
+// TransitionEvent does, so there's no second property to check here.
+export function isSheetAnimationEnd(event, sheet) {
+  return event.target === sheet;
 }
