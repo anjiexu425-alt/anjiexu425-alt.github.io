@@ -927,8 +927,8 @@
 /* Real 3D page-turn, redesigned: instead of a plain two-point rotateY
    transition, an @keyframes animation adds an arc lift (the page rises
    as it turns, like being picked up rather than pivoting flat) and dips
-   opacity through the ~40%-60% window where the rotation is nearest
-   edge-on to the viewer. That window is exactly where Safari renders
+   opacity around the 50% midpoint, where the rotation is nearest
+   edge-on to the viewer. That's exactly where Safari renders
    live text/photos inside a preserve-3d rotation as garbled/broken (a
    WebKit text-rasterization quirk, confirmed via systematic-debugging —
    not a paint-performance problem, which is why contain/font-smoothing
@@ -951,17 +951,21 @@
   animation: diary-flip-prev var(--diary-flip-duration) linear forwards;
 }
 
+/* Single peak at 50% (not a 40%-60% plateau) — the lift's vertical
+   velocity only ever changes direction once, at the very top of the arc,
+   which reads as a natural apex rather than a "stop dead, then move
+   again" jerk. Rotation moves at a constant rate throughout (-1.8deg per
+   1% of duration on both halves), so there's no velocity change there at
+   all, even at the 50% keyframe. */
 @keyframes diary-flip-next {
   0% { transform: translate3d(0, 0, 0) rotateY(0deg); opacity: 1; }
-  40% { transform: translate3d(0, -16px, 0) rotateY(-72deg); opacity: 0.65; }
-  60% { transform: translate3d(0, -16px, 0) rotateY(-108deg); opacity: 0.65; }
+  50% { transform: translate3d(0, -16px, 0) rotateY(-90deg); opacity: 0.65; }
   100% { transform: translate3d(0, 0, 0) rotateY(-180deg); opacity: 1; }
 }
 
 @keyframes diary-flip-prev {
   0% { transform: translate3d(0, 0, 0) rotateY(0deg); opacity: 1; }
-  40% { transform: translate3d(0, -16px, 0) rotateY(72deg); opacity: 0.65; }
-  60% { transform: translate3d(0, -16px, 0) rotateY(108deg); opacity: 0.65; }
+  50% { transform: translate3d(0, -16px, 0) rotateY(90deg); opacity: 0.65; }
   100% { transform: translate3d(0, 0, 0) rotateY(180deg); opacity: 1; }
 }
 
