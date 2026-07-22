@@ -941,6 +941,13 @@
   backface-visibility: hidden;
   overflow: hidden;
   background: var(--color-surface);
+  /* Each face renders a full page's worth of text/photo content while
+     being 3D-rotated — containment tells the browser this subtree's
+     layout/paint can't affect anything outside it, so it can isolate and
+     cache the repaint instead of re-rasterizing the whole face on every
+     animation frame (a common source of visible jank/stutter for complex
+     content inside a rotating 3D transform). */
+  contain: layout paint style;
 }
 
 .diary-flip-sheet__face--back {

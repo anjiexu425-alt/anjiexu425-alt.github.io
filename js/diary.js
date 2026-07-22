@@ -192,6 +192,23 @@ function renderStatic() {
 // (invisible until the book is opened, since .diary-book is display:none
 // until .diary.is-open) so that by the time the user clicks the cover
 // open, real content is already in place.
+// Photos now live on Supabase Storage instead of local files, so a page
+// flipped to for the first time can show a still-loading image mid-flip —
+// fetching every real photo into the browser's cache as soon as entries
+// are known (fire-and-forget, not awaited) means by the time a user
+// actually flips to any given page, its photos are already cached and
+// paint instantly instead of popping in a moment after the flip.
+function preloadEntryImages(entries) {
+  entries.forEach((entry) => {
+    if (entry.media.type !== 'image') return;
+    entry.media.urls.forEach((url) => {
+      if (isPlaceholder(url)) return;
+      const img = new Image();
+      img.src = url;
+    });
+  });
+}
+
 async function initEntries() {
   const stage = document.querySelector('.diary-stage');
   stage.innerHTML = '<p class="diary-empty">Loading diary…</p>';
@@ -203,6 +220,7 @@ async function initEntries() {
     console.error('Failed to load diary entries', error);
     return;
   }
+  preloadEntryImages(ENTRIES);
   state = createDiaryState(ENTRIES.length);
   buildDots();
   renderStatic();
