@@ -539,6 +539,139 @@ function playFlip(direction) {
   const fallbackTimer = setTimeout(finishFlip, flipDurationMs + 150);
 }
 
+const DRAG_THRESHOLD_PX = 8;
+
+// Tracks an in-progress drag-to-flip gesture; null when no drag is active.
+// `moved` distinguishes "pointer is down but hasn't crossed the drag
+// threshold yet" (still could be a click on something inside the page)
+// from "definitely dragging, the flip sheet exists and is being driven by
+// pointer position." `rafScheduled` coalesces rapid pointermove events
+// into at most one DOM write per animation frame.
+let dragFlip = null;
+
+function findDragDirection(target) {
+  if (target.closest('.diary-page--right')) return 'next';
+  if (target.closest('.diary-page--left')) return 'prev';
+  return null;
+}
+
+function applyDragFlipVisualState() {
+  const rawDeltaX = dragFlip.currentX - dragFlip.startX;
+  const signedDeltaX = dragFlip.direction === 'next' ? -rawDeltaX : rawDeltaX;
+  const progress = computeDragProgress(signedDeltaX, dragFlip.pageWidth);
+  const { rotateDeg, liftPx, opacity } = computeFlipVisualState(progress, dragFlip.direction);
+  dragFlip.sheet.style.transform = `translate3d(0, ${liftPx}px, 0) rotateY(${rotateDeg}deg)`;
+  dragFlip.sheet.style.opacity = String(opacity);
+  dragFlip.progress = progress;
+}
+
+function scheduleDragFlipUpdate() {
+  if (dragFlip.rafScheduled) return;
+  dragFlip.rafScheduled = true;
+  requestAnimationFrame(() => {
+    if (!dragFlip) return;
+    dragFlip.rafScheduled = false;
+    applyDragFlipVisualState();
+  });
+}
+
+function handleStagePointerDown(event) {
+  if (isFlipping || !state.isOpen || prefersInstantTransition()) return;
+  if (event.target.closest('.diary-page__discard, .diary-mood-btn, .diary-page__photo')) return;
+  const direction = findDragDirection(event.target);
+  if (!direction) return;
+  const newIndex = direction === 'next' ? state.current + 1 : state.current - 1;
+  if (newIndex < 0 || newIndex >= state.totalPages) return;
+
+  event.currentTarget.setPointerCapture(event.pointerId);
+  dragFlip = {
+    direction,
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    currentX: event.clientX,
+    moved: false,
+    rafScheduled: false,
+    sheet: null,
+    pageWidth: 0,
+    progress: 0,
+    oldIndex: state.current,
+    newIndex,
+  };
+}
+
+function handleStagePointerMove(event) {
+  if (!dragFlip || event.pointerId !== dragFlip.pointerId) return;
+  dragFlip.currentX = event.clientX;
+
+  if (!dragFlip.moved) {
+    if (Math.abs(event.clientX - dragFlip.startX) < DRAG_THRESHOLD_PX) return;
+    dragFlip.moved = true;
+    isFlipping = true;
+    updateChrome();
+    document.querySelector('.diary-stage').classList.add('diary-stage--dragging');
+    const oldEntry = ENTRIES[dragFlip.oldIndex];
+    const newEntry = ENTRIES[dragFlip.newIndex];
+    dragFlip.sheet = buildFlipDOM(dragFlip.direction, oldEntry, newEntry);
+    dragFlip.pageWidth = dragFlip.sheet.getBoundingClientRect().width;
+  }
+
+  scheduleDragFlipUpdate();
+}
+
+function settleDragFlip() {
+  const { direction, sheet, progress } = dragFlip;
+  const completing = shouldCompleteFlip(progress);
+  const finalRotateDeg = completing ? (direction === 'next' ? -180 : 180) : 0;
+
+  document.querySelector('.diary-stage').classList.remove('diary-stage--dragging');
+  sheet.classList.add('diary-flip-sheet--settling');
+
+  let settled = false;
+  function finishDragFlip() {
+    if (settled) return;
+    settled = true;
+    sheet.removeEventListener('transitionend', onSettleTransitionEnd);
+    clearTimeout(settleFallbackTimer);
+    if (completing) {
+      state = direction === 'next' ? goToNext(state) : goToPrevious(state);
+    }
+    isFlipping = false;
+    renderStatic();
+    updateChrome();
+  }
+
+  function onSettleTransitionEnd(event) {
+    if (isSheetEventTarget(event, sheet)) finishDragFlip();
+  }
+
+  sheet.addEventListener('transitionend', onSettleTransitionEnd);
+
+  requestAnimationFrame(() => {
+    sheet.style.transform = `translate3d(0, 0, 0) rotateY(${finalRotateDeg}deg)`;
+    sheet.style.opacity = '1';
+  });
+
+  const settleDurationMs = parseFloat(getComputedStyle(sheet).transitionDuration) * 1000 || 700;
+  const settleFallbackTimer = setTimeout(finishDragFlip, settleDurationMs + 150);
+}
+
+function handleStagePointerUp(event) {
+  if (!dragFlip || event.pointerId !== dragFlip.pointerId) return;
+  event.currentTarget.releasePointerCapture(event.pointerId);
+
+  if (!dragFlip.moved) {
+    dragFlip = null;
+    return;
+  }
+
+  settleDragFlip();
+  dragFlip = null;
+}
+
+function handleStagePointerCancel(event) {
+  handleStagePointerUp(event);
+}
+
 function openCover(button) {
   flashClicked(button);
   state = openBook(state);
@@ -703,6 +836,12 @@ document.addEventListener('DOMContentLoaded', () => {
     flashClicked(event.currentTarget);
     playFlip('prev');
   });
+
+  const dragStageEl = document.querySelector('.diary-stage');
+  dragStageEl.addEventListener('pointerdown', handleStagePointerDown);
+  dragStageEl.addEventListener('pointermove', handleStagePointerMove);
+  dragStageEl.addEventListener('pointerup', handleStagePointerUp);
+  dragStageEl.addEventListener('pointercancel', handleStagePointerCancel);
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {

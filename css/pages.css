@@ -983,6 +983,31 @@
   transform: translate3d(0, 0, 0) rotateY(180deg);
 }
 
+/* Cursor affordance: grab-able while idle, grabbing while an active drag
+   is in progress (the class is toggled on .diary-stage itself, which
+   never gets replaced by buildFlipDOM — only its children do — so it's a
+   stable place to hang drag-state styling). */
+.diary.is-open .diary-page--left,
+.diary.is-open .diary-page--right {
+  cursor: grab;
+}
+
+.diary-stage--dragging,
+.diary-stage--dragging .diary-page--left,
+.diary-stage--dragging .diary-page--right {
+  cursor: grabbing;
+}
+
+/* The post-release settle: a single-interval transition (start = wherever
+   the drag left the sheet, end = fully open or fully reverted) — not
+   @keyframes, so it can't reintroduce the multi-stop stutter problem.
+   Toggled on only for the settle phase; during an active drag the sheet's
+   transform/opacity are written directly with no transition running. */
+.diary-flip-sheet--settling {
+  transition: transform var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1),
+    opacity var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1);
+}
+
 /* Static halves beneath the turning sheet: one side darkens as the page
    lifts off it, the other brightens as it's revealed. Duration shares
    --diary-flip-duration with the sheet's own rotation (see .diary) so
