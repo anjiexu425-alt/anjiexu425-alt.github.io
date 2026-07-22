@@ -8,8 +8,21 @@ import {
   goToPage,
   isSheetTransformEnd,
 } from './diary-state.mjs';
-import { fetchEntries, signIn, signOut, getSession, onAuthStateChange } from './diary-supabase.js';
-import { supabaseRowToEntry } from './diary-validation.mjs';
+import {
+  fetchEntries,
+  insertEntry,
+  uploadFile,
+  signIn,
+  signOut,
+  getSession,
+  onAuthStateChange,
+} from './diary-supabase.js';
+import {
+  isFileSizeAllowed,
+  buildUploadPath,
+  supabaseRowToEntry,
+  entryToSupabaseRow,
+} from './diary-validation.mjs';
 
 // Placeholder image labels always start with '[' (site-wide convention);
 // anything else is treated as a real image URL/path.
@@ -499,7 +512,22 @@ function closeWriteModal() {
   setMediaType('image');
 }
 
-function handleFormSubmit(event) {
+async function uploadMediaFiles(files) {
+  const urls = [];
+  for (const file of files) {
+    const mediaType = file.type.startsWith('video/') ? 'video' : 'image';
+    if (!isFileSizeAllowed(file.size, mediaType)) {
+      const limit = mediaType === 'video' ? '100MB' : '8MB';
+      throw new Error(`${file.name} is too large (max ${limit}).`);
+    }
+    const path = buildUploadPath(file.name, Date.now());
+    const url = await uploadFile(file, path);
+    urls.push(url);
+  }
+  return urls;
+}
+
+async function handleFormSubmit(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const data = new FormData(form);
@@ -508,34 +536,56 @@ function handleFormSubmit(event) {
   const date = data.get('date').trim();
   if (!title || !body || !date) return;
 
-  const mediaType = document.querySelector('.diary-form__tab.is-active').dataset.mediaType;
-  let urls;
-  if (mediaType === 'video') {
-    const videoUrl = data.get('video').trim();
-    urls = [videoUrl || '[Photo placeholder: new entry video]'];
-  } else {
-    urls = ['image1', 'image2', 'image3', 'image4']
-      .map((field) => data.get(field).trim())
-      .filter(Boolean);
-    if (urls.length === 0) urls = ['[Photo placeholder: new entry photo]'];
+  const errorEl = document.querySelector('.diary-form .diary-form__error');
+  errorEl.hidden = true;
+  const submitBtn = form.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Uploading…';
+
+  try {
+    const mediaType = document.querySelector('.diary-form__tab.is-active').dataset.mediaType;
+    let files;
+    if (mediaType === 'video') {
+      const videoFile = data.get('video');
+      files = videoFile && videoFile.size > 0 ? [videoFile] : [];
+    } else {
+      files = ['image1', 'image2', 'image3', 'image4']
+        .map((field) => data.get(field))
+        .filter((file) => file && file.size > 0);
+    }
+
+    let urls = await uploadMediaFiles(files);
+    if (urls.length === 0) {
+      urls = [mediaType === 'video' ? '[Photo placeholder: new entry video]' : '[Photo placeholder: new entry photo]'];
+    }
+
+    const newEntry = {
+      number: String(ENTRIES.length + 1).padStart(2, '0'),
+      category: data.get('category'),
+      date,
+      title,
+      quote: data.get('quote').trim(),
+      body,
+      media: { type: mediaType, urls, caption: data.get('caption').trim() },
+      mood: '',
+      weather: '',
+    };
+    const row = await insertEntry(entryToSupabaseRow(newEntry));
+    ENTRIES.push(supabaseRowToEntry(row));
+
+    state = goToPage(openBook(createDiaryState(ENTRIES.length)), ENTRIES.length - 1);
+    document.querySelector('.diary').classList.add('is-open');
+    buildDots();
+    renderStatic();
+    updateChrome();
+    closeWriteModal();
+  } catch (error) {
+    errorEl.textContent = error.message || 'Something went wrong saving this entry. Please try again.';
+    errorEl.hidden = false;
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Insert to Abroad Diary';
   }
-
-  ENTRIES.push({
-    number: String(ENTRIES.length + 1).padStart(2, '0'),
-    category: data.get('category'),
-    date,
-    title,
-    quote: data.get('quote').trim(),
-    body,
-    media: { type: mediaType, urls, caption: data.get('caption').trim() },
-  });
-
-  state = goToPage(openBook(createDiaryState(ENTRIES.length)), ENTRIES.length - 1);
-  document.querySelector('.diary').classList.add('is-open');
-  buildDots();
-  renderStatic();
-  updateChrome();
-  closeWriteModal();
 }
 
 document.addEventListener('DOMContentLoaded', () => {

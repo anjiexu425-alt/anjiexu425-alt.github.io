@@ -102,27 +102,27 @@
 
         <div class="diary-form__media-group" data-media-group="image">
           <label class="diary-form__field">
-            <span>Image 1 (URL or local path, e.g. assets/images/photo.jpg)</span>
-            <input type="text" name="image1" placeholder="Leave blank to use a placeholder" />
+            <span>Image 1 (max 8MB, leave blank to use a placeholder)</span>
+            <input type="file" name="image1" accept="image/*" />
           </label>
           <label class="diary-form__field">
             <span>Image 2 (optional)</span>
-            <input type="text" name="image2" />
+            <input type="file" name="image2" accept="image/*" />
           </label>
           <label class="diary-form__field">
             <span>Image 3 (optional)</span>
-            <input type="text" name="image3" />
+            <input type="file" name="image3" accept="image/*" />
           </label>
           <label class="diary-form__field">
             <span>Image 4 (optional)</span>
-            <input type="text" name="image4" />
+            <input type="file" name="image4" accept="image/*" />
           </label>
         </div>
 
         <div class="diary-form__media-group" data-media-group="video" hidden>
           <label class="diary-form__field">
-            <span>Video (URL or local path, e.g. assets/videos/clip.mp4)</span>
-            <input type="text" name="video" placeholder="Leave blank to use a placeholder" />
+            <span>Video (max 100MB, leave blank to use a placeholder)</span>
+            <input type="file" name="video" accept="video/*" />
           </label>
         </div>
 
@@ -131,6 +131,7 @@
           <input type="text" name="caption" placeholder="A short caption for the photo(s) or video" />
         </label>
 
+        <p class="diary-form__error" hidden></p>
         <div class="diary-form__actions">
           <button type="button" class="button diary-form__cancel">Cancel</button>
           <button type="submit" class="button button--primary">Insert to Abroad Diary</button>
