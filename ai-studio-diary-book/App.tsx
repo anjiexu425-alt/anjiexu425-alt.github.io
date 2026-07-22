@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  BookOpen, 
-  Book, 
-  PenTool, 
-  Plus, 
-  ChevronRight, 
+import {
+  BookOpen,
+  Book,
+  PenTool,
+  Pencil,
+  Plus,
+  ChevronRight,
   ChevronLeft, 
   Play, 
   Pause, 
@@ -655,6 +656,51 @@ export default function App() {
   // Current active spread
   const activeSpread = displaySpreads[currentIndex];
 
+  // Open the writer modal pre-filled with the currently displayed spread's
+  // content, so saving replaces this page instead of adding a new one.
+  const handleOpenEditor = () => {
+    if (!activeSpread || activeSpread.id === 'blank-spread') return;
+
+    setEditingSpreadId(activeSpread.id);
+    setWritingTitle(activeSpread.leftPage.title);
+    setWritingBody(activeSpread.leftPage.bodyText);
+    setWritingDate(activeSpread.leftPage.date || curDate());
+    setCustomQuote(activeSpread.leftPage.quote || '');
+    setMediaCaption(activeSpread.rightPage.caption || '');
+
+    const rawCategory = activeSpread.leftPage.category?.includes('/')
+      ? activeSpread.leftPage.category.split('/')[1].trim()
+      : activeSpread.leftPage.category || '';
+    const matchedCategory = CATEGORY_OPTIONS.find(
+      (opt) => opt.value.toLowerCase() === rawCategory.toLowerCase()
+    );
+    setWritingCategory(matchedCategory ? matchedCategory.value : 'Abroad');
+
+    if (activeSpread.rightPage.urls && activeSpread.rightPage.urls.length > 0) {
+      setUseCustomMedia(true);
+      setCustomMediaType('image');
+      setCustomMediaUrl(activeSpread.rightPage.urls[0] || '');
+      setCustomImageUrls([
+        activeSpread.rightPage.urls[1] || '',
+        activeSpread.rightPage.urls[2] || '',
+        activeSpread.rightPage.urls[3] || ''
+      ]);
+    } else {
+      const matchedPreset = PRESET_MEDIA_LIST.find((m) => m.url === activeSpread.rightPage.url);
+      if (matchedPreset) {
+        setUseCustomMedia(false);
+        setSelectedMedia(matchedPreset);
+      } else {
+        setUseCustomMedia(true);
+        setCustomMediaType(activeSpread.rightPage.type);
+        setCustomMediaUrl(activeSpread.rightPage.url);
+        setCustomImageUrls(['', '', '']);
+      }
+    }
+
+    setIsWriting(true);
+  };
+
   return (
     <div id="diary-app-root" className="min-h-screen relative overflow-hidden bg-[#f5f4f0] text-neutral-800 font-sans flex flex-col justify-between selection:bg-brand-blue/10 selection:text-brand-blue">
       
@@ -759,6 +805,18 @@ export default function App() {
               title={`Volume: ${Math.round(musicVolume * 100)}%`}
             />
           </div>
+
+          {/* Edit Button */}
+          <button
+            id="edit-diary-btn"
+            onClick={handleOpenEditor}
+            disabled={!isOpen || isDiaryEmpty || activeSpread.id === 'blank-spread'}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-white text-brand-blue border border-brand-blue/40 rounded-full font-medium text-xs shadow-sm hover:bg-brand-blue/5 hover:scale-105 active:scale-95 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:bg-white"
+            title="Edit the current diary page"
+          >
+            <Pencil size={13} />
+            <span>Edit</span>
+          </button>
 
           {/* Write Button */}
           <button
