@@ -934,13 +934,21 @@
    not a paint-performance problem, which is why contain/font-smoothing
    didn't fix it) — fading the content there masks the artifact instead
    of fighting it, and reads naturally since a real page mid-turn isn't
-   legible either. */
+   legible either.
+   Timing is linear, not the eased curve used elsewhere: a non-linear
+   timing function on a multi-keyframe animation replays in full across
+   *each* keyframe interval (0%->40%, 40%->60%, 60%->100%), not once
+   across the whole animation — three eased bursts chained together reads
+   as visible stutter/juddering, which is exactly what a real user caught.
+   linear keeps the eased "picked up and turned" feel entirely in the
+   keyframe values themselves (the arc lift, the uneven spacing of the
+   rotation waypoints) rather than in a repeatedly-replayed easing curve. */
 .diary-flip-sheet--next.is-flipped {
-  animation: diary-flip-next var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  animation: diary-flip-next var(--diary-flip-duration) linear forwards;
 }
 
 .diary-flip-sheet--prev.is-flipped {
-  animation: diary-flip-prev var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  animation: diary-flip-prev var(--diary-flip-duration) linear forwards;
 }
 
 @keyframes diary-flip-next {
