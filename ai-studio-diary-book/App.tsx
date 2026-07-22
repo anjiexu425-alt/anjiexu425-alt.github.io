@@ -365,6 +365,7 @@ export default function App() {
 
   // Diary Writing Modal
   const [isWriting, setIsWriting] = useState<boolean>(false);
+  const [editingSpreadId, setEditingSpreadId] = useState<string | null>(null);
   const handleOpenWriter = useCallback(() => setIsWriting(true), []);
   const [writingTitle, setWritingTitle] = useState<string>('');
   const [writingBody, setWritingBody] = useState<string>('');
@@ -380,6 +381,24 @@ export default function App() {
   const [mediaCaption, setMediaCaption] = useState<string>('');
   const [useCustomMedia, setUseCustomMedia] = useState<boolean>(false);
   const [isUploadingFiles, setIsUploadingFiles] = useState<boolean>(false);
+
+  // Resets every writer-modal field back to its "new entry" defaults and
+  // clears edit mode. Used after a successful save and on cancel/close so
+  // an in-progress edit never leaks into the next "Write Diary" draft.
+  const resetWriterForm = useCallback(() => {
+    setEditingSpreadId(null);
+    setWritingTitle('');
+    setWritingBody('');
+    setWritingCategory('Abroad');
+    setWritingDate(curDate());
+    setCustomQuote('');
+    setSelectedMedia(PRESET_MEDIA_LIST[0]);
+    setCustomMediaUrl('');
+    setCustomImageUrls(['', '', '', '']);
+    setCustomMediaType('video');
+    setMediaCaption('');
+    setUseCustomMedia(false);
+  }, []);
 
   // AI Enrichment state
   const [isEnriching, setIsEnriching] = useState<boolean>(false);
@@ -551,16 +570,10 @@ export default function App() {
 
     const updated = [...spreads, newSpread];
     setSpreads(updated);
-    
-    // Clear and close modal
-    setWritingTitle('');
-    setWritingBody('');
-    setCustomQuote('');
-    setMediaCaption('');
-    setCustomMediaUrl('');
-    setCustomImageUrls(['', '', '', '']);
+
+    resetWriterForm();
     setIsWriting(false);
-    
+
     // Switch filter to 'All' so they can see it and jump to it
     setSelectedCategory('All');
     setIsOpen(true);
@@ -1311,7 +1324,7 @@ export default function App() {
                 </div>
                 <button
                   id="close-writer-btn"
-                  onClick={() => setIsWriting(false)}
+                  onClick={() => { resetWriterForm(); setIsWriting(false); }}
                   className="w-8 h-8 rounded-full flex items-center justify-center text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors cursor-pointer"
                 >
                   <X size={18} />
@@ -1725,7 +1738,7 @@ export default function App() {
                 <button
                   id="writer-cancel-btn"
                   type="button"
-                  onClick={() => setIsWriting(false)}
+                  onClick={() => { resetWriterForm(); setIsWriting(false); }}
                   className="px-4 py-2 bg-neutral-200 text-neutral-700 hover:bg-neutral-300 rounded-full font-medium text-xs transition-colors cursor-pointer"
                 >
                   Cancel
