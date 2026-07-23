@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as diaryLayout from './diary-layout.mjs';
-import { createMediaLayoutCache } from './diary-media.mjs';
+import * as diaryMedia from './diary-media.mjs';
 import { createFlipTransition } from './diary-state.mjs';
 import * as diaryDOM from './diary-dom.mjs';
 
+const { createMediaLayoutCache } = diaryMedia;
 const {
   normalizePageLayout,
   pageContentHTML,
@@ -237,6 +238,47 @@ test('Next uses physical spreads for underlays and sheet faces across opposite l
   assertEntryAndRole(transition.underlayRightHTML, 'target', 'text');
   assertEntryAndRole(transition.frontHTML, 'current', 'media');
   assertEntryAndRole(transition.backHTML, 'target', 'media');
+});
+
+test('uncached text-left to media-left prewarms intrinsic layouts before building every curl face', async () => {
+  assert.equal(
+    typeof diaryMedia.createMediaIntrinsicPrewarmer,
+    'function',
+    'production must expose an entry-aware intrinsic media prewarmer',
+  );
+  const entries = [
+    diaryEntry('current', 'text-left'),
+    diaryEntry('target', 'media-left'),
+  ];
+  const layoutCache = createMediaLayoutCache();
+  const prewarmer = diaryMedia.createMediaIntrinsicPrewarmer(layoutCache, {
+    loadImageMetadata: async (url) => (
+      url === 'current.jpg'
+        ? { width: 1600, height: 900 }
+        : { width: 900, height: 1200 }
+    ),
+    timeoutMs: 50,
+  });
+
+  assert.equal(layoutCache.get(entries[0]), undefined);
+  assert.equal(layoutCache.get(entries[1]), undefined);
+  assert.equal(await prewarmer.ensure(entries), true);
+
+  const transition = transitionHTMLForEntries(entries[0], entries[1], {
+    ...contentOptions(entries, layoutCache),
+    active: false,
+  });
+  const built = diaryDOM.buildCurlSpreadDOM(fakeStage(), transition);
+
+  built.slices.forEach(({ el }) => {
+    const frontHTML = el.children[0].children[0].innerHTML;
+    const backHTML = el.children[1].children[0].innerHTML;
+    assert.match(frontHTML, /diary-polaroid--landscape/);
+    assert.match(backHTML, /diary-polaroid--portrait/);
+    assert.match(backHTML, /diary-page__media--portrait/);
+    assert.doesNotMatch(frontHTML, /diary-polaroid--unknown/);
+    assert.doesNotMatch(backHTML, /diary-polaroid--unknown/);
+  });
 });
 
 test('Previous reverses canonical progress without swapping physical page mappings', () => {

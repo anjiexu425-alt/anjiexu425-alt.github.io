@@ -19,6 +19,7 @@ import {
   easeInOutCubic,
 } from './diary-state.mjs';
 import {
+  createMediaIntrinsicPrewarmer,
   createMediaLayoutCache,
   hydrateSingleMediaLayouts,
 } from './diary-media.mjs';
@@ -62,6 +63,7 @@ let ENTRIES = [];
 let state = createDiaryState(ENTRIES.length);
 let isFlipping = false;
 const mediaLayoutCache = createMediaLayoutCache();
+const mediaIntrinsicPrewarmer = createMediaIntrinsicPrewarmer(mediaLayoutCache);
 
 // Non-null while the write/edit modal is open in edit mode — the id of the
 // entry being edited. Reset to null by closeWriteModal() so an in-progress
@@ -128,27 +130,21 @@ function renderStatic() {
   });
 }
 
-// Runs once on page load. Shows a loading message inside .diary-stage
-// (invisible until the book is opened, since .diary-book is display:none
-// until .diary.is-open) so that by the time the user clicks the cover
-// open, real content is already in place.
-// Photos now live on Supabase Storage instead of local files, so a page
-// flipped to for the first time can show a still-loading image mid-flip —
-// fetching every real photo into the browser's cache as soon as entries
-// are known (fire-and-forget, not awaited) means by the time a user
-// actually flips to any given page, its photos are already cached and
-// paint instantly instead of popping in a moment after the flip.
-function preloadEntryImages(entries) {
+function preloadEntryGalleryImages(entries) {
   entries.forEach((entry) => {
-    if (entry.media.type !== 'image') return;
+    if (entry.media.type !== 'image' || entry.media.urls.length <= 1) return;
     entry.media.urls.forEach((url) => {
       if (isPlaceholder(url)) return;
-      const img = new Image();
-      img.src = url;
+      const image = new Image();
+      image.src = url;
     });
   });
 }
 
+// Runs once on page load. Shows a loading message inside .diary-stage
+// (invisible until the book is opened, since .diary-book is display:none
+// until .diary.is-open) so that by the time the user clicks the cover
+// open, real content is already in place.
 async function initEntries() {
   const stage = document.querySelector('.diary-stage');
   stage.innerHTML = '<p class="diary-empty">Loading diary…</p>';
@@ -162,7 +158,12 @@ async function initEntries() {
     console.error('Failed to load diary entries', error);
     return;
   }
-  preloadEntryImages(ENTRIES);
+  // Start entry-scoped image/video metadata loading before rendering the
+  // first spread. This stays fire-and-forget so diary startup is never
+  // blocked; click/drag paths below gate curl construction on the same
+  // bounded, deduplicated work.
+  preloadEntryGalleryImages(ENTRIES);
+  void mediaIntrinsicPrewarmer.prewarmAll(ENTRIES);
   state = createDiaryState(ENTRIES.length);
   buildDots();
   renderStatic();
@@ -329,6 +330,10 @@ function readFlipDurationMs() {
   return raw.endsWith('ms') ? value : value * 1000;
 }
 
+function prepareCurlEntries(fromEntry, toEntry) {
+  return mediaIntrinsicPrewarmer.ensure([fromEntry, toEntry]);
+}
+
 function buildCurlDOM(fromEntry, toEntry) {
   const stage = document.querySelector('.diary-stage');
   const transition = transitionHTMLForEntries(fromEntry, toEntry, false);
@@ -399,13 +404,30 @@ async function playFlip(direction) {
     return;
   }
 
+  const fromEntry = ENTRIES[descriptor.fromIndex];
+  const toEntry = ENTRIES[descriptor.toIndex];
   isFlipping = true;
   updateChrome();
 
-  const elements = buildCurlDOM(
-    ENTRIES[descriptor.fromIndex],
-    ENTRIES[descriptor.toIndex],
-  );
+  const mediaReady = await prepareCurlEntries(fromEntry, toEntry);
+  if (!mediaReady) {
+    // Metadata loading is bounded by the prewarmer timeout. Keeping the
+    // settled spread in place is the only fallback that cannot produce a
+    // 3:4-to-intrinsic snap on a newly revealed back face.
+    isFlipping = false;
+    updateChrome();
+    return;
+  }
+  if (
+    ENTRIES[descriptor.fromIndex] !== fromEntry
+    || ENTRIES[descriptor.toIndex] !== toEntry
+  ) {
+    isFlipping = false;
+    updateChrome();
+    return;
+  }
+
+  const elements = buildCurlDOM(fromEntry, toEntry);
   await runFlipAnimation(
     elements,
     descriptor.startProgress,
@@ -465,6 +487,17 @@ function handleStagePointerDown(event) {
   if (!direction) return;
   const descriptor = createFlipTransition(state.current, direction);
   if (descriptor.fromIndex < 0 || descriptor.toIndex >= state.totalPages) return;
+  const flipEntries = [
+    ENTRIES[descriptor.fromIndex],
+    ENTRIES[descriptor.toIndex],
+  ];
+  if (!mediaIntrinsicPrewarmer.isReady(flipEntries)) {
+    // A drag cannot pause midway while metadata arrives. Warm it now and
+    // leave this gesture on the settled spread; a later gesture can build
+    // the curl only after both physical faces have stable intrinsic ratios.
+    void mediaIntrinsicPrewarmer.prewarmAll(flipEntries);
+    return;
+  }
 
   event.currentTarget.setPointerCapture(event.pointerId);
   dragFlip = {
@@ -730,6 +763,7 @@ async function handleFormSubmit(event) {
       mediaLayoutCache.invalidate(existingEntry);
       ENTRIES[index] = supabaseRowToEntry(row);
       mediaLayoutCache.prune(ENTRIES);
+      void mediaIntrinsicPrewarmer.prewarm(ENTRIES[index]);
 
       renderStatic();
       updateChrome();
@@ -757,6 +791,7 @@ async function handleFormSubmit(event) {
       const row = await insertEntry(entryToSupabaseRow(newEntry));
       ENTRIES.push(supabaseRowToEntry(row));
       mediaLayoutCache.prune(ENTRIES);
+      void mediaIntrinsicPrewarmer.prewarm(ENTRIES.at(-1));
 
       state = goToPage(openBook(createDiaryState(ENTRIES.length)), ENTRIES.length - 1);
       document.querySelector('.diary').classList.add('is-open');

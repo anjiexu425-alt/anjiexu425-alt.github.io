@@ -36,6 +36,10 @@ import {
 const diarySource = readFileSync(new URL('./diary.js', import.meta.url), 'utf8');
 const diaryCSS = readFileSync(new URL('../css/pages.css', import.meta.url), 'utf8');
 const diaryHTML = readFileSync(new URL('../study-diary.html', import.meta.url), 'utf8');
+const pageLayoutFixture = readFileSync(
+  new URL('../page-layout-fixture.html', import.meta.url),
+  'utf8',
+);
 
 test('Write/Edit form exposes an accessible default page-layout choice', () => {
   const layoutFieldset = diaryHTML.match(
@@ -277,6 +281,96 @@ test('production rendering delegates mapped spreads to the executable DOM builde
     buildCurlSource,
     /const elements = buildCurlSpreadDOM\(stage,\s*transition\)/,
   );
+});
+
+test('production prewarms early and gates click and drag curl construction on ready intrinsic layouts', () => {
+  const initEntriesSource = diarySource.match(
+    /async function initEntries[\s\S]*?\n\}/,
+  )?.[0];
+  const prepareCurlSource = diarySource.match(
+    /function prepareCurlEntries[\s\S]*?\n\}/,
+  )?.[0];
+  const playFlipSource = diarySource.match(
+    /async function playFlip[\s\S]*?\n\}\n\nconst DRAG_THRESHOLD/,
+  )?.[0];
+  const pointerDownSource = diarySource.match(
+    /function handleStagePointerDown[\s\S]*?\n\}\n\nfunction handleStagePointerMove/,
+  )?.[0];
+
+  assert.match(
+    diarySource,
+    /createMediaIntrinsicPrewarmer\(mediaLayoutCache\)/,
+  );
+  assert.ok(initEntriesSource);
+  assert.match(
+    initEntriesSource,
+    /mediaIntrinsicPrewarmer\.prewarmAll\(ENTRIES\)[\s\S]*?renderStatic\(\)/,
+  );
+  assert.ok(prepareCurlSource);
+  assert.match(
+    prepareCurlSource,
+    /mediaIntrinsicPrewarmer\.ensure\(\[fromEntry,\s*toEntry\]\)/,
+  );
+  assert.ok(playFlipSource);
+  assert.match(
+    playFlipSource,
+    /await prepareCurlEntries\(fromEntry,\s*toEntry\)[\s\S]*?if \(!mediaReady\)[\s\S]*?return;[\s\S]*?buildCurlDOM\(fromEntry,\s*toEntry\)/,
+  );
+  assert.ok(pointerDownSource);
+  assert.match(
+    pointerDownSource,
+    /if \(!mediaIntrinsicPrewarmer\.isReady\(flipEntries\)\)[\s\S]*?prewarmAll\(flipEntries\)[\s\S]*?return;[\s\S]*?setPointerCapture/,
+  );
+});
+
+test('startup keeps eager gallery image warming without duplicating single-media intrinsic loads', () => {
+  const galleryWarmSource = diarySource.match(
+    /function preloadEntryGalleryImages[\s\S]*?\n\}/,
+  )?.[0];
+  const initEntriesSource = diarySource.match(
+    /async function initEntries[\s\S]*?\n\}/,
+  )?.[0];
+
+  assert.ok(galleryWarmSource);
+  assert.match(
+    galleryWarmSource,
+    /entry\.media\.type !== 'image'[\s\S]*?entry\.media\.urls\.length <= 1/,
+  );
+  assert.match(galleryWarmSource, /const image = new Image\(\)/);
+  assert.ok(initEntriesSource);
+  assert.match(
+    initEntriesSource,
+    /preloadEntryGalleryImages\(ENTRIES\)[\s\S]*?mediaIntrinsicPrewarmer\.prewarmAll\(ENTRIES\)[\s\S]*?renderStatic\(\)/,
+  );
+});
+
+test('acceptance fixture prewarms real media and delegates settled and curl DOM to production builders', () => {
+  assert.match(
+    pageLayoutFixture,
+    /createMediaIntrinsicPrewarmer/,
+  );
+  assert.match(
+    pageLayoutFixture,
+    /renderSettledSpreadDOM/,
+  );
+  assert.match(
+    pageLayoutFixture,
+    /buildCurlSpreadDOM/,
+  );
+  assert.match(
+    pageLayoutFixture,
+    /await mediaIntrinsicPrewarmer\.ensure\(entries\)/,
+  );
+  assert.match(
+    pageLayoutFixture,
+    /renderSettledSpreadDOM\(root,\s*spread\)/,
+  );
+  assert.match(
+    pageLayoutFixture,
+    /buildCurlSpreadDOM\(builderStage,\s*transition\)/,
+  );
+  assert.doesNotMatch(pageLayoutFixture, /layoutCache\.set\(/);
+  assert.match(pageLayoutFixture, /Fixture-only form harness/);
 });
 
 test('content-role wrappers own text and media alignment independently of physical side', () => {
@@ -569,6 +663,225 @@ test('media layout cache isolates entries that reuse the same URL', () => {
     layoutCache,
     renderItem: () => '<img>',
   }), /diary-page__media--unknown/);
+});
+
+test('intrinsic prewarming fills entry-scoped image and video layouts concurrently', async () => {
+  assert.equal(
+    typeof diaryMedia.createMediaIntrinsicPrewarmer,
+    'function',
+    'production must expose an intrinsic media prewarmer',
+  );
+  const imageEntry = {
+    id: 'prewarm-image',
+    media: { type: 'image', urls: ['photo.jpg'] },
+  };
+  const videoEntry = {
+    id: 'prewarm-video',
+    media: { type: 'video', urls: ['clip.mp4'] },
+  };
+  const calls = [];
+  const layoutCache = createMediaLayoutCache();
+  const prewarmer = diaryMedia.createMediaIntrinsicPrewarmer(layoutCache, {
+    loadImageMetadata: async (url) => {
+      calls.push(['image', url]);
+      return { width: 1600, height: 900 };
+    },
+    loadVideoMetadata: async (url) => {
+      calls.push(['video', url]);
+      return { width: 900, height: 1200 };
+    },
+    timeoutMs: 50,
+  });
+
+  assert.deepEqual(await prewarmer.prewarmAll([imageEntry, videoEntry]), [
+    {
+      status: 'ready',
+      layout: { orientation: 'landscape', aspectRatio: 16 / 9 },
+    },
+    {
+      status: 'ready',
+      layout: { orientation: 'portrait', aspectRatio: 3 / 4 },
+    },
+  ]);
+  assert.deepEqual(calls, [
+    ['image', 'photo.jpg'],
+    ['video', 'clip.mp4'],
+  ]);
+  assert.deepEqual(layoutCache.get(imageEntry), {
+    orientation: 'landscape',
+    aspectRatio: 16 / 9,
+  });
+  assert.deepEqual(layoutCache.get(videoEntry), {
+    orientation: 'portrait',
+    aspectRatio: 3 / 4,
+  });
+  assert.equal(prewarmer.isReady([imageEntry, videoEntry]), true);
+});
+
+test('settled render generations do not cancel a target entry prewarm generation', async () => {
+  const currentEntry = {
+    id: 'settled-current',
+    media: { type: 'image', urls: ['current.jpg'] },
+  };
+  const targetEntry = {
+    id: 'pending-target',
+    media: { type: 'image', urls: ['target.jpg'] },
+  };
+  let resolveTarget;
+  const targetMetadata = new Promise((resolve) => {
+    resolveTarget = resolve;
+  });
+  const layoutCache = createMediaLayoutCache();
+  const prewarmer = diaryMedia.createMediaIntrinsicPrewarmer(layoutCache, {
+    loadImageMetadata: () => targetMetadata,
+    timeoutMs: 50,
+  });
+  const targetPrewarm = prewarmer.prewarm(targetEntry);
+  await Promise.resolve();
+
+  const settledGeneration = layoutCache.begin(currentEntry);
+  assert.equal(layoutCache.set(settledGeneration, {
+    orientation: 'square',
+    aspectRatio: 1,
+  }), true);
+  resolveTarget({ width: 900, height: 1200 });
+
+  assert.deepEqual(await targetPrewarm, {
+    status: 'ready',
+    layout: { orientation: 'portrait', aspectRatio: 3 / 4 },
+  });
+  assert.deepEqual(layoutCache.get(targetEntry), {
+    orientation: 'portrait',
+    aspectRatio: 3 / 4,
+  });
+});
+
+test('intrinsic prewarming is deduplicated and fails within a bounded timeout', async () => {
+  const failedEntry = {
+    id: 'failed-prewarm',
+    media: { type: 'image', urls: ['never.jpg'] },
+  };
+  let loadCalls = 0;
+  const layoutCache = createMediaLayoutCache();
+  const prewarmer = diaryMedia.createMediaIntrinsicPrewarmer(layoutCache, {
+    loadImageMetadata: () => {
+      loadCalls += 1;
+      return new Promise(() => {});
+    },
+    timeoutMs: 5,
+  });
+
+  const first = prewarmer.prewarm(failedEntry);
+  const second = prewarmer.prewarm(failedEntry);
+  assert.strictEqual(first, second);
+  assert.deepEqual(await first, { status: 'timed-out' });
+  assert.equal(loadCalls, 1);
+  assert.equal(layoutCache.get(failedEntry), undefined);
+  assert.equal(await prewarmer.ensure([failedEntry]), false);
+});
+
+test('failed metadata and entries without intrinsic media settle without poisoning cache', async () => {
+  const failedVideo = {
+    id: 'failed-video',
+    media: { type: 'video', urls: ['broken.mp4'] },
+  };
+  const gallery = {
+    id: 'gallery',
+    media: { type: 'image', urls: ['first.jpg', 'second.jpg'] },
+  };
+  const placeholder = {
+    id: 'placeholder',
+    media: { type: 'image', urls: ['[Photo placeholder: campus]'] },
+  };
+  const layoutCache = createMediaLayoutCache();
+  const prewarmer = diaryMedia.createMediaIntrinsicPrewarmer(layoutCache, {
+    loadVideoMetadata: async () => {
+      throw new Error('metadata unavailable');
+    },
+    timeoutMs: 50,
+  });
+
+  assert.deepEqual(await prewarmer.prewarm(failedVideo), { status: 'failed' });
+  assert.deepEqual(await prewarmer.prewarm(gallery), { status: 'not-needed' });
+  assert.deepEqual(await prewarmer.prewarm(placeholder), { status: 'not-needed' });
+  assert.equal(layoutCache.size, 0);
+  assert.equal(prewarmer.isReady([gallery, placeholder]), true);
+  assert.equal(prewarmer.isReady([failedVideo]), false);
+});
+
+test('late prewarm metadata cannot survive an edit or deletion generation', async () => {
+  const editedEntry = {
+    id: 'prewarm-edited',
+    media: { type: 'image', urls: ['before.jpg'] },
+  };
+  const editedReplacement = {
+    id: 'prewarm-edited',
+    media: { type: 'image', urls: ['after.jpg'] },
+  };
+  const deletedEntry = {
+    id: 'prewarm-deleted',
+    media: { type: 'video', urls: ['deleted.mp4'] },
+  };
+  let resolveEdited;
+  let resolveDeleted;
+  const layoutCache = createMediaLayoutCache();
+  const prewarmer = diaryMedia.createMediaIntrinsicPrewarmer(layoutCache, {
+    loadImageMetadata: () => new Promise((resolve) => {
+      resolveEdited = resolve;
+    }),
+    loadVideoMetadata: () => new Promise((resolve) => {
+      resolveDeleted = resolve;
+    }),
+    timeoutMs: 50,
+  });
+  const editedPrewarm = prewarmer.prewarm(editedEntry);
+  const deletedPrewarm = prewarmer.prewarm(deletedEntry);
+  await Promise.resolve();
+
+  layoutCache.invalidate(editedEntry);
+  layoutCache.invalidate(deletedEntry);
+  layoutCache.prune([editedReplacement]);
+  resolveEdited({ width: 1600, height: 900 });
+  resolveDeleted({ width: 900, height: 1200 });
+
+  assert.deepEqual(await editedPrewarm, { status: 'stale' });
+  assert.deepEqual(await deletedPrewarm, { status: 'stale' });
+  assert.equal(layoutCache.get(editedReplacement), undefined);
+  assert.equal(layoutCache.get(deletedEntry), undefined);
+});
+
+test('an in-place media edit starts a new prewarm instead of deduplicating stale work', async () => {
+  const entry = {
+    id: 'in-place-edit',
+    media: { type: 'image', urls: ['before.jpg'] },
+  };
+  const resolvers = new Map();
+  const layoutCache = createMediaLayoutCache();
+  const prewarmer = diaryMedia.createMediaIntrinsicPrewarmer(layoutCache, {
+    loadImageMetadata: (url) => new Promise((resolve) => {
+      resolvers.set(url, resolve);
+    }),
+    timeoutMs: 50,
+  });
+
+  const beforePrewarm = prewarmer.prewarm(entry);
+  await Promise.resolve();
+  entry.media.urls = ['after.jpg'];
+  const afterPrewarm = prewarmer.prewarm(entry);
+  await Promise.resolve();
+
+  assert.notStrictEqual(beforePrewarm, afterPrewarm);
+  resolvers.get('before.jpg')({ width: 1600, height: 900 });
+  resolvers.get('after.jpg')({ width: 900, height: 1200 });
+  assert.deepEqual(await beforePrewarm, { status: 'stale' });
+  assert.deepEqual(await afterPrewarm, {
+    status: 'ready',
+    layout: { orientation: 'portrait', aspectRatio: 3 / 4 },
+  });
+  assert.deepEqual(layoutCache.get(entry), {
+    orientation: 'portrait',
+    aspectRatio: 3 / 4,
+  });
 });
 
 test('media replacement invalidates a same-entry same-URL layout and its old generation', () => {

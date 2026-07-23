@@ -22,8 +22,9 @@ function mediaSignature(entry) {
 
 export function createMediaLayoutCache() {
   const layouts = new Map();
-  const currentGenerations = new Map();
+  const entryGenerations = new Map();
   const anonymousEntryKeys = new WeakMap();
+  let renderGeneration = null;
   let nextAnonymousKey = 0;
   let nextGeneration = 0;
 
@@ -42,10 +43,30 @@ export function createMediaLayoutCache() {
     const cached = layouts.get(key);
     if (cached && cached.signature !== signature) layouts.delete(key);
 
-    const generation = currentGenerations.get(key);
-    if (generation && generation.signature !== signature) {
-      currentGenerations.delete(key);
+    if (
+      renderGeneration?.key === key
+      && renderGeneration.signature !== signature
+    ) {
+      renderGeneration = null;
     }
+
+    const entryGeneration = entryGenerations.get(key);
+    if (entryGeneration && entryGeneration.signature !== signature) {
+      entryGenerations.delete(key);
+    }
+  };
+
+  const createGeneration = (entry, lane) => {
+    const key = keyFor(entry);
+    const signature = mediaSignature(entry);
+    rejectChangedMedia(key, signature);
+    nextGeneration += 1;
+    return Object.freeze({
+      key,
+      signature,
+      lane,
+      generation: nextGeneration,
+    });
   };
 
   return {
@@ -61,31 +82,50 @@ export function createMediaLayoutCache() {
     },
 
     begin(entry) {
-      const key = keyFor(entry);
-      const signature = mediaSignature(entry);
-      rejectChangedMedia(key, signature);
-      nextGeneration += 1;
-      const token = Object.freeze({ key, signature, generation: nextGeneration });
-      currentGenerations.clear();
-      currentGenerations.set(key, token);
+      const token = createGeneration(entry, 'render');
+      renderGeneration = token;
+      return token;
+    },
+
+    beginEntry(entry) {
+      const token = createGeneration(entry, 'entry');
+      entryGenerations.set(token.key, token);
       return token;
     },
 
     set(token, layout) {
-      if (!token || currentGenerations.get(token.key) !== token) return false;
+      if (!token) return false;
+      const isCurrent = token.lane === 'entry'
+        ? entryGenerations.get(token.key) === token
+        : renderGeneration === token;
+      if (!isCurrent) return false;
       layouts.set(token.key, { signature: token.signature, layout });
+      return true;
+    },
+
+    cancel(token) {
+      if (!token) return false;
+      if (token.lane === 'entry') {
+        if (entryGenerations.get(token.key) !== token) return false;
+        entryGenerations.delete(token.key);
+        return true;
+      }
+      if (renderGeneration !== token) return false;
+      renderGeneration = null;
       return true;
     },
 
     invalidate(entry) {
       if (entry === undefined) {
         layouts.clear();
-        currentGenerations.clear();
+        entryGenerations.clear();
+        renderGeneration = null;
         return;
       }
       const key = keyFor(entry);
       layouts.delete(key);
-      currentGenerations.delete(key);
+      entryGenerations.delete(key);
+      if (renderGeneration?.key === key) renderGeneration = null;
     },
 
     prune(entries) {
@@ -95,11 +135,221 @@ export function createMediaLayoutCache() {
       layouts.forEach((cached, key) => {
         if (referenced.get(key) !== cached.signature) layouts.delete(key);
       });
-      currentGenerations.forEach((token, key) => {
-        if (referenced.get(key) !== token.signature) currentGenerations.delete(key);
+      entryGenerations.forEach((token, key) => {
+        if (referenced.get(key) !== token.signature) entryGenerations.delete(key);
       });
+      if (
+        renderGeneration
+        && referenced.get(renderGeneration.key) !== renderGeneration.signature
+      ) renderGeneration = null;
     },
   };
+}
+
+function intrinsicMediaRequest(entry) {
+  const urls = Array.isArray(entry?.media?.urls) ? entry.media.urls : [];
+  if (urls.length !== 1) return null;
+  const url = String(urls[0]);
+  if (url.startsWith('[')) return null;
+  if (entry?.media?.type !== 'image' && entry?.media?.type !== 'video') {
+    return null;
+  }
+  return { type: entry.media.type, url };
+}
+
+function abortError() {
+  const error = new Error('Media metadata loading was aborted.');
+  error.name = 'AbortError';
+  return error;
+}
+
+function timeoutError() {
+  const error = new Error('Media metadata loading timed out.');
+  error.name = 'TimeoutError';
+  return error;
+}
+
+function loadImageMetadataInBrowser(url, { signal } = {}) {
+  return new Promise((resolve, reject) => {
+    if (typeof Image === 'undefined') {
+      reject(new Error('Image metadata loading requires a browser.'));
+      return;
+    }
+    const image = new Image();
+    const cleanup = () => {
+      image.removeEventListener('load', handleLoad);
+      image.removeEventListener('error', handleError);
+      signal?.removeEventListener('abort', handleAbort);
+    };
+    const handleLoad = () => {
+      const dimensions = {
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      };
+      cleanup();
+      resolve(dimensions);
+    };
+    const handleError = () => {
+      cleanup();
+      reject(new Error(`Could not load image metadata for ${url}`));
+    };
+    const handleAbort = () => {
+      cleanup();
+      image.src = '';
+      reject(abortError());
+    };
+
+    if (signal?.aborted) {
+      handleAbort();
+      return;
+    }
+    image.addEventListener('load', handleLoad, { once: true });
+    image.addEventListener('error', handleError, { once: true });
+    signal?.addEventListener('abort', handleAbort, { once: true });
+    image.src = url;
+  });
+}
+
+function loadVideoMetadataInBrowser(url, { signal } = {}) {
+  return new Promise((resolve, reject) => {
+    if (typeof document === 'undefined') {
+      reject(new Error('Video metadata loading requires a browser.'));
+      return;
+    }
+    const video = document.createElement('video');
+    const cleanup = () => {
+      video.removeEventListener('loadedmetadata', handleMetadata);
+      video.removeEventListener('error', handleError);
+      signal?.removeEventListener('abort', handleAbort);
+    };
+    const stopLoading = () => {
+      video.removeAttribute('src');
+      video.load();
+    };
+    const handleMetadata = () => {
+      const dimensions = {
+        width: video.videoWidth,
+        height: video.videoHeight,
+      };
+      cleanup();
+      stopLoading();
+      resolve(dimensions);
+    };
+    const handleError = () => {
+      cleanup();
+      stopLoading();
+      reject(new Error(`Could not load video metadata for ${url}`));
+    };
+    const handleAbort = () => {
+      cleanup();
+      stopLoading();
+      reject(abortError());
+    };
+
+    if (signal?.aborted) {
+      handleAbort();
+      return;
+    }
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+    video.addEventListener('loadedmetadata', handleMetadata, { once: true });
+    video.addEventListener('error', handleError, { once: true });
+    signal?.addEventListener('abort', handleAbort, { once: true });
+    video.src = url;
+    video.load();
+  });
+}
+
+function loadMetadataWithin(loader, url, entry, timeoutMs) {
+  const controller = new AbortController();
+  let timeoutId;
+  const metadata = Promise.resolve().then(() => loader(url, {
+    entry,
+    signal: controller.signal,
+  }));
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      controller.abort();
+      reject(timeoutError());
+    }, timeoutMs);
+  });
+  return Promise.race([metadata, timeout]).finally(() => {
+    clearTimeout(timeoutId);
+  });
+}
+
+export function createMediaIntrinsicPrewarmer(layoutCache, {
+  loadImageMetadata = loadImageMetadataInBrowser,
+  loadVideoMetadata = loadVideoMetadataInBrowser,
+  timeoutMs = 2500,
+} = {}) {
+  const inFlight = new WeakMap();
+  const boundedTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? timeoutMs
+    : 2500;
+
+  const isReady = (entries) => entries.every((entry) => (
+    intrinsicMediaRequest(entry) === null
+    || layoutCache.get(entry) !== undefined
+  ));
+
+  const prewarm = (entry) => {
+    const cachedLayout = layoutCache.get(entry);
+    if (cachedLayout) {
+      return Promise.resolve({ status: 'cached', layout: cachedLayout });
+    }
+    const request = intrinsicMediaRequest(entry);
+    if (!request) return Promise.resolve({ status: 'not-needed' });
+    const signature = mediaSignature(entry);
+    const pending = inFlight.get(entry);
+    if (pending?.signature === signature) return pending.work;
+
+    const generation = layoutCache.beginEntry(entry);
+    const loader = request.type === 'video'
+      ? loadVideoMetadata
+      : loadImageMetadata;
+    const work = (async () => {
+      try {
+        const { width, height } = await loadMetadataWithin(
+          loader,
+          request.url,
+          entry,
+          boundedTimeoutMs,
+        );
+        const layout = resolveMediaLayout(width, height);
+        if (layout.orientation === 'unknown') {
+          layoutCache.cancel(generation);
+          return { status: 'failed' };
+        }
+        if (!layoutCache.set(generation, layout)) return { status: 'stale' };
+        return { status: 'ready', layout };
+      } catch (error) {
+        layoutCache.cancel(generation);
+        return {
+          status: error?.name === 'TimeoutError' ? 'timed-out' : 'failed',
+        };
+      }
+    })();
+
+    const pendingRecord = { signature, work };
+    inFlight.set(entry, pendingRecord);
+    void work.finally(() => {
+      if (inFlight.get(entry) === pendingRecord) inFlight.delete(entry);
+    });
+    return work;
+  };
+
+  const prewarmAll = (entries) => Promise.all(entries.map(prewarm));
+
+  return Object.freeze({
+    prewarm,
+    prewarmAll,
+    isReady,
+    ensure(entries) {
+      return prewarmAll(entries).then(() => isReady(entries));
+    },
+  });
 }
 
 export function mediaGridStyle(count) {

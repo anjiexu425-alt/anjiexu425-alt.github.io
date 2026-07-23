@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Study Diary page-layout fixture</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+  <style>
+    body {
+      padding: 32px;
+      background: #eeeae2;
+    }
+
+    .fixture-shell {
+      width: min(1280px, 100%);
+      margin: 0 auto;
+    }
+
+    .fixture-toolbar,
+    .fixture-panel {
+      margin-bottom: 24px;
+      padding: 18px;
+      border: 1px solid rgba(0, 47, 167, 0.16);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.82);
+    }
+
+    .fixture-toolbar {
+      position: sticky;
+      top: 12px;
+      z-index: 60;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 12px 30px rgba(22, 29, 51, 0.12);
+    }
+
+    .fixture-toolbar button,
+    .fixture-editor button {
+      padding: 8px 14px;
+      border: 1px solid var(--color-klein-blue);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--color-klein-blue);
+      cursor: pointer;
+    }
+
+    .fixture-toolbar button[aria-pressed="true"] {
+      background: var(--color-klein-blue);
+      color: #fff;
+    }
+
+    .fixture-status {
+      margin-left: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.76rem;
+    }
+
+    .fixture-heading {
+      margin: 0 0 14px;
+      color: var(--color-klein-blue);
+      font-family: var(--font-display);
+    }
+
+    .fixture-spread-labels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-bottom: 12px;
+    }
+
+    .fixture-spread-labels strong,
+    .fixture-page-card > strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--color-klein-blue);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .fixture-stage {
+      display: flex;
+      height: 540px;
+      overflow: hidden;
+      border-radius: 10px;
+      background: var(--color-surface);
+      box-shadow: 0 18px 42px rgba(33, 30, 24, 0.14);
+    }
+
+    .fixture-stage .diary-page {
+      min-width: 0;
+    }
+
+    .fixture-stage.fixture-builder-stage {
+      position: fixed;
+      top: 0;
+      left: -10000px;
+      flex-direction: row;
+      width: 1000px;
+      height: 540px;
+      pointer-events: none;
+    }
+
+    .fixture-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .fixture-page-card {
+      min-width: 0;
+      padding: 12px;
+      border: 1px dashed rgba(0, 47, 167, 0.28);
+      border-radius: 10px;
+      background: #f7f5ef;
+    }
+
+    .fixture-page {
+      width: 100%;
+      height: 500px;
+      overflow: auto;
+      padding: 18px;
+      background: var(--color-surface);
+    }
+
+    .fixture-slices {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .fixture-slice {
+      height: 260px;
+      overflow: hidden;
+      border: 2px solid rgba(0, 47, 167, 0.18);
+      background: var(--color-surface);
+    }
+
+    .fixture-slice .diary-page {
+      width: 400%;
+      height: 100%;
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    .fixture-editor {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr);
+      gap: 20px;
+    }
+
+    .fixture-editor form {
+      display: grid;
+      gap: 12px;
+    }
+
+    .fixture-editor pre {
+      min-height: 180px;
+      margin: 0;
+      padding: 14px;
+      overflow: auto;
+      border-radius: 10px;
+      background: #171a24;
+      color: #eaf0ff;
+      font-size: 0.78rem;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 12px;
+      }
+
+      .fixture-status {
+        width: 100%;
+        margin-left: 0;
+      }
+
+      .fixture-spread-labels,
+      .fixture-grid,
+      .fixture-editor {
+        grid-template-columns: 1fr;
+      }
+
+      .fixture-stage {
+        flex-direction: column;
+        height: auto;
+      }
+
+      .fixture-stage .diary-page {
+        width: 100%;
+        min-height: 480px;
+      }
+
+      .fixture-slices {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="fixture-shell">
+    <h1>Study Diary — physical page layout acceptance fixture</h1>
+    <p>Production CSS and rendering modules. No Supabase calls.</p>
+
+    <div class="fixture-toolbar" aria-label="Fixture state">
+      <button type="button" data-direction="next" aria-pressed="true">Next mapping</button>
+      <button type="button" data-direction="prev" aria-pressed="false">Previous mapping</button>
+      <button type="button" data-static-layout="text-left">Static text-left</button>
+      <button type="button" data-static-layout="media-left">Static media-left</button>
+      <span class="fixture-status"></span>
+    </div>
+
+    <section class="fixture-panel">
+      <h2 class="fixture-heading">Current and target settled spreads</h2>
+      <div class="fixture-spread-labels">
+        <strong class="fixture-current-label"></strong>
+        <strong class="fixture-target-label"></strong>
+      </div>
+      <div class="fixture-grid">
+        <div class="fixture-stage fixture-current-stage"></div>
+        <div class="fixture-stage fixture-target-stage"></div>
+      </div>
+    </section>
+
+    <section class="fixture-panel">
+      <h2 class="fixture-heading">Physical underlays and turning-sheet faces</h2>
+      <div class="diary-stage fixture-builder-stage" aria-hidden="true"></div>
+      <div class="fixture-grid fixture-transition-pages"></div>
+      <h3>Slice samples — cloned from production-built front/back canvases</h3>
+      <div class="fixture-slices"></div>
+    </section>
+
+    <section class="fixture-panel">
+      <h2 class="fixture-heading">Write/Edit layout radio and reset data</h2>
+      <p><strong>Fixture-only form harness.</strong> Production form behavior remains covered by the executable source contract tests.</p>
+      <div class="fixture-editor">
+        <form class="diary-form fixture-form">
+          <fieldset class="diary-form__layout">
+            <legend>Page layout</legend>
+            <label class="diary-form__layout-option">
+              <input type="radio" name="pageLayout" value="text-left" checked />
+              <span>Text Left · Media Right</span>
+            </label>
+            <label class="diary-form__layout-option">
+              <input type="radio" name="pageLayout" value="media-left" />
+              <span>Media Left · Text Right</span>
+            </label>
+          </fieldset>
+          <div>
+            <button type="button" data-form-action="edit">Load current for Edit</button>
+            <button type="button" data-form-action="save">Save fixture value</button>
+            <button type="reset">Reset draft</button>
+          </div>
+        </form>
+        <pre class="fixture-form-data" aria-live="polite"></pre>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import {
+      normalizePageLayout,
+      spreadHTMLForEntry,
+      transitionHTMLForEntries,
+    } from './js/diary-layout.mjs';
+    import {
+      createMediaIntrinsicPrewarmer,
+      createMediaLayoutCache,
+    } from './js/diary-media.mjs';
+    import {
+      buildCurlSpreadDOM,
+      renderSettledSpreadDOM,
+    } from './js/diary-dom.mjs';
+    import { createFlipTransition } from './js/diary-state.mjs';
+
+    const entries = [
+      {
+        id: 'text-left-entry',
+        number: '01',
+        category: 'Study Notes',
+        date: '2026.07.22',
+        title: 'Text starts on the physical left',
+        quote: 'Layout is a reading choice, not a binding rule.',
+        body: 'The first spread uses the historical layout.\n\nIts text remains complete while the landscape Polaroid keeps the cached frame class.',
+        mood: '😌 Calm',
+        weather: '🌧️ Rainy',
+        media: {
+          type: 'image',
+          urls: ['assets/images/experience-1-lishui.jpg'],
+          caption: 'Landscape cache → landscape Polaroid',
+          layout: 'text-left',
+        },
+      },
+      {
+        id: 'media-left-entry',
+        number: '02',
+        category: 'City Walk',
+        date: '2026.07.23',
+        title: 'Text moves to the physical right',
+        quote: 'The paper still turns from right to left.',
+        body: 'The second spread places its portrait Polaroid on the physical left.\n\nNext and Previous keep their canonical physical front and back faces.',
+        mood: '😊 Happy',
+        weather: '☀️ Sunny',
+        media: {
+          type: 'image',
+          urls: ['assets/images/beach-1.jpg'],
+          caption: 'Portrait cache → portrait Polaroid',
+          layout: 'media-left',
+        },
+      },
+    ];
+
+    const layoutCache = createMediaLayoutCache();
+    const mediaIntrinsicPrewarmer = createMediaIntrinsicPrewarmer(layoutCache);
+    const intrinsicReady = await mediaIntrinsicPrewarmer.ensure(entries);
+
+    const options = () => ({
+      active: true,
+      entries,
+      isLoggedIn: true,
+      layoutCache,
+    });
+    let direction = 'next';
+    let currentIndex = 0;
+    let lastFormAction = 'initial draft default';
+    const originalLayouts = entries.map((entry) => entry.media.layout);
+
+    function renderSpread(root, entry) {
+      const spread = spreadHTMLForEntry(entry, options());
+      renderSettledSpreadDOM(root, spread);
+    }
+
+    function pageCard(label, page) {
+      const article = document.createElement('article');
+      article.className = 'fixture-page-card';
+      const heading = document.createElement('strong');
+      heading.textContent = label;
+      const preview = page.cloneNode(true);
+      preview.classList.add('fixture-page');
+      article.append(heading, preview);
+      return article;
+    }
+
+    function sliceCard(label, slice, faceIndex) {
+      const article = document.createElement('article');
+      article.className = 'fixture-page-card';
+      const heading = document.createElement('strong');
+      heading.textContent = label;
+      const preview = document.createElement('div');
+      preview.className = 'fixture-slice';
+      const canvas = slice.el.children[faceIndex].children[0].cloneNode(true);
+      preview.appendChild(canvas);
+      article.append(heading, preview);
+      return article;
+    }
+
+    function transitionDescriptor() {
+      return createFlipTransition(currentIndex, direction);
+    }
+
+    function renderFormData() {
+      const form = document.querySelector('.fixture-form');
+      const data = {
+        action: lastFormAction,
+        direction,
+        currentEntry: entries[currentIndex].id,
+        initialLayouts: originalLayouts,
+        storedLayouts: entries.map((entry) => entry.media.layout),
+        checkedRadio: form.pageLayout.value,
+        resetDefault: 'text-left',
+      };
+      document.querySelector('.fixture-form-data').textContent = JSON.stringify(data, null, 2);
+    }
+
+    function render() {
+      const descriptor = transitionDescriptor();
+      const fromEntry = entries[descriptor.fromIndex];
+      const toEntry = entries[descriptor.toIndex];
+      const currentEntry = entries[currentIndex];
+      const targetIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
+      const targetEntry = entries[targetIndex];
+      const transition = transitionHTMLForEntries(fromEntry, toEntry, {
+        ...options(),
+        active: false,
+      });
+
+      renderSpread(document.querySelector('.fixture-current-stage'), currentEntry);
+      renderSpread(document.querySelector('.fixture-target-stage'), targetEntry);
+      document.querySelector('.fixture-current-label').textContent =
+        `Current: ${currentEntry.id} (${currentEntry.media.layout})`;
+      document.querySelector('.fixture-target-label').textContent =
+        `Target: ${targetEntry.id} (${targetEntry.media.layout})`;
+      document.querySelector('.fixture-status').textContent =
+        `${direction.toUpperCase()} · canonical ${descriptor.startProgress} → ${descriptor.targetProgress} · intrinsic ${intrinsicReady ? 'ready' : 'fallback'}`;
+
+      const builderStage = document.querySelector('.fixture-builder-stage');
+      const built = buildCurlSpreadDOM(builderStage, transition);
+      const transitionPages = document.querySelector('.fixture-transition-pages');
+      transitionPages.replaceChildren(
+        pageCard('Underlay physical left', built.leftPage),
+        pageCard('Underlay physical right', built.rightPage),
+      );
+
+      const sliceSamples = document.querySelector('.fixture-slices');
+      sliceSamples.replaceChildren(
+        sliceCard('Front slice 0', built.slices[0], 0),
+        sliceCard('Front slice 15', built.slices[15], 0),
+        sliceCard('Back slice 0', built.slices[0], 1),
+        sliceCard('Back slice 15', built.slices[15], 1),
+      );
+
+      document.querySelectorAll('[data-direction]').forEach((button) => {
+        button.setAttribute('aria-pressed', String(button.dataset.direction === direction));
+      });
+      renderFormData();
+    }
+
+    document.querySelectorAll('[data-direction]').forEach((button) => {
+      button.addEventListener('click', () => {
+        direction = button.dataset.direction;
+        currentIndex = direction === 'next' ? 0 : 1;
+        lastFormAction = `${direction} transition selected`;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-static-layout]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const layout = button.dataset.staticLayout;
+        currentIndex = layout === 'text-left' ? 0 : 1;
+        direction = currentIndex === 0 ? 'next' : 'prev';
+        lastFormAction = `static ${layout} selected`;
+        render();
+      });
+    });
+
+    const form = document.querySelector('.fixture-form');
+    form.addEventListener('change', () => {
+      lastFormAction = 'radio changed (unsaved)';
+      renderFormData();
+    });
+    form.addEventListener('reset', () => {
+      requestAnimationFrame(() => {
+        lastFormAction = 'form.reset() → text-left';
+        renderFormData();
+      });
+    });
+    document.querySelector('[data-form-action="edit"]').addEventListener('click', () => {
+      form.pageLayout.value = normalizePageLayout(entries[currentIndex].media.layout);
+      lastFormAction = 'edit loaded normalized current layout';
+      renderFormData();
+    });
+    document.querySelector('[data-form-action="save"]').addEventListener('click', () => {
+      entries[currentIndex].media.layout = normalizePageLayout(form.pageLayout.value);
+      lastFormAction = 'saved normalized radio value to current entry';
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>
