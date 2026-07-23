@@ -6,12 +6,13 @@ import {
   canGoNext,
   canGoPrevious,
   goToPage,
-  computeDragProgress,
+  computeDirectionalDragProgress,
   createFlipTransition,
   shouldCompleteDirectionalFlip,
   computeSliceThetas,
   computeSliceLayout,
   computeCurlMotion,
+  computeUnderlayOpacities,
   contentOffsetForSlice,
   easeInOutCubic,
 } from './diary-state.mjs';
@@ -476,16 +477,33 @@ function buildCurlDOM(fromEntry, toEntry) {
   const castShadowEl = document.createElement('div');
   castShadowEl.className = 'diary-flip-castshadow';
   sheet.append(tipEl, castShadowEl);
-  const elements = { slices, tipEl, castShadowEl, segWidth, sheetWidthPx };
+  const elements = {
+    slices,
+    tipEl,
+    castShadowEl,
+    underlayIn,
+    underlayOut,
+    segWidth,
+    sheetWidthPx,
+  };
   updateCurl(0, elements);
   return elements;
 }
 
 function updateCurl(progress, elements) {
-  const { slices, tipEl, castShadowEl, segWidth, sheetWidthPx } = elements;
+  const {
+    slices,
+    tipEl,
+    castShadowEl,
+    underlayIn,
+    underlayOut,
+    segWidth,
+    sheetWidthPx,
+  } = elements;
   const thetas = computeSliceThetas(progress, SLICE_COUNT);
   const { positions, tip } = computeSliceLayout(thetas, segWidth);
   const motion = computeCurlMotion(progress);
+  const underlayOpacities = computeUnderlayOpacities(progress);
   slices.forEach(({ el, frontShade, backShade }, k) => {
     const { x, z } = positions[k];
     el.style.transform = `translate3d(${x}px, 0, ${z}px) rotateY(${thetas[k]}deg)`;
@@ -499,6 +517,8 @@ function updateCurl(progress, elements) {
   castShadowEl.style.width = `${shadowWidth}px`;
   castShadowEl.style.opacity = String(motion * 0.48);
   castShadowEl.style.transform = `translate3d(${tip.x - shadowWidth / 2}px, 0, 0) scaleX(${0.72 + motion * 0.55})`;
+  underlayIn.style.opacity = String(underlayOpacities.leftIn);
+  underlayOut.style.opacity = String(underlayOpacities.rightOut);
 }
 
 function runFlipAnimation(elements, fromProgress, toProgress) {
@@ -566,9 +586,12 @@ function findDragDirection(target) {
 }
 
 function applyDragFlipVisualState() {
-  const rawDeltaX = dragFlip.currentX - dragFlip.startX;
-  const distance = computeDragProgress(Math.abs(rawDeltaX), dragFlip.elements.sheetWidthPx);
-  const progress = dragFlip.direction === 'next' ? distance : 1 - distance;
+  const progress = computeDirectionalDragProgress(
+    dragFlip.startX,
+    dragFlip.currentX,
+    dragFlip.elements.sheetWidthPx,
+    dragFlip.direction,
+  );
   updateCurl(progress, dragFlip.elements);
   dragFlip.progress = progress;
 }
@@ -657,6 +680,10 @@ function handleStagePointerUp(event) {
     return;
   }
 
+  // Pointer-up can beat the queued RAF; apply its final coordinate now.
+  // Clearing dragFlip below makes that queued callback take its null guard.
+  dragFlip.currentX = event.clientX;
+  applyDragFlipVisualState();
   settleDragFlip();
   dragFlip = null;
 }

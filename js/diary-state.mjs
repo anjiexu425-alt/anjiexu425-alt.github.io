@@ -38,6 +38,11 @@ export function computeDragProgress(deltaX, pageWidth) {
   return Math.max(0, Math.min(1, deltaX / pageWidth));
 }
 
+export function computeDirectionalDragProgress(startX, currentX, pageWidth, direction) {
+  const distance = computeDragProgress(Math.abs(currentX - startX), pageWidth);
+  return direction === 'next' ? distance : 1 - distance;
+}
+
 export function shouldCompleteFlip(progress) {
   return progress >= 0.5;
 }
@@ -45,6 +50,14 @@ export function shouldCompleteFlip(progress) {
 export function computeCurlMotion(progress) {
   const clamped = Math.max(0, Math.min(1, progress));
   return Math.sin(Math.PI * clamped) + 0;
+}
+
+export function computeUnderlayOpacities(progress) {
+  const clamped = Math.max(0, Math.min(1, progress));
+  return {
+    leftIn: 0.6 * clamped,
+    rightOut: 0.7 * (1 - clamped),
+  };
 }
 
 export function easeInOutCubic(t) {
@@ -87,8 +100,7 @@ export function computeSliceLayout(thetasDeg, sliceWidthPx) {
   };
 }
 
-export function contentOffsetForSlice(k, sliceCount, faceOrDirection, legacyFace) {
-  const face = legacyFace ?? faceOrDirection;
+export function contentOffsetForSlice(k, sliceCount, face) {
   return face === 'back' ? sliceCount - 1 - k : k;
 }
 

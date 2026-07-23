@@ -9,8 +9,10 @@ import {
   canGoPrevious,
   goToPage,
   computeDragProgress,
+  computeDirectionalDragProgress,
   shouldCompleteFlip,
   computeCurlMotion,
+  computeUnderlayOpacities,
   easeInOutCubic,
   computeSliceThetas,
   computeSliceLayout,
@@ -81,6 +83,12 @@ test('computeDragProgress returns 0 for a non-positive pageWidth', () => {
   assert.equal(computeDragProgress(150, 0), 0);
 });
 
+test('directional drag progress maps the latest pointer position onto canonical progress', () => {
+  assert.equal(computeDirectionalDragProgress(500, 350, 300, 'next'), 0.5);
+  assert.equal(computeDirectionalDragProgress(500, 650, 300, 'prev'), 0.5);
+  assert.ok(Math.abs(computeDirectionalDragProgress(500, 740, 300, 'prev') - 0.2) < 1e-9);
+});
+
 test('shouldCompleteFlip is false below the halfway point', () => {
   assert.equal(shouldCompleteFlip(0.49), false);
 });
@@ -94,6 +102,12 @@ test('computeCurlMotion is 0 at both ends and peaks at the midpoint', () => {
   assert.ok(Math.abs(computeCurlMotion(0)) < 1e-9);
   assert.equal(computeCurlMotion(0.5), 1);
   assert.ok(Math.abs(computeCurlMotion(1)) < 1e-9);
+});
+
+test('underlay shadows follow canonical progress at both physical endpoints', () => {
+  assert.deepEqual(computeUnderlayOpacities(0), { leftIn: 0, rightOut: 0.7 });
+  assert.deepEqual(computeUnderlayOpacities(0.5), { leftIn: 0.3, rightOut: 0.35 });
+  assert.deepEqual(computeUnderlayOpacities(1), { leftIn: 0.6, rightOut: 0 });
 });
 
 test('easeInOutCubic passes through the endpoints and midpoint', () => {
@@ -110,7 +124,8 @@ test('canonical slice geometry is flat right at 0 and flat left at 1', () => {
 });
 
 test('canonical layout starts at the spine and needs no direction mirror', () => {
-  const result = computeSliceLayout([0, 0, 0, 0], 10);
+  const flatThetas = Array(4).fill(0);
+  const result = computeSliceLayout(flatThetas, 10);
   assert.deepEqual(result.positions, [
     { x: 0, z: 0 },
     { x: 10, z: 0 },
@@ -132,11 +147,6 @@ test('content strips depend on paper face, not navigation direction', () => {
   assert.equal(contentOffsetForSlice(15, 16, 'front'), 15);
   assert.equal(contentOffsetForSlice(0, 16, 'back'), 15);
   assert.equal(contentOffsetForSlice(15, 16, 'back'), 0);
-});
-
-test('content strips preserve legacy direction and face arguments', () => {
-  assert.equal(contentOffsetForSlice(0, 16, 'next', 'back'), 15);
-  assert.equal(contentOffsetForSlice(15, 16, 'prev', 'back'), 0);
 });
 
 test('next transition plays canonical curl forward', () => {

@@ -984,12 +984,9 @@
 }
 
 /* Static halves beneath the turning sheet: one side darkens as the page
-   lifts off it, the other brightens as it's revealed. Duration shares
-   --diary-flip-duration with the sheet's own rotation (see .diary) so
-   they always finish at exactly the same moment — they used to run on a
-   separate, slightly longer hardcoded duration than the sheet's rotation,
-   so the DOM got torn down and rebuilt while these were still fading,
-   reading as a flicker/snap. */
+   lifts off it, the other brightens as it's revealed. updateCurl drives
+   their opacity from the same canonical progress as the sheet, keeping
+   forward and reverse transitions exactly synchronized. */
 /* mix-blend-mode intentionally omitted: these are pure-black overlays, so
    multiply and normal alpha compositing are mathematically identical here
    — and mix-blend-mode next to the sheet's preserve-3d rotation is a known
@@ -1003,22 +1000,10 @@
 
 .diary-underlay-shadow--in {
   background: rgba(0, 0, 0, 0.15);
-  animation: diary-underlay-in var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 .diary-underlay-shadow--out {
   background: rgba(0, 0, 0, 0.25);
-  animation: diary-underlay-out var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1) forwards;
-}
-
-@keyframes diary-underlay-in {
-  from { opacity: 0; }
-  to { opacity: 0.6; }
-}
-
-@keyframes diary-underlay-out {
-  from { opacity: 0.7; }
-  to { opacity: 0; }
 }
 
 .diary-toolbar {
