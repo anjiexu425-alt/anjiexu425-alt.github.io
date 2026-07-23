@@ -18,8 +18,11 @@ import {
   computeUnderlayOpacities,
   contentOffsetForSlice,
   easeInOutCubic,
-  resolveMediaLayout,
 } from './diary-state.mjs';
+import {
+  hydrateSingleMediaLayouts,
+  mediaContainerHTML,
+} from './diary-media.mjs';
 import {
   fetchEntries,
   insertEntry,
@@ -54,6 +57,7 @@ let ENTRIES = [];
 
 let state = createDiaryState(ENTRIES.length);
 let isFlipping = false;
+const mediaLayoutCache = new Map();
 
 // Non-null while the write/edit modal is open in edit mode — the id of the
 // entry being edited. Reset to null by closeWriteModal() so an in-progress
@@ -148,21 +152,15 @@ function mediaItemHTML(entry, url, index, total, active) {
   return `<img class="diary-page__photo" src="${url}" alt="${entry.title}"${spanAttr} />`;
 }
 
-function mediaGridStyle(count) {
-  if (count <= 1) return 'display:grid; grid-template-columns:1fr; grid-template-rows:1fr;';
-  if (count === 2) return 'display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:1fr; gap:2px;';
-  return 'display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(2,1fr); gap:2px;';
-}
-
 function rightPageHTML(entry, active = true) {
   const index = ENTRIES.indexOf(entry);
   const urls = entry.media.urls;
   const isGrid = urls.length > 1;
-  const gridStyle = mediaGridStyle(urls.length);
-  const mediaClass = urls.length === 1
-    ? 'diary-page__media diary-page__media--single diary-page__media--unknown'
-    : 'diary-page__media';
-  const itemsHTML = urls.map((url, i) => mediaItemHTML(entry, url, i, urls.length, active)).join('');
+  const mediaHTML = mediaContainerHTML(entry, {
+    active,
+    layoutCache: mediaLayoutCache,
+    renderItem: mediaItemHTML,
+  });
   const badgeHTML = isGrid ? '<span class="diary-polaroid__badge">Gallery</span>' : '';
   const captionHTML = entry.media.caption ? `<p class="diary-polaroid__caption">${entry.media.caption}</p>` : '';
   const countLabel = entry.media.type === 'video' ? '1 Video' : `${urls.length} Snapshot${urls.length === 1 ? '' : 's'}`;
@@ -181,7 +179,7 @@ function rightPageHTML(entry, active = true) {
     <div class="diary-polaroid">
       <span class="diary-polaroid__tape" aria-hidden="true"></span>
       ${badgeHTML}
-      <div class="${mediaClass}" style="${gridStyle}">${itemsHTML}</div>
+      ${mediaHTML}
       ${captionHTML}
       ${moodRowHTML}
     </div>
@@ -190,36 +188,6 @@ function rightPageHTML(entry, active = true) {
       <span>${DIARY_EDITION}</span>
     </div>
   `;
-}
-
-function applySingleMediaLayout(container, width, height) {
-  const layout = resolveMediaLayout(width, height);
-  container.classList.remove(
-    'diary-page__media--unknown',
-    'diary-page__media--landscape',
-    'diary-page__media--square',
-    'diary-page__media--portrait',
-  );
-  container.classList.add(`diary-page__media--${layout.orientation}`);
-  container.style.setProperty('--diary-media-aspect', String(layout.aspectRatio));
-}
-
-function hydrateSingleMediaLayouts(root) {
-  root.querySelectorAll('.diary-page__media--single').forEach((container) => {
-    const media = container.querySelector('img, video');
-    if (!media) return;
-
-    if (media instanceof HTMLImageElement) {
-      const apply = () => applySingleMediaLayout(container, media.naturalWidth, media.naturalHeight);
-      if (media.complete) apply();
-      else media.addEventListener('load', apply, { once: true });
-      return;
-    }
-
-    const apply = () => applySingleMediaLayout(container, media.videoWidth, media.videoHeight);
-    if (media.readyState >= HTMLMediaElement.HAVE_METADATA) apply();
-    else media.addEventListener('loadedmetadata', apply, { once: true });
-  });
 }
 
 function renderStatic() {
@@ -233,7 +201,9 @@ function renderStatic() {
     <div class="diary-page diary-page--left">${leftPageHTML(entry)}</div>
     <div class="diary-page diary-page--right">${rightPageHTML(entry)}</div>
   `;
-  hydrateSingleMediaLayouts(stage);
+  hydrateSingleMediaLayouts(stage, {
+    onLayout: (layoutKey, layout) => mediaLayoutCache.set(layoutKey, layout),
+  });
 }
 
 // Runs once on page load. Shows a loading message inside .diary-stage
