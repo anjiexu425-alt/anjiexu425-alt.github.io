@@ -22,6 +22,7 @@ import {
   createFlipTransition,
   shouldCompleteDirectionalFlip,
   resolveDragSettle,
+  resolveMediaLayout,
 } from './diary-state.mjs';
 
 test('starts closed on the first page', () => {
@@ -219,5 +220,47 @@ test('cancelled previous drag returns to its start even beyond halfway', () => {
   }), {
     completes: false,
     settleProgress: 1,
+  });
+});
+
+test('resolveMediaLayout classifies media orientation and clamps extreme ratios', () => {
+  assert.deepEqual(resolveMediaLayout(1600, 900), {
+    orientation: 'landscape',
+    aspectRatio: 16 / 9,
+  });
+  assert.deepEqual(resolveMediaLayout(1200, 1000), {
+    orientation: 'landscape',
+    aspectRatio: 1.2,
+  });
+  assert.deepEqual(resolveMediaLayout(1000, 1000), {
+    orientation: 'square',
+    aspectRatio: 1,
+  });
+  assert.deepEqual(resolveMediaLayout(900, 1200), {
+    orientation: 'portrait',
+    aspectRatio: 3 / 4,
+  });
+  assert.deepEqual(resolveMediaLayout(800, 1000), {
+    orientation: 'portrait',
+    aspectRatio: 0.8,
+  });
+  assert.deepEqual(resolveMediaLayout(900, 1600), {
+    orientation: 'portrait',
+    aspectRatio: 3 / 4,
+  });
+  assert.deepEqual(resolveMediaLayout(0, 900), {
+    orientation: 'unknown',
+    aspectRatio: 3 / 4,
+  });
+});
+
+test('resolveMediaLayout treats the 0.9 and 1.1 boundaries as square', () => {
+  assert.deepEqual(resolveMediaLayout(9, 10), {
+    orientation: 'square',
+    aspectRatio: 1,
+  });
+  assert.deepEqual(resolveMediaLayout(11, 10), {
+    orientation: 'square',
+    aspectRatio: 1,
   });
 });

@@ -29,6 +29,31 @@ export function goToPage(state, index) {
   return { ...state, current: clamped };
 }
 
+const DEFAULT_MEDIA_ASPECT_RATIO = 3 / 4;
+const MIN_PORTRAIT_ASPECT_RATIO = 3 / 4;
+const MAX_LANDSCAPE_ASPECT_RATIO = 16 / 9;
+
+export function resolveMediaLayout(width, height) {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return { orientation: 'unknown', aspectRatio: DEFAULT_MEDIA_ASPECT_RATIO };
+  }
+
+  const ratio = width / height;
+  if (ratio > 1.1) {
+    return {
+      orientation: 'landscape',
+      aspectRatio: Math.min(ratio, MAX_LANDSCAPE_ASPECT_RATIO),
+    };
+  }
+  if (ratio < 0.9) {
+    return {
+      orientation: 'portrait',
+      aspectRatio: Math.max(ratio, MIN_PORTRAIT_ASPECT_RATIO),
+    };
+  }
+  return { orientation: 'square', aspectRatio: 1 };
+}
+
 // deltaX is the pixel distance dragged in the direction that progresses
 // the flip (the caller is responsible for giving this the right sign
 // based on which way the page is being dragged) — always returns a value
