@@ -1,5 +1,14 @@
+import { normalizePageLayout } from './diary-layout.mjs';
+
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 export const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+
+function normalizeMedia(media = {}) {
+  return {
+    ...media,
+    layout: normalizePageLayout(media.layout),
+  };
+}
 
 export function maxBytesForMediaType(mediaType) {
   return mediaType === 'video' ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
@@ -28,7 +37,7 @@ export function supabaseRowToEntry(row) {
     title: row.title,
     quote: row.quote || '',
     body: row.body,
-    media: row.media,
+    media: normalizeMedia(row.media),
     mood: row.mood || '',
     weather: row.weather || '',
   };
@@ -42,7 +51,7 @@ export function entryToSupabaseRow(entry) {
     title: entry.title,
     quote: entry.quote || null,
     body: entry.body,
-    media: entry.media,
+    media: normalizeMedia(entry.media),
     mood: entry.mood || null,
     weather: entry.weather || null,
   };
@@ -75,6 +84,6 @@ export function buildEditPatch(fields, media) {
     title: fields.title,
     quote: fields.quote || null,
     body: fields.body,
-    media,
+    media: normalizeMedia(media),
   };
 }

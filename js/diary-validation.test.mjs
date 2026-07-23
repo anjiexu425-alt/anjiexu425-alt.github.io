@@ -60,7 +60,7 @@ test('supabaseRowToEntry maps a database row to the entry shape used by renderin
     title: 'A Day at the Beach',
     quote: 'Salt air and sunshine.',
     body: 'It was a good day.',
-    media: { type: 'image', urls: ['https://example.com/a.jpg'], caption: '' },
+    media: { type: 'image', urls: ['https://example.com/a.jpg'], caption: '', layout: 'text-left' },
     mood: '😊 Happy',
     weather: '☀️ Sunny',
   });
@@ -85,6 +85,29 @@ test('supabaseRowToEntry defaults missing quote/mood/weather to empty strings', 
   assert.equal(entry.weather, '');
 });
 
+test('supabaseRowToEntry preserves a valid media-left layout and other media fields', () => {
+  const row = {
+    id: 'abc-123',
+    number: '01',
+    category: 'Study',
+    entry_date: '2026.07.20',
+    title: 'Notes',
+    quote: null,
+    body: 'Body.',
+    media: { type: 'video', urls: ['a.mp4'], caption: 'Lecture', layout: 'media-left', provider: 'vimeo' },
+    mood: null,
+    weather: null,
+  };
+
+  assert.deepEqual(supabaseRowToEntry(row).media, {
+    type: 'video',
+    urls: ['a.mp4'],
+    caption: 'Lecture',
+    layout: 'media-left',
+    provider: 'vimeo',
+  });
+});
+
 test('entryToSupabaseRow maps the entry shape back to a database row', () => {
   const entry = {
     number: '01',
@@ -104,7 +127,7 @@ test('entryToSupabaseRow maps the entry shape back to a database row', () => {
     title: 'A Day at the Beach',
     quote: 'Salt air and sunshine.',
     body: 'It was a good day.',
-    media: { type: 'image', urls: ['https://example.com/a.jpg'], caption: '' },
+    media: { type: 'image', urls: ['https://example.com/a.jpg'], caption: '', layout: 'text-left' },
     mood: '😊 Happy',
     weather: '☀️ Sunny',
   });
@@ -126,6 +149,22 @@ test('entryToSupabaseRow defaults missing quote/mood/weather to null', () => {
   assert.equal(row.quote, null);
   assert.equal(row.mood, null);
   assert.equal(row.weather, null);
+});
+
+test('entryToSupabaseRow normalizes an invalid layout without mutating other media fields', () => {
+  const media = { type: 'image', urls: ['a.jpg'], caption: 'Notes', layout: 'sideways', focalPoint: 'center' };
+  const entry = {
+    number: '01', category: 'Study', date: '2026.07.20', title: 'Title', quote: '', body: 'Body.', media, mood: '', weather: '',
+  };
+
+  assert.deepEqual(entryToSupabaseRow(entry).media, {
+    type: 'image',
+    urls: ['a.jpg'],
+    caption: 'Notes',
+    layout: 'text-left',
+    focalPoint: 'center',
+  });
+  assert.equal(media.layout, 'sideways');
 });
 
 test('resolveMediaUrls keeps newly uploaded files when present', () => {
@@ -166,7 +205,7 @@ test('resolveMediaUrls prefers newly uploaded files even when the media type was
 test('buildEditPatch maps form fields and media into a Supabase patch, without number/mood/weather', () => {
   const patch = buildEditPatch(
     { category: 'Study', date: '2026.07.20', title: 'Edited Title', quote: 'A line that stuck.', body: 'Body text.' },
-    { type: 'image', urls: ['a.jpg', 'b.jpg'], caption: 'A caption' }
+    { type: 'image', urls: ['a.jpg', 'b.jpg'], caption: 'A caption', layout: 'media-left' }
   );
   assert.deepEqual(patch, {
     category: 'Study',
@@ -174,7 +213,7 @@ test('buildEditPatch maps form fields and media into a Supabase patch, without n
     title: 'Edited Title',
     quote: 'A line that stuck.',
     body: 'Body text.',
-    media: { type: 'image', urls: ['a.jpg', 'b.jpg'], caption: 'A caption' },
+    media: { type: 'image', urls: ['a.jpg', 'b.jpg'], caption: 'A caption', layout: 'media-left' },
   });
 });
 
@@ -184,4 +223,21 @@ test('buildEditPatch defaults an empty quote to null, matching entryToSupabaseRo
     { type: 'video', urls: ['a.mp4'], caption: '' }
   );
   assert.equal(patch.quote, null);
+});
+
+test('buildEditPatch normalizes invalid layouts without mutating media', () => {
+  const media = { type: 'video', urls: ['a.mp4'], caption: '', layout: 'sideways', autoplay: true };
+  const patch = buildEditPatch(
+    { category: 'Study', date: '2026.07.20', title: 'Title', quote: '', body: 'Body.' },
+    media
+  );
+
+  assert.deepEqual(patch.media, {
+    type: 'video',
+    urls: ['a.mp4'],
+    caption: '',
+    layout: 'text-left',
+    autoplay: true,
+  });
+  assert.equal(media.layout, 'sideways');
 });
