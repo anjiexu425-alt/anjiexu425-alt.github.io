@@ -355,8 +355,10 @@ Expected: all tests pass.
 
 - [ ] **Step 8: Browser acceptance**
 
-Use an untracked fixture with real production CSS/modules and two entries with
-opposite layouts. Verify:
+Use the tracked `page-layout-fixture.html` test fixture with real production
+CSS/modules and two entries with opposite layouts. The fixture is tracked
+because an automated contract test reads this file to prevent its settled and
+curl previews from drifting away from the production DOM builders. Verify:
 
 - static text-left and media-left swaps
 - cached media sizing works on the physical left
@@ -369,6 +371,6 @@ opposite layouts. Verify:
 - [ ] **Step 9: Commit**
 
 ```bash
-git add js/diary.js js/diary-layout.mjs js/diary-layout.test.mjs js/diary-state.test.mjs css/pages.css
+git add js/diary.js js/diary-layout.mjs js/diary-layout.test.mjs js/diary-state.test.mjs css/pages.css page-layout-fixture.html
 git commit -m "Render diary content on either page"
 ```

@@ -282,9 +282,13 @@ function loadMetadataWithin(loader, url, entry, timeoutMs) {
 export function createMediaIntrinsicPrewarmer(layoutCache, {
   loadImageMetadata = loadImageMetadataInBrowser,
   loadVideoMetadata = loadVideoMetadataInBrowser,
+  maxConcurrency = 4,
   timeoutMs = 2500,
 } = {}) {
   const inFlight = new WeakMap();
+  const boundedConcurrency = Number.isFinite(maxConcurrency) && maxConcurrency > 0
+    ? Math.max(1, Math.floor(maxConcurrency))
+    : 4;
   const boundedTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0
     ? timeoutMs
     : 2500;
@@ -340,7 +344,20 @@ export function createMediaIntrinsicPrewarmer(layoutCache, {
     return work;
   };
 
-  const prewarmAll = (entries) => Promise.all(entries.map(prewarm));
+  const prewarmAll = async (entries) => {
+    const results = new Array(entries.length);
+    let nextIndex = 0;
+    const worker = async () => {
+      while (nextIndex < entries.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        results[index] = await prewarm(entries[index]);
+      }
+    };
+    const workerCount = Math.min(entries.length, boundedConcurrency);
+    await Promise.all(Array.from({ length: workerCount }, worker));
+    return results;
+  };
 
   return Object.freeze({
     prewarm,

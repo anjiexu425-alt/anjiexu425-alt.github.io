@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as diaryMedia from './diary-media.mjs';
+import * as diaryState from './diary-state.mjs';
 const {
   applySingleMediaLayout,
   createMediaLayoutCache,
@@ -38,6 +39,10 @@ const diaryCSS = readFileSync(new URL('../css/pages.css', import.meta.url), 'utf
 const diaryHTML = readFileSync(new URL('../study-diary.html', import.meta.url), 'utf8');
 const pageLayoutFixture = readFileSync(
   new URL('../page-layout-fixture.html', import.meta.url),
+  'utf8',
+);
+const pageLayoutPlan = readFileSync(
+  new URL('../docs/superpowers/plans/2026-07-23-study-diary-page-layout-choice.md', import.meta.url),
   'utf8',
 );
 
@@ -323,6 +328,195 @@ test('production prewarms early and gates click and drag curl construction on re
   );
 });
 
+test('prepared flips revalidate captured state and transition before fallback or curl construction', () => {
+  const playFlipSource = diarySource.match(
+    /async function playFlip[\s\S]*?\n\}\n\nconst DRAG_THRESHOLD/,
+  )?.[0];
+
+  assert.ok(playFlipSource);
+  assert.match(
+    playFlipSource,
+    /const flipSnapshot = \{\s*current:\s*state\.current,\s*totalPages:\s*state\.totalPages,\s*descriptor,\s*fromEntry,\s*toEntry,\s*\}/,
+  );
+  assert.match(
+    playFlipSource,
+    /await prepareCurlEntries\(fromEntry,\s*toEntry\)[\s\S]*?const currentDescriptor = createFlipTransition\(state\.current,\s*direction\)/,
+  );
+  assert.match(
+    playFlipSource,
+    /isFlipSnapshotCurrent\(\s*flipSnapshot,\s*state,\s*currentDescriptor,\s*ENTRIES,\s*\)/,
+  );
+  assert.match(
+    playFlipSource,
+    /if \(!transitionIsCurrent\)[\s\S]*?return;[\s\S]*?if \(!mediaReady\)[\s\S]*?finishInstantFlip[\s\S]*?buildCurlDOM/,
+  );
+});
+
+test('flip snapshot validation rejects page-count, current-page, transition, and entry mutations', () => {
+  assert.equal(
+    typeof diaryState.isFlipSnapshotCurrent,
+    'function',
+    'production must expose executable flip snapshot validation',
+  );
+  const fromEntry = { id: 'from' };
+  const toEntry = { id: 'to' };
+  const descriptor = createFlipTransition(0, 'next');
+  const snapshot = {
+    current: 0,
+    totalPages: 2,
+    descriptor,
+    fromEntry,
+    toEntry,
+  };
+  const currentState = { current: 0, totalPages: 2, isOpen: true };
+  const entries = [fromEntry, toEntry];
+
+  assert.equal(
+    diaryState.isFlipSnapshotCurrent(
+      snapshot,
+      currentState,
+      createFlipTransition(0, 'next'),
+      entries,
+    ),
+    true,
+  );
+  assert.equal(
+    diaryState.isFlipSnapshotCurrent(
+      snapshot,
+      { ...currentState, totalPages: 3 },
+      createFlipTransition(0, 'next'),
+      [...entries, { id: 'new' }],
+    ),
+    false,
+  );
+  assert.equal(
+    diaryState.isFlipSnapshotCurrent(
+      snapshot,
+      { ...currentState, current: 1 },
+      createFlipTransition(1, 'prev'),
+      entries,
+    ),
+    false,
+  );
+  assert.equal(
+    diaryState.isFlipSnapshotCurrent(
+      snapshot,
+      currentState,
+      createFlipTransition(0, 'prev'),
+      entries,
+    ),
+    false,
+  );
+  assert.equal(
+    diaryState.isFlipSnapshotCurrent(
+      snapshot,
+      currentState,
+      createFlipTransition(0, 'next'),
+      [fromEntry, { id: 'replacement' }],
+    ),
+    false,
+  );
+});
+
+function executableInstantFlipHarness() {
+  const finishInstantFlipSource = diarySource.match(
+    /function finishInstantFlip[\s\S]*?\n\}/,
+  )?.[0];
+  assert.ok(finishInstantFlipSource);
+  return new Function(
+    'goToNext',
+    'goToPrevious',
+    `
+      return (initialState, direction, hydrateMedia) => {
+        let state = initialState;
+        let isFlipping = true;
+        const renders = [];
+        let chromeUpdates = 0;
+        const renderStatic = (options) => renders.push(options);
+        const updateChrome = () => { chromeUpdates += 1; };
+        ${finishInstantFlipSource}
+        finishInstantFlip(direction, { hydrateMedia });
+        return { state, isFlipping, renders, chromeUpdates };
+      };
+    `,
+  )(goToNext, goToPrevious);
+}
+
+test('bad image, bad video, and timeout use no-snap instant fallback for Next and Previous', async () => {
+  const runInstantFlip = executableInstantFlipHarness();
+  const failureCases = [
+    {
+      label: 'bad image',
+      entry: { id: 'bad-image', media: { type: 'image', urls: ['bad.jpg'] } },
+      options: {
+        loadImageMetadata: async () => {
+          throw new Error('bad image');
+        },
+        timeoutMs: 50,
+      },
+    },
+    {
+      label: 'bad video',
+      entry: { id: 'bad-video', media: { type: 'video', urls: ['bad.mp4'] } },
+      options: {
+        loadVideoMetadata: async () => {
+          throw new Error('bad video');
+        },
+        timeoutMs: 50,
+      },
+    },
+    {
+      label: 'metadata timeout',
+      entry: { id: 'slow-image', media: { type: 'image', urls: ['slow.jpg'] } },
+      options: {
+        loadImageMetadata: () => new Promise(() => {}),
+        timeoutMs: 5,
+      },
+    },
+  ];
+
+  for (const failureCase of failureCases) {
+    const prewarmer = diaryMedia.createMediaIntrinsicPrewarmer(
+      createMediaLayoutCache(),
+      failureCase.options,
+    );
+    assert.equal(
+      await prewarmer.ensure([failureCase.entry]),
+      false,
+      failureCase.label,
+    );
+
+    for (const direction of ['next', 'prev']) {
+      const initialState = {
+        isOpen: true,
+        current: direction === 'next' ? 0 : 1,
+        totalPages: 2,
+      };
+      const result = runInstantFlip(initialState, direction, false);
+      assert.equal(
+        result.state.current,
+        direction === 'next' ? 1 : 0,
+        `${failureCase.label} ${direction}`,
+      );
+      assert.equal(result.isFlipping, false);
+      assert.deepEqual(result.renders, [{ hydrateMedia: false }]);
+      assert.equal(result.chromeUpdates, 1);
+    }
+  }
+
+  const playFlipSource = diarySource.match(
+    /async function playFlip[\s\S]*?\n\}\n\nconst DRAG_THRESHOLD/,
+  )?.[0];
+  assert.match(
+    playFlipSource,
+    /if \(!mediaReady\)[\s\S]*?finishInstantFlip\(direction,\s*\{\s*hydrateMedia:\s*false\s*\}\)/,
+  );
+  assert.match(
+    diarySource,
+    /function renderStatic\(\{\s*hydrateMedia = true\s*\} = \{\}\)[\s\S]*?hydrateMedia\s*\?[\s\S]*?hydrateSingleMediaLayouts/,
+  );
+});
+
 test('startup keeps eager gallery image warming without duplicating single-media intrinsic loads', () => {
   const galleryWarmSource = diarySource.match(
     /function preloadEntryGalleryImages[\s\S]*?\n\}/,
@@ -371,6 +565,18 @@ test('acceptance fixture prewarms real media and delegates settled and curl DOM 
   );
   assert.doesNotMatch(pageLayoutFixture, /layoutCache\.set\(/);
   assert.match(pageLayoutFixture, /Fixture-only form harness/);
+});
+
+test('implementation plan identifies the tracked acceptance fixture as an automated test dependency', () => {
+  assert.match(
+    pageLayoutPlan,
+    /tracked `page-layout-fixture\.html` test fixture/,
+  );
+  assert.match(
+    pageLayoutPlan,
+    /automated contract test reads this file/,
+  );
+  assert.doesNotMatch(pageLayoutPlan, /Use an untracked fixture/);
 });
 
 test('content-role wrappers own text and media alignment independently of physical side', () => {
@@ -716,6 +922,40 @@ test('intrinsic prewarming fills entry-scoped image and video layouts concurrent
     aspectRatio: 3 / 4,
   });
   assert.equal(prewarmer.isReady([imageEntry, videoEntry]), true);
+});
+
+test('bulk intrinsic prewarming never exceeds its configured concurrency and still deduplicates', async () => {
+  const entries = Array.from({ length: 7 }, (_, index) => ({
+    id: `capped-${index}`,
+    media: { type: 'image', urls: [`${index}.jpg`] },
+  }));
+  let active = 0;
+  let maxActive = 0;
+  let loadCalls = 0;
+  const layoutCache = createMediaLayoutCache();
+  const prewarmer = diaryMedia.createMediaIntrinsicPrewarmer(layoutCache, {
+    loadImageMetadata: async () => {
+      loadCalls += 1;
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 2));
+      active -= 1;
+      return { width: 1600, height: 900 };
+    },
+    maxConcurrency: 2,
+    timeoutMs: 50,
+  });
+
+  const duplicate = prewarmer.prewarm(entries[0]);
+  const results = await prewarmer.prewarmAll(entries);
+  assert.deepEqual(await duplicate, {
+    status: 'ready',
+    layout: { orientation: 'landscape', aspectRatio: 16 / 9 },
+  });
+  assert.equal(results.length, entries.length);
+  assert.equal(maxActive, 2);
+  assert.equal(loadCalls, entries.length);
+  assert.equal(prewarmer.isReady(entries), true);
 });
 
 test('settled render generations do not cancel a target entry prewarm generation', async () => {

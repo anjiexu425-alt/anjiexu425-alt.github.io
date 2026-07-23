@@ -11,6 +11,7 @@ import {
   isFlipInteractionLocked,
   ownsDragInteraction,
   createFlipTransition,
+  isFlipSnapshotCurrent,
   resolveDragSettle,
   computeSliceThetas,
   computeSliceLayout,
@@ -113,7 +114,7 @@ function transitionHTMLForEntries(fromEntry, toEntry, active = true) {
   );
 }
 
-function renderStatic() {
+function renderStatic({ hydrateMedia = true } = {}) {
   const stage = document.querySelector('.diary-stage');
   if (ENTRIES.length === 0) {
     mediaLayoutCache.prune([]);
@@ -123,10 +124,13 @@ function renderStatic() {
   const entry = ENTRIES[state.current];
   const layoutGeneration = mediaLayoutCache.begin(entry);
   const spread = spreadHTMLForEntry(entry);
-  renderSettledSpreadDOM(stage, spread, {
-    hydrateMedia: (root) => hydrateSingleMediaLayouts(root, {
+  const hydrateRenderedMedia = hydrateMedia
+    ? (root) => hydrateSingleMediaLayouts(root, {
       onLayout: (layout) => mediaLayoutCache.set(layoutGeneration, layout),
-    }),
+    })
+    : undefined;
+  renderSettledSpreadDOM(stage, spread, {
+    hydrateMedia: hydrateRenderedMedia,
   });
 }
 
@@ -392,38 +396,53 @@ function runFlipAnimation(elements, fromProgress, toProgress) {
   });
 }
 
+function finishInstantFlip(direction, { hydrateMedia = true } = {}) {
+  state = direction === 'next' ? goToNext(state) : goToPrevious(state);
+  isFlipping = false;
+  renderStatic({ hydrateMedia });
+  updateChrome();
+}
+
 async function playFlip(direction) {
   if (isFlipInteractionLocked(isFlipping, dragFlip)) return;
   const descriptor = createFlipTransition(state.current, direction);
   if (descriptor.fromIndex < 0 || descriptor.toIndex >= state.totalPages) return;
 
   if (prefersInstantTransition()) {
-    state = direction === 'next' ? goToNext(state) : goToPrevious(state);
-    renderStatic();
-    updateChrome();
+    finishInstantFlip(direction);
     return;
   }
 
   const fromEntry = ENTRIES[descriptor.fromIndex];
   const toEntry = ENTRIES[descriptor.toIndex];
+  const flipSnapshot = {
+    current: state.current,
+    totalPages: state.totalPages,
+    descriptor,
+    fromEntry,
+    toEntry,
+  };
   isFlipping = true;
   updateChrome();
 
   const mediaReady = await prepareCurlEntries(fromEntry, toEntry);
-  if (!mediaReady) {
-    // Metadata loading is bounded by the prewarmer timeout. Keeping the
-    // settled spread in place is the only fallback that cannot produce a
-    // 3:4-to-intrinsic snap on a newly revealed back face.
+  const currentDescriptor = createFlipTransition(state.current, direction);
+  const transitionIsCurrent = isFlipSnapshotCurrent(
+    flipSnapshot,
+    state,
+    currentDescriptor,
+    ENTRIES,
+  );
+  if (!transitionIsCurrent) {
     isFlipping = false;
     updateChrome();
     return;
   }
-  if (
-    ENTRIES[descriptor.fromIndex] !== fromEntry
-    || ENTRIES[descriptor.toIndex] !== toEntry
-  ) {
-    isFlipping = false;
-    updateChrome();
+  if (!mediaReady) {
+    // A failed or timed-out intrinsic lookup cannot safely build a curl face.
+    // Complete navigation without a curl and keep the settled fallback ratio
+    // stable by skipping this render's late intrinsic DOM hydration.
+    finishInstantFlip(direction, { hydrateMedia: false });
     return;
   }
 
@@ -433,6 +452,17 @@ async function playFlip(direction) {
     descriptor.startProgress,
     descriptor.targetProgress,
   );
+  if (!isFlipSnapshotCurrent(
+    flipSnapshot,
+    state,
+    createFlipTransition(state.current, direction),
+    ENTRIES,
+  )) {
+    isFlipping = false;
+    renderStatic();
+    updateChrome();
+    return;
+  }
   state = direction === 'next' ? goToNext(state) : goToPrevious(state);
   isFlipping = false;
   renderStatic();

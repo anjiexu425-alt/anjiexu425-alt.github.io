@@ -155,6 +155,25 @@ export function createFlipTransition(currentIndex, direction) {
     : { fromIndex: currentIndex - 1, toIndex: currentIndex, startProgress: 1, targetProgress: 0 };
 }
 
+export function isFlipSnapshotCurrent(
+  snapshot,
+  currentState,
+  currentDescriptor,
+  entries,
+) {
+  const { descriptor } = snapshot;
+  return (
+    currentState.current === snapshot.current
+    && currentState.totalPages === snapshot.totalPages
+    && currentDescriptor.fromIndex === descriptor.fromIndex
+    && currentDescriptor.toIndex === descriptor.toIndex
+    && currentDescriptor.startProgress === descriptor.startProgress
+    && currentDescriptor.targetProgress === descriptor.targetProgress
+    && entries[descriptor.fromIndex] === snapshot.fromEntry
+    && entries[descriptor.toIndex] === snapshot.toEntry
+  );
+}
+
 export function shouldCompleteDirectionalFlip(progress, direction) {
   return direction === 'next' ? progress >= 0.5 : progress < 0.5;
 }
