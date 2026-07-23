@@ -845,7 +845,7 @@ export default function App() {
           <button
             id="edit-diary-btn"
             onClick={handleOpenEditor}
-            disabled={!isOpen || isDiaryEmpty || activeSpread.id === 'blank-spread'}
+            disabled={!isOpen || isDiaryEmpty || activeSpread?.id === 'blank-spread'}
             className="flex items-center gap-1.5 px-4 py-1.5 bg-white text-brand-blue border border-brand-blue/40 rounded-full font-medium text-xs shadow-sm hover:bg-brand-blue/5 hover:scale-105 active:scale-95 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:bg-white"
             title="Edit the current diary page"
           >
