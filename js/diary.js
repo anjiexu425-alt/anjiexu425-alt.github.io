@@ -22,7 +22,6 @@ import {
 import {
   createMediaLayoutCache,
   hydrateSingleMediaLayouts,
-  rightPageMediaFrameHTML,
 } from './diary-media.mjs';
 import {
   fetchEntries,
@@ -44,15 +43,12 @@ import {
   buildEditPatch,
 } from './diary-validation.mjs';
 import {
+  isPlaceholder,
   normalizePageLayout,
   mediaWithPageLayout,
+  spreadHTMLForEntry as mapSpreadHTMLForEntry,
+  transitionHTMLForEntries as mapTransitionHTMLForEntries,
 } from './diary-layout.mjs';
-
-// Placeholder image labels always start with '[' (site-wide convention);
-// anything else is treated as a real image URL/path.
-function isPlaceholder(value) {
-  return value.startsWith('[');
-}
 
 // Entries live in Supabase now (see js/diary-supabase.js) — this array is
 // populated asynchronously by initEntries() on page load, and mutated in
@@ -88,107 +84,28 @@ let moodModalTarget = null;
 // that's the database's Row Level Security policies (see Prerequisites).
 let isLoggedIn = false;
 
-// Body text with a blank line between lines is rendered as separate
-// paragraphs, matching the "title + quote + two body paragraphs" layout.
-function bodyParagraphsHTML(body) {
-  return body
-    .split(/\n{2,}/)
-    .map((paragraph) => `<p class="diary-page__body">${paragraph}</p>`)
-    .join('');
-}
-
-function leftPageHTML(entry) {
-  const index = ENTRIES.indexOf(entry);
-  const discardHTML = isLoggedIn
-    ? `<button type="button" class="diary-page__discard" data-entry-id="${entry.id}">Discard</button>`
-    : '';
-  return `
-    <div class="diary-page__header">
-      <span class="diary-page__label">${entry.number} / ${entry.category.toUpperCase()}</span>
-      <span class="diary-page__date">${entry.date}</span>
-    </div>
-    <h2 class="diary-page__title">${entry.title}</h2>
-    ${entry.quote ? `<blockquote class="diary-page__quote">${entry.quote}</blockquote>` : ''}
-    <div class="diary-page__ruled">${bodyParagraphsHTML(entry.body)}</div>
-    <div class="diary-page__footer">
-      <span class="diary-page__tagline">${DIARY_TAGLINE}</span>
-      ${discardHTML}
-    </div>
-  `;
-}
-
-// Placeholder strings look like "[Photo placeholder: campus photo]" — pull
-// the human-readable part out for the placeholder card's label, falling
-// back to a generic prompt if the text doesn't match that shape.
-function placeholderLabel(value) {
-  const match = value.match(/:\s*([^\]]+)\]/);
-  const text = match ? match[1].trim() : 'a photo';
-  return text.replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function placeholderHTML(value) {
-  return `
-    <span class="diary-placeholder__icon" aria-hidden="true">&#10022;</span>
-    <span class="diary-placeholder__label">${placeholderLabel(value)}</span>
-    <span class="diary-placeholder__hint">[ Tap to Upload ]</span>
-  `;
-}
-
-// A single photo/video fills the whole media area; multiple photos assemble
-// into a grid that adapts to the count rather than always forcing 2x2 — 3
-// photos get a magazine-collage layout (first spans both rows). Each
-// URL/path is used directly as the src — works equally for a full network
-// URL or a local relative path like assets/images/photo.jpg, since the
-// browser resolves both the same way.
-//
-// `active` distinguishes the real, settled page (rendered by renderStatic)
-// from the throwaway duplicates rendered mid-flip (the static half still
-// under the moving sheet, and the sheet's own front/back faces) — those
-// duplicates are visible for under a second and then discarded, so their
-// videos get preload="none" rather than letting the browser start
-// buffering data no one will watch.
-function mediaItemHTML(entry, url, index, total, active) {
-  const spanAttr = total === 3 && index === 0 ? ' style="grid-row: span 2;"' : '';
-  if (isPlaceholder(url)) return `<div class="diary-placeholder"${spanAttr}>${placeholderHTML(url)}</div>`;
-  if (entry.media.type === 'video') {
-    const preloadAttr = active ? '' : ' preload="none"';
-    return `<video class="diary-page__video" src="${url}" muted loop playsinline controls${preloadAttr}${spanAttr}></video>`;
-  }
-  return `<img class="diary-page__photo" src="${url}" alt="${entry.title}"${spanAttr} />`;
-}
-
-function rightPageHTML(entry, active = true) {
-  const index = ENTRIES.indexOf(entry);
-  const urls = entry.media.urls;
-  const isGrid = urls.length > 1;
-  const badgeHTML = isGrid ? '<span class="diary-polaroid__badge">Gallery</span>' : '';
-  const captionHTML = entry.media.caption ? `<p class="diary-polaroid__caption">${entry.media.caption}</p>` : '';
-  const countLabel = entry.media.type === 'video' ? '1 Video' : `${urls.length} Snapshot${urls.length === 1 ? '' : 's'}`;
-  const moodRowHTML = isLoggedIn
-    ? `<div class="diary-mood-row">
-        <button type="button" class="diary-mood-btn" data-mood-kind="mood" data-entry-id="${entry.id}">${entry.mood || '+ Mood'}</button>
-        <button type="button" class="diary-mood-btn" data-mood-kind="weather" data-entry-id="${entry.id}">${entry.weather || '+ Weather'}</button>
-      </div>`
-    : '';
-  const mediaFrameHTML = rightPageMediaFrameHTML(entry, {
+function pageContentOptions(active) {
+  return {
     active,
+    entries: ENTRIES,
+    isLoggedIn,
     layoutCache: mediaLayoutCache,
-    renderItem: mediaItemHTML,
-    beforeMediaHTML: badgeHTML,
-    afterMediaHTML: `${captionHTML}${moodRowHTML}`,
-  });
+    tagline: DIARY_TAGLINE,
+    brand: DIARY_BRAND,
+    edition: DIARY_EDITION,
+  };
+}
 
-  return `
-    <div class="diary-page__header">
-      <span class="diary-page__label">Page Spread ${index + 1} of ${ENTRIES.length}</span>
-      <span class="diary-page__count">${countLabel}</span>
-    </div>
-    ${mediaFrameHTML}
-    <div class="diary-page__footer diary-page__footer--right">
-      <span>${DIARY_BRAND}</span>
-      <span>${DIARY_EDITION}</span>
-    </div>
-  `;
+function spreadHTMLForEntry(entry, active = true) {
+  return mapSpreadHTMLForEntry(entry, pageContentOptions(active));
+}
+
+function transitionHTMLForEntries(fromEntry, toEntry, active = true) {
+  return mapTransitionHTMLForEntries(
+    fromEntry,
+    toEntry,
+    pageContentOptions(active),
+  );
 }
 
 function renderStatic() {
@@ -200,9 +117,10 @@ function renderStatic() {
   }
   const entry = ENTRIES[state.current];
   const layoutGeneration = mediaLayoutCache.begin(entry);
+  const spread = spreadHTMLForEntry(entry);
   stage.innerHTML = `
-    <div class="diary-page diary-page--left">${leftPageHTML(entry)}</div>
-    <div class="diary-page diary-page--right">${rightPageHTML(entry)}</div>
+    <div class="diary-page diary-page--left">${spread.leftHTML}</div>
+    <div class="diary-page diary-page--right">${spread.rightHTML}</div>
   `;
   hydrateSingleMediaLayouts(stage, {
     onLayout: (layout) => mediaLayoutCache.set(layoutGeneration, layout),
@@ -417,16 +335,15 @@ function buildCurlDOM(fromEntry, toEntry) {
   stage.querySelectorAll('video').forEach((video) => video.pause());
   stage.innerHTML = '';
 
-  const leftEntry = fromEntry;
-  const rightEntry = toEntry;
+  const transition = transitionHTMLForEntries(fromEntry, toEntry, false);
 
   const leftPage = document.createElement('div');
   leftPage.className = 'diary-page diary-page--left';
-  leftPage.innerHTML = leftPageHTML(leftEntry);
+  leftPage.innerHTML = transition.underlayLeftHTML;
 
   const rightPage = document.createElement('div');
   rightPage.className = 'diary-page diary-page--right';
-  rightPage.innerHTML = rightPageHTML(rightEntry, false);
+  rightPage.innerHTML = transition.underlayRightHTML;
 
   const underlayIn = document.createElement('div');
   underlayIn.className = 'diary-underlay-shadow diary-underlay-shadow--in';
@@ -445,8 +362,8 @@ function buildCurlDOM(fromEntry, toEntry) {
   const sheetWidthPx = sheet.getBoundingClientRect().width;
   const sheetHeightPx = sheet.getBoundingClientRect().height;
   const segWidth = sheetWidthPx / SLICE_COUNT;
-  const frontHTML = rightPageHTML(fromEntry, false);
-  const backHTML = leftPageHTML(toEntry);
+  const frontHTML = transition.frontHTML;
+  const backHTML = transition.backHTML;
   const frontClass = 'diary-page--right';
   const backClass = 'diary-page--left';
   const slices = [];

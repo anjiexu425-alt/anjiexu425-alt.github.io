@@ -240,8 +240,7 @@ test('diary rendering preserves media cache lifecycle across static and temporar
   assert.match(renderStaticSource[0], /mediaLayoutCache\.set/);
   assert.equal(diarySource.match(/hydrateSingleMediaLayouts\(/g)?.length, 1);
   assert.ok(buildCurlSource);
-  assert.match(buildCurlSource[0], /rightPageHTML\(rightEntry,\s*false\)/);
-  assert.match(buildCurlSource[0], /rightPageHTML\(fromEntry,\s*false\)/);
+  assert.match(buildCurlSource[0], /transitionHTMLForEntries\(fromEntry,\s*toEntry,\s*false\)/);
   assert.ok(initEntriesSource);
   assert.match(initEntriesSource[0], /mediaLayoutCache\.invalidate\(\)/);
   assert.match(initEntriesSource[0], /mediaLayoutCache\.prune\(ENTRIES\)/);
@@ -251,6 +250,54 @@ test('diary rendering preserves media cache lifecycle across static and temporar
   assert.ok(handleFormSubmitSource);
   assert.match(handleFormSubmitSource[0], /mediaLayoutCache\.invalidate\(existingEntry\)/);
   assert.match(handleFormSubmitSource[0], /mediaLayoutCache\.prune\(ENTRIES\)/);
+});
+
+test('static and sliced curl DOM consume shared physical spread mappings', () => {
+  const renderStaticSource = diarySource.match(/function renderStatic[\s\S]*?\n\}/)?.[0];
+  const buildCurlSource = diarySource.match(
+    /function buildCurlDOM[\s\S]*?\n\}\n\nfunction updateCurl/,
+  )?.[0];
+
+  assert.ok(renderStaticSource);
+  assert.match(
+    renderStaticSource,
+    /const spread = spreadHTMLForEntry\(entry\)/,
+  );
+  assert.match(renderStaticSource, /\$\{spread\.leftHTML\}/);
+  assert.match(renderStaticSource, /\$\{spread\.rightHTML\}/);
+
+  assert.ok(buildCurlSource);
+  assert.match(
+    buildCurlSource,
+    /const transition = transitionHTMLForEntries\(fromEntry,\s*toEntry,\s*false\)/,
+  );
+  assert.match(buildCurlSource, /leftPage\.innerHTML = transition\.underlayLeftHTML/);
+  assert.match(buildCurlSource, /rightPage\.innerHTML = transition\.underlayRightHTML/);
+  assert.match(buildCurlSource, /const frontHTML = transition\.frontHTML/);
+  assert.match(buildCurlSource, /const backHTML = transition\.backHTML/);
+  assert.match(
+    buildCurlSource,
+    /frontCanvas\.innerHTML = `<div class="diary-page \$\{frontClass\}">\$\{frontHTML\}<\/div>`/,
+  );
+  assert.match(
+    buildCurlSource,
+    /backCanvas\.innerHTML = `<div class="diary-page \$\{backClass\}">\$\{backHTML\}<\/div>`/,
+  );
+});
+
+test('content-role wrappers own text and media alignment independently of physical side', () => {
+  assert.match(
+    diaryCSS,
+    /\.diary-page__content\s*\{[^}]*width:\s*100%[^}]*min-height:\s*100%/s,
+  );
+  assert.match(
+    diaryCSS,
+    /\.diary-page__content--media\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column[^}]*align-items:\s*center[^}]*justify-content:\s*center/s,
+  );
+
+  const physicalRightRule = diaryCSS.match(/\.diary-page--right\s*\{([^}]*)\}/)?.[1];
+  assert.ok(physicalRightRule);
+  assert.doesNotMatch(physicalRightRule, /align-items|justify-content/);
 });
 
 test('single-media layout updates the orientation class and CSS aspect variable', () => {
