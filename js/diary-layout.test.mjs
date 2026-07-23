@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as diaryLayout from './diary-layout.mjs';
 import { createMediaLayoutCache } from './diary-media.mjs';
 import { createFlipTransition } from './diary-state.mjs';
+import * as diaryDOM from './diary-dom.mjs';
 
 const {
   normalizePageLayout,
@@ -214,8 +215,8 @@ test('inactive media content keeps its caption and controls while deferring vide
 
 test('Next uses physical spreads for underlays and sheet faces across opposite layouts', () => {
   const entries = [
-    diaryEntry('current', 'media-left'),
-    diaryEntry('target', 'text-left'),
+    diaryEntry('current', 'text-left'),
+    diaryEntry('target', 'media-left'),
   ];
   const descriptor = createFlipTransition(0, 'next');
 
@@ -232,16 +233,16 @@ test('Next uses physical spreads for underlays and sheet faces across opposite l
     contentOptions(entries),
   );
 
-  assertEntryAndRole(transition.underlayLeftHTML, 'current', 'media');
-  assertEntryAndRole(transition.underlayRightHTML, 'target', 'media');
-  assertEntryAndRole(transition.frontHTML, 'current', 'text');
-  assertEntryAndRole(transition.backHTML, 'target', 'text');
+  assertEntryAndRole(transition.underlayLeftHTML, 'current', 'text');
+  assertEntryAndRole(transition.underlayRightHTML, 'target', 'text');
+  assertEntryAndRole(transition.frontHTML, 'current', 'media');
+  assertEntryAndRole(transition.backHTML, 'target', 'media');
 });
 
 test('Previous reverses canonical progress without swapping physical page mappings', () => {
   const entries = [
-    diaryEntry('target', 'media-left'),
-    diaryEntry('current', 'text-left'),
+    diaryEntry('target', 'text-left'),
+    diaryEntry('current', 'media-left'),
   ];
   const descriptor = createFlipTransition(1, 'prev');
 
@@ -259,8 +260,183 @@ test('Previous reverses canonical progress without swapping physical page mappin
 
   // At canonical progress 1 the current spread is target/right plus the
   // sheet back (current/left). Reversing to 0 reveals the previous spread.
-  assertEntryAndRole(transition.underlayLeftHTML, 'target', 'media');
-  assertEntryAndRole(transition.underlayRightHTML, 'current', 'media');
-  assertEntryAndRole(transition.frontHTML, 'target', 'text');
-  assertEntryAndRole(transition.backHTML, 'current', 'text');
+  assertEntryAndRole(transition.underlayLeftHTML, 'target', 'text');
+  assertEntryAndRole(transition.underlayRightHTML, 'current', 'text');
+  assertEntryAndRole(transition.frontHTML, 'target', 'media');
+  assertEntryAndRole(transition.backHTML, 'current', 'media');
+});
+
+function classNames(element) {
+  return new Set(element.className.split(/\s+/).filter(Boolean));
+}
+
+class FakeElement {
+  constructor(ownerDocument, tagName) {
+    this.ownerDocument = ownerDocument;
+    this.tagName = tagName.toUpperCase();
+    this.children = [];
+    this.className = '';
+    this.innerHTML = '';
+    this.style = {};
+    this.pauseCalls = 0;
+  }
+
+  appendChild(child) {
+    this.children.push(child);
+    return child;
+  }
+
+  append(...children) {
+    children.forEach((child) => this.appendChild(child));
+  }
+
+  replaceChildren(...children) {
+    this.children = [...children];
+    this.innerHTML = '';
+  }
+
+  querySelectorAll(selector) {
+    const matches = [];
+    const isMatch = selector.startsWith('.')
+      ? (element) => classNames(element).has(selector.slice(1))
+      : (element) => element.tagName === selector.toUpperCase();
+    const visit = (element) => {
+      element.children.forEach((child) => {
+        if (isMatch(child)) matches.push(child);
+        visit(child);
+      });
+    };
+    visit(this);
+    return matches;
+  }
+
+  getBoundingClientRect() {
+    return classNames(this).has('diary-flip-sheet')
+      ? { width: 640, height: 480 }
+      : { width: 0, height: 0 };
+  }
+
+  pause() {
+    this.pauseCalls += 1;
+  }
+}
+
+class FakeDocument {
+  createElement(tagName) {
+    return new FakeElement(this, tagName);
+  }
+}
+
+function fakeStage() {
+  const document = new FakeDocument();
+  return document.createElement('section');
+}
+
+function assertBuiltPage(element, physicalSide, entryId, role) {
+  assert.equal(
+    element.className,
+    `diary-page diary-page--${physicalSide}`,
+  );
+  assertEntryAndRole(element.innerHTML, entryId, role);
+}
+
+function assertBuiltSliceFace(slice, faceIndex, physicalSide, entryId, role) {
+  const face = slice.children[faceIndex];
+  const canvas = face.children[0];
+  assert.match(
+    face.className,
+    new RegExp(`diary-flip-slice__face--${faceIndex === 0 ? 'front' : 'back'}`),
+  );
+  assert.match(
+    canvas.innerHTML,
+    new RegExp(`<div class="diary-page diary-page--${physicalSide}">`),
+  );
+  assertEntryAndRole(canvas.innerHTML, entryId, role);
+}
+
+test('settled DOM hydrates media through the stage root on either physical side', () => {
+  assert.equal(
+    typeof diaryDOM.renderSettledSpreadDOM,
+    'function',
+    'renderSettledSpreadDOM must provide an executable production boundary',
+  );
+
+  for (const layout of ['text-left', 'media-left']) {
+    const entry = diaryEntry('current', layout);
+    const spread = spreadHTMLForEntry(entry, contentOptions([entry]));
+    const stage = fakeStage();
+    const hydrationRoots = [];
+
+    const built = diaryDOM.renderSettledSpreadDOM(stage, spread, {
+      hydrateMedia: (root) => hydrationRoots.push(root),
+    });
+
+    const mediaSide = layout === 'media-left' ? 'left' : 'right';
+    const textSide = mediaSide === 'left' ? 'right' : 'left';
+    assertBuiltPage(built[`${mediaSide}Page`], mediaSide, 'current', 'media');
+    assertBuiltPage(built[`${textSide}Page`], textSide, 'current', 'text');
+    assert.deepEqual(stage.children, [built.leftPage, built.rightPage]);
+    assert.deepEqual(hydrationRoots, [stage]);
+  }
+});
+
+test('Next builds opposite-layout underlays and media front/back into all 16 slices', () => {
+  assert.equal(
+    typeof diaryDOM.buildCurlSpreadDOM,
+    'function',
+    'buildCurlSpreadDOM must provide an executable production boundary',
+  );
+  const entries = [
+    diaryEntry('current', 'text-left'),
+    diaryEntry('target', 'media-left'),
+  ];
+  const descriptor = createFlipTransition(0, 'next');
+  const transition = transitionHTMLForEntries(
+    entries[descriptor.fromIndex],
+    entries[descriptor.toIndex],
+    contentOptions(entries),
+  );
+  const stage = fakeStage();
+
+  const built = diaryDOM.buildCurlSpreadDOM(stage, transition);
+
+  assertBuiltPage(built.leftPage, 'left', 'current', 'text');
+  assertBuiltPage(built.rightPage, 'right', 'target', 'text');
+  assert.equal(built.slices.length, 16);
+  assert.equal(stage.querySelectorAll('.diary-flip-slice').length, 16);
+  built.slices.forEach(({ el }) => {
+    assertBuiltSliceFace(el, 0, 'right', 'current', 'media');
+    assertBuiltSliceFace(el, 1, 'left', 'target', 'media');
+  });
+});
+
+test('Previous builds the same physical underlays and slice faces while progress reverses', () => {
+  assert.equal(
+    typeof diaryDOM.buildCurlSpreadDOM,
+    'function',
+    'buildCurlSpreadDOM must provide an executable production boundary',
+  );
+  const entries = [
+    diaryEntry('target', 'text-left'),
+    diaryEntry('current', 'media-left'),
+  ];
+  const descriptor = createFlipTransition(1, 'prev');
+  const transition = transitionHTMLForEntries(
+    entries[descriptor.fromIndex],
+    entries[descriptor.toIndex],
+    contentOptions(entries),
+  );
+  const stage = fakeStage();
+
+  const built = diaryDOM.buildCurlSpreadDOM(stage, transition);
+
+  assert.equal(descriptor.startProgress, 1);
+  assert.equal(descriptor.targetProgress, 0);
+  assertBuiltPage(built.leftPage, 'left', 'target', 'text');
+  assertBuiltPage(built.rightPage, 'right', 'current', 'text');
+  assert.equal(built.slices.length, 16);
+  built.slices.forEach(({ el }) => {
+    assertBuiltSliceFace(el, 0, 'right', 'target', 'media');
+    assertBuiltSliceFace(el, 1, 'left', 'current', 'media');
+  });
 });

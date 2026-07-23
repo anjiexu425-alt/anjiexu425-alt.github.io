@@ -252,7 +252,7 @@ test('diary rendering preserves media cache lifecycle across static and temporar
   assert.match(handleFormSubmitSource[0], /mediaLayoutCache\.prune\(ENTRIES\)/);
 });
 
-test('static and sliced curl DOM consume shared physical spread mappings', () => {
+test('production rendering delegates mapped spreads to the executable DOM builders', () => {
   const renderStaticSource = diarySource.match(/function renderStatic[\s\S]*?\n\}/)?.[0];
   const buildCurlSource = diarySource.match(
     /function buildCurlDOM[\s\S]*?\n\}\n\nfunction updateCurl/,
@@ -263,25 +263,19 @@ test('static and sliced curl DOM consume shared physical spread mappings', () =>
     renderStaticSource,
     /const spread = spreadHTMLForEntry\(entry\)/,
   );
-  assert.match(renderStaticSource, /\$\{spread\.leftHTML\}/);
-  assert.match(renderStaticSource, /\$\{spread\.rightHTML\}/);
+  assert.match(
+    renderStaticSource,
+    /renderSettledSpreadDOM\(stage,\s*spread,\s*\{[\s\S]*?hydrateMedia:/,
+  );
 
   assert.ok(buildCurlSource);
   assert.match(
     buildCurlSource,
     /const transition = transitionHTMLForEntries\(fromEntry,\s*toEntry,\s*false\)/,
   );
-  assert.match(buildCurlSource, /leftPage\.innerHTML = transition\.underlayLeftHTML/);
-  assert.match(buildCurlSource, /rightPage\.innerHTML = transition\.underlayRightHTML/);
-  assert.match(buildCurlSource, /const frontHTML = transition\.frontHTML/);
-  assert.match(buildCurlSource, /const backHTML = transition\.backHTML/);
   assert.match(
     buildCurlSource,
-    /frontCanvas\.innerHTML = `<div class="diary-page \$\{frontClass\}">\$\{frontHTML\}<\/div>`/,
-  );
-  assert.match(
-    buildCurlSource,
-    /backCanvas\.innerHTML = `<div class="diary-page \$\{backClass\}">\$\{backHTML\}<\/div>`/,
+    /const elements = buildCurlSpreadDOM\(stage,\s*transition\)/,
   );
 });
 

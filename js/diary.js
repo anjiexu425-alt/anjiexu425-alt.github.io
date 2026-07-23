@@ -16,7 +16,6 @@ import {
   computeSliceLayout,
   computeCurlMotion,
   computeUnderlayOpacities,
-  contentOffsetForSlice,
   easeInOutCubic,
 } from './diary-state.mjs';
 import {
@@ -49,6 +48,10 @@ import {
   spreadHTMLForEntry as mapSpreadHTMLForEntry,
   transitionHTMLForEntries as mapTransitionHTMLForEntries,
 } from './diary-layout.mjs';
+import {
+  renderSettledSpreadDOM,
+  buildCurlSpreadDOM,
+} from './diary-dom.mjs';
 
 // Entries live in Supabase now (see js/diary-supabase.js) — this array is
 // populated asynchronously by initEntries() on page load, and mutated in
@@ -118,12 +121,10 @@ function renderStatic() {
   const entry = ENTRIES[state.current];
   const layoutGeneration = mediaLayoutCache.begin(entry);
   const spread = spreadHTMLForEntry(entry);
-  stage.innerHTML = `
-    <div class="diary-page diary-page--left">${spread.leftHTML}</div>
-    <div class="diary-page diary-page--right">${spread.rightHTML}</div>
-  `;
-  hydrateSingleMediaLayouts(stage, {
-    onLayout: (layout) => mediaLayoutCache.set(layoutGeneration, layout),
+  renderSettledSpreadDOM(stage, spread, {
+    hydrateMedia: (root) => hydrateSingleMediaLayouts(root, {
+      onLayout: (layout) => mediaLayoutCache.set(layoutGeneration, layout),
+    }),
   });
 }
 
@@ -319,8 +320,6 @@ function prefersInstantTransition() {
   );
 }
 
-const SLICE_COUNT = 16;
-
 function readFlipDurationMs() {
   const raw = getComputedStyle(document.querySelector('.diary'))
     .getPropertyValue('--diary-flip-duration')
@@ -332,89 +331,8 @@ function readFlipDurationMs() {
 
 function buildCurlDOM(fromEntry, toEntry) {
   const stage = document.querySelector('.diary-stage');
-  stage.querySelectorAll('video').forEach((video) => video.pause());
-  stage.innerHTML = '';
-
   const transition = transitionHTMLForEntries(fromEntry, toEntry, false);
-
-  const leftPage = document.createElement('div');
-  leftPage.className = 'diary-page diary-page--left';
-  leftPage.innerHTML = transition.underlayLeftHTML;
-
-  const rightPage = document.createElement('div');
-  rightPage.className = 'diary-page diary-page--right';
-  rightPage.innerHTML = transition.underlayRightHTML;
-
-  const underlayIn = document.createElement('div');
-  underlayIn.className = 'diary-underlay-shadow diary-underlay-shadow--in';
-  const underlayOut = document.createElement('div');
-  underlayOut.className = 'diary-underlay-shadow diary-underlay-shadow--out';
-  leftPage.appendChild(underlayIn);
-  rightPage.appendChild(underlayOut);
-
-  stage.appendChild(leftPage);
-  stage.appendChild(rightPage);
-
-  const sheet = document.createElement('div');
-  sheet.className = 'diary-flip-sheet diary-flip-sheet--next';
-  stage.appendChild(sheet);
-
-  const sheetWidthPx = sheet.getBoundingClientRect().width;
-  const sheetHeightPx = sheet.getBoundingClientRect().height;
-  const segWidth = sheetWidthPx / SLICE_COUNT;
-  const frontHTML = transition.frontHTML;
-  const backHTML = transition.backHTML;
-  const frontClass = 'diary-page--right';
-  const backClass = 'diary-page--left';
-  const slices = [];
-
-  for (let k = 0; k < SLICE_COUNT; k++) {
-    const sliceEl = document.createElement('div');
-    sliceEl.className = 'diary-flip-slice';
-    sliceEl.style.width = `${segWidth + 1.2}px`;
-    sliceEl.style.height = `${sheetHeightPx}px`;
-
-    const front = document.createElement('div');
-    front.className = 'diary-flip-slice__face diary-flip-slice__face--front';
-    const back = document.createElement('div');
-    back.className = 'diary-flip-slice__face diary-flip-slice__face--back';
-    const frontCanvas = document.createElement('div');
-    frontCanvas.className = 'diary-flip-slice__canvas';
-    frontCanvas.style.width = `${sheetWidthPx}px`;
-    frontCanvas.style.height = `${sheetHeightPx}px`;
-    frontCanvas.innerHTML = `<div class="diary-page ${frontClass}">${frontHTML}</div>`;
-    frontCanvas.style.transform = `translateX(${-contentOffsetForSlice(k, SLICE_COUNT, 'front') * segWidth}px)`;
-    const backCanvas = document.createElement('div');
-    backCanvas.className = 'diary-flip-slice__canvas';
-    backCanvas.style.width = `${sheetWidthPx}px`;
-    backCanvas.style.height = `${sheetHeightPx}px`;
-    backCanvas.innerHTML = `<div class="diary-page ${backClass}">${backHTML}</div>`;
-    backCanvas.style.transform = `translateX(${-contentOffsetForSlice(k, SLICE_COUNT, 'back') * segWidth}px)`;
-    const frontShade = document.createElement('div');
-    frontShade.className = 'diary-flip-slice__shade';
-    const backShade = document.createElement('div');
-    backShade.className = 'diary-flip-slice__shade';
-    front.append(frontCanvas, frontShade);
-    back.append(backCanvas, backShade);
-    sliceEl.append(front, back);
-    sheet.appendChild(sliceEl);
-    slices.push({ el: sliceEl, frontShade, backShade });
-  }
-
-  const tipEl = document.createElement('div');
-  tipEl.className = 'diary-flip-tip';
-  const castShadowEl = document.createElement('div');
-  castShadowEl.className = 'diary-flip-castshadow';
-  sheet.append(tipEl, castShadowEl);
-  const elements = {
-    slices,
-    tipEl,
-    castShadowEl,
-    underlayIn,
-    underlayOut,
-    segWidth,
-    sheetWidthPx,
-  };
+  const elements = buildCurlSpreadDOM(stage, transition);
   updateCurl(0, elements);
   return elements;
 }
@@ -428,15 +346,16 @@ function updateCurl(progress, elements) {
     underlayOut,
     segWidth,
     sheetWidthPx,
+    sliceCount,
   } = elements;
-  const thetas = computeSliceThetas(progress, SLICE_COUNT);
+  const thetas = computeSliceThetas(progress, sliceCount);
   const { positions, tip } = computeSliceLayout(thetas, segWidth);
   const motion = computeCurlMotion(progress);
   const underlayOpacities = computeUnderlayOpacities(progress);
   slices.forEach(({ el, frontShade, backShade }, k) => {
     const { x, z } = positions[k];
     el.style.transform = `translate3d(${x}px, 0, ${z}px) rotateY(${thetas[k]}deg)`;
-    el.style.zIndex = progress < 0.5 ? String(k + 1) : String(SLICE_COUNT - k);
+    el.style.zIndex = progress < 0.5 ? String(k + 1) : String(sliceCount - k);
     frontShade.style.opacity = String(motion * 0.35);
     backShade.style.opacity = String(motion * 0.3);
   });
