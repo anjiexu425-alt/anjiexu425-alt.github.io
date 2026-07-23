@@ -7,7 +7,8 @@ import {
   canGoPrevious,
   goToPage,
   computeDragProgress,
-  shouldCompleteFlip,
+  createFlipTransition,
+  shouldCompleteDirectionalFlip,
   computeSliceThetas,
   computeSliceLayout,
   computeCurlMotion,
@@ -398,13 +399,13 @@ function readFlipDurationMs() {
   return raw.endsWith('ms') ? value : value * 1000;
 }
 
-function buildCurlDOM(direction, oldEntry, newEntry) {
+function buildCurlDOM(fromEntry, toEntry) {
   const stage = document.querySelector('.diary-stage');
   stage.querySelectorAll('video').forEach((video) => video.pause());
   stage.innerHTML = '';
 
-  const leftEntry = direction === 'next' ? oldEntry : newEntry;
-  const rightEntry = direction === 'next' ? newEntry : oldEntry;
+  const leftEntry = fromEntry;
+  const rightEntry = toEntry;
 
   const leftPage = document.createElement('div');
   leftPage.className = 'diary-page diary-page--left';
@@ -418,28 +419,23 @@ function buildCurlDOM(direction, oldEntry, newEntry) {
   underlayIn.className = 'diary-underlay-shadow diary-underlay-shadow--in';
   const underlayOut = document.createElement('div');
   underlayOut.className = 'diary-underlay-shadow diary-underlay-shadow--out';
-  if (direction === 'next') {
-    leftPage.appendChild(underlayIn);
-    rightPage.appendChild(underlayOut);
-  } else {
-    rightPage.appendChild(underlayIn);
-    leftPage.appendChild(underlayOut);
-  }
+  leftPage.appendChild(underlayIn);
+  rightPage.appendChild(underlayOut);
 
   stage.appendChild(leftPage);
   stage.appendChild(rightPage);
 
   const sheet = document.createElement('div');
-  sheet.className = `diary-flip-sheet diary-flip-sheet--${direction}`;
+  sheet.className = 'diary-flip-sheet diary-flip-sheet--next';
   stage.appendChild(sheet);
 
   const sheetWidthPx = sheet.getBoundingClientRect().width;
   const sheetHeightPx = sheet.getBoundingClientRect().height;
   const segWidth = sheetWidthPx / SLICE_COUNT;
-  const frontHTML = direction === 'next' ? rightPageHTML(oldEntry, false) : leftPageHTML(oldEntry);
-  const backHTML = direction === 'next' ? leftPageHTML(newEntry) : rightPageHTML(newEntry, false);
-  const frontClass = direction === 'next' ? 'diary-page--right' : 'diary-page--left';
-  const backClass = direction === 'next' ? 'diary-page--left' : 'diary-page--right';
+  const frontHTML = rightPageHTML(fromEntry, false);
+  const backHTML = leftPageHTML(toEntry);
+  const frontClass = 'diary-page--right';
+  const backClass = 'diary-page--left';
   const slices = [];
 
   for (let k = 0; k < SLICE_COUNT; k++) {
@@ -457,13 +453,13 @@ function buildCurlDOM(direction, oldEntry, newEntry) {
     frontCanvas.style.width = `${sheetWidthPx}px`;
     frontCanvas.style.height = `${sheetHeightPx}px`;
     frontCanvas.innerHTML = `<div class="diary-page ${frontClass}">${frontHTML}</div>`;
-    frontCanvas.style.transform = `translateX(${-contentOffsetForSlice(k, SLICE_COUNT, direction, 'front') * segWidth}px)`;
+    frontCanvas.style.transform = `translateX(${-contentOffsetForSlice(k, SLICE_COUNT, 'front') * segWidth}px)`;
     const backCanvas = document.createElement('div');
     backCanvas.className = 'diary-flip-slice__canvas';
     backCanvas.style.width = `${sheetWidthPx}px`;
     backCanvas.style.height = `${sheetHeightPx}px`;
     backCanvas.innerHTML = `<div class="diary-page ${backClass}">${backHTML}</div>`;
-    backCanvas.style.transform = `translateX(${-contentOffsetForSlice(k, SLICE_COUNT, direction, 'back') * segWidth}px)`;
+    backCanvas.style.transform = `translateX(${-contentOffsetForSlice(k, SLICE_COUNT, 'back') * segWidth}px)`;
     const frontShade = document.createElement('div');
     frontShade.className = 'diary-flip-slice__shade';
     const backShade = document.createElement('div');
@@ -481,18 +477,19 @@ function buildCurlDOM(direction, oldEntry, newEntry) {
   castShadowEl.className = 'diary-flip-castshadow';
   sheet.append(tipEl, castShadowEl);
   const elements = { slices, tipEl, castShadowEl, segWidth, sheetWidthPx };
-  updateCurl(0, direction, elements);
+  updateCurl(0, elements);
   return elements;
 }
 
-function updateCurl(progress, direction, elements) {
+function updateCurl(progress, elements) {
   const { slices, tipEl, castShadowEl, segWidth, sheetWidthPx } = elements;
-  const thetas = computeSliceThetas(progress, SLICE_COUNT, direction);
-  const { positions, tip } = computeSliceLayout(thetas, segWidth, direction);
+  const thetas = computeSliceThetas(progress, SLICE_COUNT);
+  const { positions, tip } = computeSliceLayout(thetas, segWidth);
   const motion = computeCurlMotion(progress);
   slices.forEach(({ el, frontShade, backShade }, k) => {
     const { x, z } = positions[k];
     el.style.transform = `translate3d(${x}px, 0, ${z}px) rotateY(${thetas[k]}deg)`;
+    el.style.zIndex = progress < 0.5 ? String(k + 1) : String(SLICE_COUNT - k);
     frontShade.style.opacity = String(motion * 0.35);
     backShade.style.opacity = String(motion * 0.3);
   });
@@ -504,17 +501,17 @@ function updateCurl(progress, direction, elements) {
   castShadowEl.style.transform = `translate3d(${tip.x - shadowWidth / 2}px, 0, 0) scaleX(${0.72 + motion * 0.55})`;
 }
 
-function runFlipAnimation(direction, elements, fromProgress, toProgress) {
+function runFlipAnimation(elements, fromProgress, toProgress) {
   return new Promise((resolve) => {
     const durationMs = readFlipDurationMs();
     const start = performance.now();
     function tick(now) {
       const linear = durationMs > 0 ? Math.min(1, (now - start) / durationMs) : 1;
       const eased = easeInOutCubic(linear);
-      updateCurl(fromProgress + (toProgress - fromProgress) * eased, direction, elements);
+      updateCurl(fromProgress + (toProgress - fromProgress) * eased, elements);
       if (linear < 1) requestAnimationFrame(tick);
       else {
-        updateCurl(toProgress, direction, elements);
+        updateCurl(toProgress, elements);
         resolve();
       }
     }
@@ -524,9 +521,8 @@ function runFlipAnimation(direction, elements, fromProgress, toProgress) {
 
 async function playFlip(direction) {
   if (isFlipping) return;
-  const oldIndex = state.current;
-  const newIndex = direction === 'next' ? oldIndex + 1 : oldIndex - 1;
-  if (newIndex < 0 || newIndex >= state.totalPages) return;
+  const descriptor = createFlipTransition(state.current, direction);
+  if (descriptor.fromIndex < 0 || descriptor.toIndex >= state.totalPages) return;
 
   if (prefersInstantTransition()) {
     state = direction === 'next' ? goToNext(state) : goToPrevious(state);
@@ -538,10 +534,15 @@ async function playFlip(direction) {
   isFlipping = true;
   updateChrome();
 
-  const oldEntry = ENTRIES[oldIndex];
-  const newEntry = ENTRIES[newIndex];
-  const elements = buildCurlDOM(direction, oldEntry, newEntry);
-  await runFlipAnimation(direction, elements, 0, 1);
+  const elements = buildCurlDOM(
+    ENTRIES[descriptor.fromIndex],
+    ENTRIES[descriptor.toIndex],
+  );
+  await runFlipAnimation(
+    elements,
+    descriptor.startProgress,
+    descriptor.targetProgress,
+  );
   state = direction === 'next' ? goToNext(state) : goToPrevious(state);
   isFlipping = false;
   renderStatic();
@@ -566,9 +567,9 @@ function findDragDirection(target) {
 
 function applyDragFlipVisualState() {
   const rawDeltaX = dragFlip.currentX - dragFlip.startX;
-  const signedDeltaX = dragFlip.direction === 'next' ? -rawDeltaX : rawDeltaX;
-  const progress = computeDragProgress(signedDeltaX, dragFlip.elements.sheetWidthPx);
-  updateCurl(progress, dragFlip.direction, dragFlip.elements);
+  const distance = computeDragProgress(Math.abs(rawDeltaX), dragFlip.elements.sheetWidthPx);
+  const progress = dragFlip.direction === 'next' ? distance : 1 - distance;
+  updateCurl(progress, dragFlip.elements);
   dragFlip.progress = progress;
 }
 
@@ -587,8 +588,8 @@ function handleStagePointerDown(event) {
   if (event.target.closest('.diary-page__discard, .diary-mood-btn, .diary-page__photo')) return;
   const direction = findDragDirection(event.target);
   if (!direction) return;
-  const newIndex = direction === 'next' ? state.current + 1 : state.current - 1;
-  if (newIndex < 0 || newIndex >= state.totalPages) return;
+  const descriptor = createFlipTransition(state.current, direction);
+  if (descriptor.fromIndex < 0 || descriptor.toIndex >= state.totalPages) return;
 
   event.currentTarget.setPointerCapture(event.pointerId);
   dragFlip = {
@@ -599,9 +600,11 @@ function handleStagePointerDown(event) {
     moved: false,
     rafScheduled: false,
     elements: null,
-    progress: 0,
-    oldIndex: state.current,
-    newIndex,
+    progress: descriptor.startProgress,
+    fromIndex: descriptor.fromIndex,
+    toIndex: descriptor.toIndex,
+    startProgress: descriptor.startProgress,
+    targetProgress: descriptor.targetProgress,
   };
 }
 
@@ -615,21 +618,28 @@ function handleStagePointerMove(event) {
     isFlipping = true;
     updateChrome();
     document.querySelector('.diary-stage').classList.add('diary-stage--dragging');
-    const oldEntry = ENTRIES[dragFlip.oldIndex];
-    const newEntry = ENTRIES[dragFlip.newIndex];
-    dragFlip.elements = buildCurlDOM(dragFlip.direction, oldEntry, newEntry);
+    dragFlip.elements = buildCurlDOM(
+      ENTRIES[dragFlip.fromIndex],
+      ENTRIES[dragFlip.toIndex],
+    );
   }
 
   scheduleDragFlipUpdate();
 }
 
 async function settleDragFlip() {
-  const { direction, elements, progress } = dragFlip;
-  const completing = shouldCompleteFlip(progress);
-  const target = completing ? 1 : 0;
+  const {
+    direction,
+    elements,
+    progress,
+    startProgress,
+    targetProgress,
+  } = dragFlip;
+  const completing = shouldCompleteDirectionalFlip(progress, direction);
+  const target = completing ? targetProgress : startProgress;
 
   document.querySelector('.diary-stage').classList.remove('diary-stage--dragging');
-  await runFlipAnimation(direction, elements, progress, target);
+  await runFlipAnimation(elements, progress, target);
   if (completing) {
     state = direction === 'next' ? goToNext(state) : goToPrevious(state);
   }
