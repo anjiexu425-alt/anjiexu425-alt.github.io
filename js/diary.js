@@ -20,6 +20,7 @@ import {
   easeInOutCubic,
 } from './diary-state.mjs';
 import {
+  createMediaLayoutCache,
   hydrateSingleMediaLayouts,
   mediaContainerHTML,
 } from './diary-media.mjs';
@@ -57,7 +58,7 @@ let ENTRIES = [];
 
 let state = createDiaryState(ENTRIES.length);
 let isFlipping = false;
-const mediaLayoutCache = new Map();
+const mediaLayoutCache = createMediaLayoutCache();
 
 // Non-null while the write/edit modal is open in edit mode — the id of the
 // entry being edited. Reset to null by closeWriteModal() so an in-progress
@@ -193,16 +194,18 @@ function rightPageHTML(entry, active = true) {
 function renderStatic() {
   const stage = document.querySelector('.diary-stage');
   if (ENTRIES.length === 0) {
+    mediaLayoutCache.prune([]);
     stage.innerHTML = '<p class="diary-empty">No diary pages yet — click "Write Diary" to add one.</p>';
     return;
   }
   const entry = ENTRIES[state.current];
+  const layoutGeneration = mediaLayoutCache.begin(entry);
   stage.innerHTML = `
     <div class="diary-page diary-page--left">${leftPageHTML(entry)}</div>
     <div class="diary-page diary-page--right">${rightPageHTML(entry)}</div>
   `;
   hydrateSingleMediaLayouts(stage, {
-    onLayout: (layoutKey, layout) => mediaLayoutCache.set(layoutKey, layout),
+    onLayout: (layout) => mediaLayoutCache.set(layoutGeneration, layout),
   });
 }
 
@@ -232,7 +235,9 @@ async function initEntries() {
   stage.innerHTML = '<p class="diary-empty">Loading diary…</p>';
   try {
     const rows = await fetchEntries();
+    mediaLayoutCache.invalidate();
     ENTRIES = rows.map(supabaseRowToEntry);
+    mediaLayoutCache.prune(ENTRIES);
   } catch (error) {
     stage.innerHTML = '<p class="diary-empty">Couldn’t load diary entries. Please check your connection and try again.</p>';
     console.error('Failed to load diary entries', error);
@@ -328,6 +333,7 @@ async function setMood(value) {
   }
   const entry = ENTRIES.find((e) => e.id === id);
   if (entry) entry[kind] = value;
+  mediaLayoutCache.prune(ENTRIES);
   closeMoodModal();
   renderStatic();
 }
@@ -342,7 +348,9 @@ async function handleDiscard(id) {
   }
   const removedIndex = ENTRIES.findIndex((entry) => entry.id === id);
   if (removedIndex === -1) return;
+  mediaLayoutCache.invalidate(ENTRIES[removedIndex]);
   ENTRIES.splice(removedIndex, 1);
+  mediaLayoutCache.prune(ENTRIES);
   const nextIndex = Math.max(0, Math.min(state.current, ENTRIES.length - 1));
   state = goToPage(openBook(createDiaryState(ENTRIES.length)), nextIndex);
   buildDots();
@@ -876,7 +884,9 @@ async function handleFormSubmit(event) {
       );
       const row = await updateEntry(editingEntryId, patch);
       const index = ENTRIES.findIndex((entry) => entry.id === editingEntryId);
+      mediaLayoutCache.invalidate(existingEntry);
       ENTRIES[index] = supabaseRowToEntry(row);
+      mediaLayoutCache.prune(ENTRIES);
 
       renderStatic();
       updateChrome();
@@ -900,6 +910,7 @@ async function handleFormSubmit(event) {
       };
       const row = await insertEntry(entryToSupabaseRow(newEntry));
       ENTRIES.push(supabaseRowToEntry(row));
+      mediaLayoutCache.prune(ENTRIES);
 
       state = goToPage(openBook(createDiaryState(ENTRIES.length)), ENTRIES.length - 1);
       document.querySelector('.diary').classList.add('is-open');

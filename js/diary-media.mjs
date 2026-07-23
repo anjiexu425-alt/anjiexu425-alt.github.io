@@ -7,8 +7,91 @@ const MEDIA_ORIENTATION_CLASSES = [
   'diary-page__media--portrait',
 ];
 
-export function mediaLayoutKey(url) {
-  return encodeURIComponent(String(url));
+function mediaSignature(entry) {
+  const urls = Array.isArray(entry?.media?.urls) ? entry.media.urls : [];
+  return JSON.stringify([entry?.media?.type ?? '', urls.map(String)]);
+}
+
+export function createMediaLayoutCache() {
+  const layouts = new Map();
+  const currentGenerations = new Map();
+  const anonymousEntryKeys = new WeakMap();
+  let nextAnonymousKey = 0;
+  let nextGeneration = 0;
+
+  const keyFor = (entry) => {
+    if (entry?.id !== undefined && entry.id !== null) {
+      return `entry:${String(entry.id)}`;
+    }
+    if (!anonymousEntryKeys.has(entry)) {
+      nextAnonymousKey += 1;
+      anonymousEntryKeys.set(entry, `anonymous:${nextAnonymousKey}`);
+    }
+    return anonymousEntryKeys.get(entry);
+  };
+
+  const rejectChangedMedia = (key, signature) => {
+    const cached = layouts.get(key);
+    if (cached && cached.signature !== signature) layouts.delete(key);
+
+    const generation = currentGenerations.get(key);
+    if (generation && generation.signature !== signature) {
+      currentGenerations.delete(key);
+    }
+  };
+
+  return {
+    get size() {
+      return layouts.size;
+    },
+
+    get(entry) {
+      const key = keyFor(entry);
+      const signature = mediaSignature(entry);
+      rejectChangedMedia(key, signature);
+      return layouts.get(key)?.layout;
+    },
+
+    begin(entry) {
+      const key = keyFor(entry);
+      const signature = mediaSignature(entry);
+      rejectChangedMedia(key, signature);
+      nextGeneration += 1;
+      const token = Object.freeze({ key, signature, generation: nextGeneration });
+      currentGenerations.clear();
+      currentGenerations.set(key, token);
+      return token;
+    },
+
+    set(token, layout) {
+      if (!token || currentGenerations.get(token.key) !== token) return false;
+      layouts.set(token.key, { signature: token.signature, layout });
+      return true;
+    },
+
+    invalidate(entry) {
+      if (entry === undefined) {
+        layouts.clear();
+        currentGenerations.clear();
+        return;
+      }
+      const key = keyFor(entry);
+      layouts.delete(key);
+      currentGenerations.delete(key);
+    },
+
+    prune(entries) {
+      const referenced = new Map(
+        entries.map((entry) => [keyFor(entry), mediaSignature(entry)]),
+      );
+      layouts.forEach((cached, key) => {
+        if (referenced.get(key) !== cached.signature) layouts.delete(key);
+      });
+      currentGenerations.forEach((token, key) => {
+        if (referenced.get(key) !== token.signature) currentGenerations.delete(key);
+      });
+    },
+  };
 }
 
 export function mediaGridStyle(count) {
@@ -19,31 +102,33 @@ export function mediaGridStyle(count) {
 
 export function mediaContainerHTML(entry, {
   active = true,
-  layoutCache = new Map(),
+  layoutCache = createMediaLayoutCache(),
   renderItem,
 } = {}) {
-  const urls = entry.media.urls;
-  const isSingle = urls.length === 1;
-  const layoutKey = isSingle ? mediaLayoutKey(urls[0]) : null;
-  const layout = layoutKey ? layoutCache.get(layoutKey) : null;
+  const urls = Array.isArray(entry?.media?.urls) ? entry.media.urls : [];
+  const isSingle = urls.length <= 1;
+  const layout = urls.length === 1 ? layoutCache.get(entry) : undefined;
   const orientation = layout?.orientation ?? 'unknown';
   const mediaClass = isSingle
     ? `diary-page__media diary-page__media--single diary-page__media--${orientation}`
     : 'diary-page__media';
-  const layoutKeyAttribute = layoutKey ? ` data-media-layout-key="${layoutKey}"` : '';
   const aspectStyle = layout ? ` --diary-media-aspect:${layout.aspectRatio};` : '';
   const itemsHTML = urls
     .map((url, index) => renderItem(entry, url, index, urls.length, active))
     .join('');
 
-  return `<div class="${mediaClass}"${layoutKeyAttribute} style="${mediaGridStyle(urls.length)}${aspectStyle}">${itemsHTML}</div>`;
+  return `<div class="${mediaClass}" style="${mediaGridStyle(urls.length)}${aspectStyle}">${itemsHTML}</div>`;
+}
+
+function applyResolvedSingleMediaLayout(container, layout) {
+  container.classList.remove(...MEDIA_ORIENTATION_CLASSES);
+  container.classList.add(`diary-page__media--${layout.orientation}`);
+  container.style.setProperty('--diary-media-aspect', String(layout.aspectRatio));
 }
 
 export function applySingleMediaLayout(container, width, height) {
   const layout = resolveMediaLayout(width, height);
-  container.classList.remove(...MEDIA_ORIENTATION_CLASSES);
-  container.classList.add(`diary-page__media--${layout.orientation}`);
-  container.style.setProperty('--diary-media-aspect', String(layout.aspectRatio));
+  applyResolvedSingleMediaLayout(container, layout);
   return layout;
 }
 
@@ -61,8 +146,9 @@ export function hydrateSingleMediaLayouts(root, {
     if (!media) return;
 
     const apply = (width, height) => {
-      const layout = applySingleMediaLayout(container, width, height);
-      onLayout(container.dataset.mediaLayoutKey, layout);
+      const layout = resolveMediaLayout(width, height);
+      if (onLayout(layout) === false) return;
+      applyResolvedSingleMediaLayout(container, layout);
     };
 
     if (isImage(media)) {

@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   applySingleMediaLayout,
+  createMediaLayoutCache,
   hydrateSingleMediaLayouts,
   mediaContainerHTML,
-  mediaLayoutKey,
 } from './diary-media.mjs';
 import {
   createDiaryState,
@@ -33,6 +33,7 @@ import {
 } from './diary-state.mjs';
 
 const diarySource = readFileSync(new URL('./diary.js', import.meta.url), 'utf8');
+const diaryCSS = readFileSync(new URL('../css/pages.css', import.meta.url), 'utf8');
 
 function fakeClassList(...classNames) {
   const values = new Set(classNames);
@@ -84,13 +85,11 @@ function fakeMediaContainer({
     'diary-page__media--single',
     'diary-page__media--unknown',
   ],
-  layoutKey = 'entry-media',
 } = {}) {
   let queryCount = 0;
   return {
     classList: fakeClassList(...classes),
     style: fakeStyle(),
-    dataset: { mediaLayoutKey: layoutKey },
     querySelector() {
       queryCount += 1;
       return media;
@@ -116,17 +115,30 @@ test('diary rendering shares resolved layouts with temporary flip HTML', () => {
   const rightPageSource = diarySource.match(/function rightPageHTML[\s\S]*?\n\}/);
   const renderStaticSource = diarySource.match(/function renderStatic[\s\S]*?\n\}/);
   const buildCurlSource = diarySource.match(/function buildCurlDOM[\s\S]*?\n\}\n\nfunction updateCurl/);
+  const initEntriesSource = diarySource.match(/async function initEntries[\s\S]*?\n\}/);
+  const handleDiscardSource = diarySource.match(/async function handleDiscard[\s\S]*?\n\}/);
+  const handleFormSubmitSource = diarySource.match(/async function handleFormSubmit[\s\S]*?\n\}\n\ndocument/);
 
   assert.ok(rightPageSource);
   assert.match(rightPageSource[0], /mediaContainerHTML/);
   assert.match(rightPageSource[0], /layoutCache:\s*mediaLayoutCache/);
   assert.ok(renderStaticSource);
   assert.match(renderStaticSource[0], /hydrateSingleMediaLayouts/);
+  assert.match(renderStaticSource[0], /mediaLayoutCache\.begin/);
   assert.match(renderStaticSource[0], /mediaLayoutCache\.set/);
   assert.equal(diarySource.match(/hydrateSingleMediaLayouts\(/g)?.length, 1);
   assert.ok(buildCurlSource);
   assert.match(buildCurlSource[0], /rightPageHTML\(rightEntry,\s*false\)/);
   assert.match(buildCurlSource[0], /rightPageHTML\(fromEntry,\s*false\)/);
+  assert.ok(initEntriesSource);
+  assert.match(initEntriesSource[0], /mediaLayoutCache\.invalidate\(\)/);
+  assert.match(initEntriesSource[0], /mediaLayoutCache\.prune\(ENTRIES\)/);
+  assert.ok(handleDiscardSource);
+  assert.match(handleDiscardSource[0], /mediaLayoutCache\.invalidate/);
+  assert.match(handleDiscardSource[0], /mediaLayoutCache\.prune\(ENTRIES\)/);
+  assert.ok(handleFormSubmitSource);
+  assert.match(handleFormSubmitSource[0], /mediaLayoutCache\.invalidate\(existingEntry\)/);
+  assert.match(handleFormSubmitSource[0], /mediaLayoutCache\.prune\(ENTRIES\)/);
 });
 
 test('single-media layout updates the orientation class and CSS aspect variable', () => {
@@ -151,15 +163,14 @@ test('a complete cached image hydrates immediately without adding a listener', (
 
   hydrateSingleMediaLayouts(fakeMediaRoot([container]), {
     isImage: () => true,
-    onLayout: (key, layout) => resolved.push([key, layout]),
+    onLayout: (layout) => resolved.push(layout),
   });
 
   assert.equal(container.classList.contains('diary-page__media--portrait'), true);
   assert.equal(image.listener('load'), undefined);
-  assert.deepEqual(resolved, [[
-    'entry-media',
+  assert.deepEqual(resolved, [
     { orientation: 'portrait', aspectRatio: 3 / 4 },
-  ]]);
+  ]);
 });
 
 test('a video with metadata hydrates immediately', () => {
@@ -190,14 +201,14 @@ test('pending image and video media hydrate from one-shot async events', () => {
     videoWidth: 900,
     videoHeight: 1200,
   });
-  const imageContainer = fakeMediaContainer({ media: image, layoutKey: 'image-key' });
-  const videoContainer = fakeMediaContainer({ media: video, layoutKey: 'video-key' });
+  const imageContainer = fakeMediaContainer({ media: image });
+  const videoContainer = fakeMediaContainer({ media: video });
   const resolved = [];
 
   hydrateSingleMediaLayouts(fakeMediaRoot([imageContainer, videoContainer]), {
     isImage: (media) => media === image,
     haveMetadata: 1,
-    onLayout: (key, layout) => resolved.push([key, layout]),
+    onLayout: (layout) => resolved.push(layout),
   });
 
   assert.deepEqual(image.listener('load')?.options, { once: true });
@@ -206,7 +217,7 @@ test('pending image and video media hydrate from one-shot async events', () => {
   video.dispatch('loadedmetadata');
   assert.equal(imageContainer.classList.contains('diary-page__media--landscape'), true);
   assert.equal(videoContainer.classList.contains('diary-page__media--portrait'), true);
-  assert.deepEqual(resolved.map(([key]) => key), ['image-key', 'video-key']);
+  assert.deepEqual(resolved.map(({ orientation }) => orientation), ['landscape', 'portrait']);
 });
 
 test('placeholder and multi-image containers are not hydrated', () => {
@@ -231,10 +242,12 @@ test('placeholder and multi-image containers are not hydrated', () => {
 
 test('temporary flip HTML uses each source or target entry cached layout without hydration', () => {
   const entry = {
+    id: 'wide-entry',
     title: 'Wide view',
     media: { type: 'image', urls: ['wide.jpg'] },
   };
   const targetEntry = {
+    id: 'square-entry',
     title: 'Square view',
     media: { type: 'image', urls: ['square.jpg'] },
   };
@@ -243,15 +256,16 @@ test('temporary flip HTML uses each source or target entry cached layout without
     naturalWidth: 1600,
     naturalHeight: 900,
   });
-  const key = mediaLayoutKey(entry.media.urls[0]);
-  const container = fakeMediaContainer({ media: image, layoutKey: key });
-  const layoutCache = new Map();
+  const container = fakeMediaContainer({ media: image });
+  const layoutCache = createMediaLayoutCache();
+  const entryGeneration = layoutCache.begin(entry);
 
   hydrateSingleMediaLayouts(fakeMediaRoot([container]), {
     isImage: () => true,
-    onLayout: (layoutKey, layout) => layoutCache.set(layoutKey, layout),
+    onLayout: (layout) => layoutCache.set(entryGeneration, layout),
   });
-  layoutCache.set(mediaLayoutKey(targetEntry.media.urls[0]), {
+  const targetGeneration = layoutCache.begin(targetEntry);
+  layoutCache.set(targetGeneration, {
     orientation: 'square',
     aspectRatio: 1,
   });
@@ -277,9 +291,10 @@ test('temporary flip HTML uses each source or target entry cached layout without
 });
 
 test('uncached temporary HTML and placeholders use the safe unknown fallback', () => {
-  const layoutCache = new Map();
+  const layoutCache = createMediaLayoutCache();
   const renderItem = () => '<div class="diary-placeholder"></div>';
   const placeholderEntry = {
+    id: 'placeholder-entry',
     media: { type: 'image', urls: ['[Photo placeholder: campus]'] },
   };
 
@@ -296,12 +311,12 @@ test('uncached temporary HTML and placeholders use the safe unknown fallback', (
 
 test('multi-image HTML keeps the gallery grid and ignores cached single-media layout', () => {
   const entry = {
+    id: 'gallery-entry',
     media: { type: 'image', urls: ['first.jpg', 'second.jpg'] },
   };
-  const layoutCache = new Map([[
-    mediaLayoutKey(entry.media.urls[0]),
-    { orientation: 'landscape', aspectRatio: 16 / 9 },
-  ]]);
+  const layoutCache = createMediaLayoutCache();
+  const generation = layoutCache.begin(entry);
+  layoutCache.set(generation, { orientation: 'landscape', aspectRatio: 16 / 9 });
 
   const html = mediaContainerHTML(entry, {
     active: false,
@@ -313,6 +328,236 @@ test('multi-image HTML keeps the gallery grid and ignores cached single-media la
   assert.doesNotMatch(html, /diary-page__media--landscape/);
   assert.doesNotMatch(html, /--diary-media-aspect:/);
   assert.match(html, /grid-template-columns:repeat\(2,1fr\)/);
+});
+
+test('media layout cache isolates entries that reuse the same URL', () => {
+  const firstEntry = {
+    id: 'first-entry',
+    media: { type: 'image', urls: ['shared.jpg'] },
+  };
+  const reusedUrlEntry = {
+    id: 'second-entry',
+    media: { type: 'image', urls: ['shared.jpg'] },
+  };
+  const layoutCache = createMediaLayoutCache();
+  const generation = layoutCache.begin(firstEntry);
+
+  assert.equal(layoutCache.set(generation, {
+    orientation: 'portrait',
+    aspectRatio: 3 / 4,
+  }), true);
+
+  assert.deepEqual(layoutCache.get(firstEntry), {
+    orientation: 'portrait',
+    aspectRatio: 3 / 4,
+  });
+  assert.equal(layoutCache.get(reusedUrlEntry), undefined);
+  assert.match(mediaContainerHTML(reusedUrlEntry, {
+    active: false,
+    layoutCache,
+    renderItem: () => '<img>',
+  }), /diary-page__media--unknown/);
+});
+
+test('media replacement invalidates a same-entry same-URL layout and its old generation', () => {
+  const oldEntry = {
+    id: 'edited-entry',
+    media: { type: 'image', urls: ['stable-storage-url.jpg'] },
+  };
+  const replacedEntry = {
+    id: 'edited-entry',
+    media: { type: 'image', urls: ['stable-storage-url.jpg'] },
+  };
+  const layoutCache = createMediaLayoutCache();
+  const oldGeneration = layoutCache.begin(oldEntry);
+  layoutCache.set(oldGeneration, {
+    orientation: 'portrait',
+    aspectRatio: 3 / 4,
+  });
+
+  layoutCache.invalidate(oldEntry);
+
+  assert.equal(layoutCache.get(replacedEntry), undefined);
+  assert.equal(layoutCache.set(oldGeneration, {
+    orientation: 'landscape',
+    aspectRatio: 16 / 9,
+  }), false);
+
+  const replacementGeneration = layoutCache.begin(replacedEntry);
+  assert.equal(layoutCache.set(replacementGeneration, {
+    orientation: 'square',
+    aspectRatio: 1,
+  }), true);
+  assert.deepEqual(layoutCache.get(replacedEntry), {
+    orientation: 'square',
+    aspectRatio: 1,
+  });
+});
+
+test('switching an entry to different media never serializes its previous layout', () => {
+  const oldEntry = {
+    id: 'switching-entry',
+    media: { type: 'image', urls: ['portrait.jpg'] },
+  };
+  const switchedEntry = {
+    id: 'switching-entry',
+    media: { type: 'video', urls: ['landscape.mp4'] },
+  };
+  const layoutCache = createMediaLayoutCache();
+  const generation = layoutCache.begin(oldEntry);
+  layoutCache.set(generation, {
+    orientation: 'portrait',
+    aspectRatio: 3 / 4,
+  });
+
+  const html = mediaContainerHTML(switchedEntry, {
+    active: false,
+    layoutCache,
+    renderItem: () => '<video controls></video>',
+  });
+
+  assert.equal(layoutCache.get(switchedEntry), undefined);
+  assert.match(html, /diary-page__media--unknown/);
+  assert.doesNotMatch(html, /diary-page__media--portrait/);
+  assert.doesNotMatch(html, /--diary-media-aspect:/);
+});
+
+test('prune removes unreferenced layouts and rejects their late generations', () => {
+  const deletedEntry = {
+    id: 'deleted-entry',
+    media: { type: 'image', urls: ['deleted.jpg'] },
+  };
+  const changedEntry = {
+    id: 'changed-entry',
+    media: { type: 'image', urls: ['before.jpg'] },
+  };
+  const changedEntryAfterInit = {
+    id: 'changed-entry',
+    media: { type: 'image', urls: ['after.jpg'] },
+  };
+  const layoutCache = createMediaLayoutCache();
+  const deletedGeneration = layoutCache.begin(deletedEntry);
+  layoutCache.set(deletedGeneration, { orientation: 'square', aspectRatio: 1 });
+  const changedGeneration = layoutCache.begin(changedEntry);
+  layoutCache.set(changedGeneration, { orientation: 'portrait', aspectRatio: 3 / 4 });
+
+  layoutCache.prune([changedEntryAfterInit]);
+
+  assert.equal(layoutCache.size, 0);
+  assert.equal(layoutCache.get(deletedEntry), undefined);
+  assert.equal(layoutCache.get(changedEntryAfterInit), undefined);
+  assert.equal(layoutCache.set(deletedGeneration, {
+    orientation: 'landscape',
+    aspectRatio: 16 / 9,
+  }), false);
+  assert.equal(layoutCache.set(changedGeneration, {
+    orientation: 'landscape',
+    aspectRatio: 16 / 9,
+  }), false);
+});
+
+test('a late image load after deletion cannot update its old container or cache generation', () => {
+  const entry = {
+    id: 'late-entry',
+    media: { type: 'image', urls: ['slow.jpg'] },
+  };
+  const image = fakeMedia({
+    complete: false,
+    naturalWidth: 1600,
+    naturalHeight: 900,
+  });
+  const container = fakeMediaContainer({ media: image });
+  const layoutCache = createMediaLayoutCache();
+  const generation = layoutCache.begin(entry);
+
+  hydrateSingleMediaLayouts(fakeMediaRoot([container]), {
+    isImage: () => true,
+    onLayout: (layout) => layoutCache.set(generation, layout),
+  });
+  layoutCache.invalidate(entry);
+  layoutCache.prune([]);
+  image.dispatch('load');
+
+  assert.equal(layoutCache.size, 0);
+  assert.equal(layoutCache.get(entry), undefined);
+  assert.equal(container.classList.contains('diary-page__media--unknown'), true);
+  assert.equal(container.classList.contains('diary-page__media--landscape'), false);
+});
+
+test('rendering another entry expires a pending load from the previous settled page', () => {
+  const previousEntry = {
+    id: 'previous-entry',
+    media: { type: 'image', urls: ['previous-slow.jpg'] },
+  };
+  const currentEntry = {
+    id: 'current-entry',
+    media: { type: 'image', urls: ['current.jpg'] },
+  };
+  const image = fakeMedia({
+    complete: false,
+    naturalWidth: 1600,
+    naturalHeight: 900,
+  });
+  const container = fakeMediaContainer({ media: image });
+  const layoutCache = createMediaLayoutCache();
+  const previousGeneration = layoutCache.begin(previousEntry);
+
+  hydrateSingleMediaLayouts(fakeMediaRoot([container]), {
+    isImage: () => true,
+    onLayout: (layout) => layoutCache.set(previousGeneration, layout),
+  });
+  layoutCache.begin(currentEntry);
+  image.dispatch('load');
+
+  assert.equal(layoutCache.get(previousEntry), undefined);
+  assert.equal(container.classList.contains('diary-page__media--unknown'), true);
+  assert.equal(container.classList.contains('diary-page__media--landscape'), false);
+});
+
+test('a late video metadata event after media replacement cannot write the old generation', () => {
+  const entry = {
+    id: 'video-entry',
+    media: { type: 'video', urls: ['stable-video-url.mp4'] },
+  };
+  const video = fakeMedia({
+    readyState: 0,
+    videoWidth: 1600,
+    videoHeight: 900,
+  });
+  const container = fakeMediaContainer({ media: video });
+  const layoutCache = createMediaLayoutCache();
+  const generation = layoutCache.begin(entry);
+
+  hydrateSingleMediaLayouts(fakeMediaRoot([container]), {
+    isImage: () => false,
+    haveMetadata: 1,
+    onLayout: (layout) => layoutCache.set(generation, layout),
+  });
+  layoutCache.invalidate(entry);
+  video.dispatch('loadedmetadata');
+
+  assert.equal(layoutCache.get(entry), undefined);
+  assert.equal(container.classList.contains('diary-page__media--unknown'), true);
+  assert.equal(container.classList.contains('diary-page__media--landscape'), false);
+});
+
+test('an entry with no media URLs uses the unknown 3:4 single-media fallback', () => {
+  const entry = {
+    id: 'empty-media-entry',
+    media: { type: 'image', urls: [] },
+  };
+  const html = mediaContainerHTML(entry, {
+    layoutCache: createMediaLayoutCache(),
+    renderItem: () => '<img>',
+  });
+
+  assert.match(html, /diary-page__media--single/);
+  assert.match(html, /diary-page__media--unknown/);
+  assert.doesNotMatch(html, /--diary-media-aspect:/);
+  assert.match(
+    diaryCSS,
+    /\.diary-page__media--single\s*\{[^}]*aspect-ratio:\s*var\(--diary-media-aspect,\s*3\s*\/\s*4\)/s,
+  );
 });
 
 test('starts closed on the first page', () => {
@@ -552,5 +797,32 @@ test('resolveMediaLayout treats the 0.9 and 1.1 boundaries as square', () => {
   assert.deepEqual(resolveMediaLayout(11, 10), {
     orientation: 'square',
     aspectRatio: 1,
+  });
+});
+
+test('resolveMediaLayout clamps a 4000 by 1000 panorama to 16:9', () => {
+  assert.deepEqual(resolveMediaLayout(4000, 1000), {
+    orientation: 'landscape',
+    aspectRatio: 16 / 9,
+  });
+});
+
+test('resolveMediaLayout falls back for non-finite, negative, and missing dimensions', () => {
+  const invalidDimensions = [
+    [NaN, 1000],
+    [1000, NaN],
+    [Infinity, 1000],
+    [1000, Infinity],
+    [-1000, 1000],
+    [1000, -1000],
+    [undefined, undefined],
+    [1000, undefined],
+  ];
+
+  invalidDimensions.forEach(([width, height]) => {
+    assert.deepEqual(resolveMediaLayout(width, height), {
+      orientation: 'unknown',
+      aspectRatio: 3 / 4,
+    });
   });
 });
