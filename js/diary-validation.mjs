@@ -47,3 +47,24 @@ export function entryToSupabaseRow(entry) {
     weather: entry.weather || null,
   };
 }
+
+// Returns the media URLs to save for an edit: newly uploaded files replace
+// the entry's existing media entirely, but an edit with no new uploads (the
+// file inputs left blank) keeps whatever media the entry already had.
+export function resolveMediaUrls(uploadedUrls, existingUrls) {
+  return uploadedUrls.length > 0 ? uploadedUrls : existingUrls;
+}
+
+// Builds the partial-update patch for editing an existing entry. Deliberately
+// omits `number`, `mood`, and `weather` — editing text/media must never touch
+// those fields, so they simply aren't part of the patch Supabase applies.
+export function buildEditPatch(fields, media) {
+  return {
+    category: fields.category,
+    entry_date: fields.date,
+    title: fields.title,
+    quote: fields.quote || null,
+    body: fields.body,
+    media,
+  };
+}

@@ -7,6 +7,8 @@ import {
   buildUploadPath,
   supabaseRowToEntry,
   entryToSupabaseRow,
+  resolveMediaUrls,
+  buildEditPatch,
 } from './diary-validation.mjs';
 
 test('an image under the size limit is allowed', () => {
@@ -124,4 +126,35 @@ test('entryToSupabaseRow defaults missing quote/mood/weather to null', () => {
   assert.equal(row.quote, null);
   assert.equal(row.mood, null);
   assert.equal(row.weather, null);
+});
+
+test('resolveMediaUrls keeps newly uploaded files when present', () => {
+  assert.deepEqual(resolveMediaUrls(['new.jpg'], ['old.jpg']), ['new.jpg']);
+});
+
+test('resolveMediaUrls falls back to the existing urls when nothing was uploaded', () => {
+  assert.deepEqual(resolveMediaUrls([], ['old.jpg', 'old2.jpg']), ['old.jpg', 'old2.jpg']);
+});
+
+test('buildEditPatch maps form fields and media into a Supabase patch, without number/mood/weather', () => {
+  const patch = buildEditPatch(
+    { category: 'Study', date: '2026.07.20', title: 'Edited Title', quote: 'A line that stuck.', body: 'Body text.' },
+    { type: 'image', urls: ['a.jpg', 'b.jpg'], caption: 'A caption' }
+  );
+  assert.deepEqual(patch, {
+    category: 'Study',
+    entry_date: '2026.07.20',
+    title: 'Edited Title',
+    quote: 'A line that stuck.',
+    body: 'Body text.',
+    media: { type: 'image', urls: ['a.jpg', 'b.jpg'], caption: 'A caption' },
+  });
+});
+
+test('buildEditPatch defaults an empty quote to null, matching entryToSupabaseRow', () => {
+  const patch = buildEditPatch(
+    { category: 'Study', date: '2026.07.20', title: 'Title', quote: '', body: 'Body.' },
+    { type: 'video', urls: ['a.mp4'], caption: '' }
+  );
+  assert.equal(patch.quote, null);
 });
