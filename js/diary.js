@@ -18,6 +18,7 @@ import {
   computeUnderlayOpacities,
   contentOffsetForSlice,
   easeInOutCubic,
+  resolveMediaLayout,
 } from './diary-state.mjs';
 import {
   fetchEntries,
@@ -148,12 +149,7 @@ function mediaItemHTML(entry, url, index, total, active) {
 }
 
 function mediaGridStyle(count) {
-  // A single photo gets a taller, portrait-friendly box (3:4) instead of a
-  // square one — object-fit:contain already shows the whole photo without
-  // cropping, but a square box leaves wide empty margins on either side of
-  // a portrait photo; 3:4 fits that common shape much more closely so the
-  // photo reads larger with far less empty mat around it.
-  if (count <= 1) return 'display:grid; grid-template-columns:1fr; grid-template-rows:1fr; aspect-ratio:3/4;';
+  if (count <= 1) return 'display:grid; grid-template-columns:1fr; grid-template-rows:1fr;';
   if (count === 2) return 'display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:1fr; gap:2px;';
   return 'display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(2,1fr); gap:2px;';
 }
@@ -163,6 +159,9 @@ function rightPageHTML(entry, active = true) {
   const urls = entry.media.urls;
   const isGrid = urls.length > 1;
   const gridStyle = mediaGridStyle(urls.length);
+  const mediaClass = urls.length === 1
+    ? 'diary-page__media diary-page__media--single diary-page__media--unknown'
+    : 'diary-page__media';
   const itemsHTML = urls.map((url, i) => mediaItemHTML(entry, url, i, urls.length, active)).join('');
   const badgeHTML = isGrid ? '<span class="diary-polaroid__badge">Gallery</span>' : '';
   const captionHTML = entry.media.caption ? `<p class="diary-polaroid__caption">${entry.media.caption}</p>` : '';
@@ -182,7 +181,7 @@ function rightPageHTML(entry, active = true) {
     <div class="diary-polaroid">
       <span class="diary-polaroid__tape" aria-hidden="true"></span>
       ${badgeHTML}
-      <div class="diary-page__media" style="${gridStyle}">${itemsHTML}</div>
+      <div class="${mediaClass}" style="${gridStyle}">${itemsHTML}</div>
       ${captionHTML}
       ${moodRowHTML}
     </div>
@@ -191,6 +190,36 @@ function rightPageHTML(entry, active = true) {
       <span>${DIARY_EDITION}</span>
     </div>
   `;
+}
+
+function applySingleMediaLayout(container, width, height) {
+  const layout = resolveMediaLayout(width, height);
+  container.classList.remove(
+    'diary-page__media--unknown',
+    'diary-page__media--landscape',
+    'diary-page__media--square',
+    'diary-page__media--portrait',
+  );
+  container.classList.add(`diary-page__media--${layout.orientation}`);
+  container.style.setProperty('--diary-media-aspect', String(layout.aspectRatio));
+}
+
+function hydrateSingleMediaLayouts(root) {
+  root.querySelectorAll('.diary-page__media--single').forEach((container) => {
+    const media = container.querySelector('img, video');
+    if (!media) return;
+
+    if (media instanceof HTMLImageElement) {
+      const apply = () => applySingleMediaLayout(container, media.naturalWidth, media.naturalHeight);
+      if (media.complete) apply();
+      else media.addEventListener('load', apply, { once: true });
+      return;
+    }
+
+    const apply = () => applySingleMediaLayout(container, media.videoWidth, media.videoHeight);
+    if (media.readyState >= HTMLMediaElement.HAVE_METADATA) apply();
+    else media.addEventListener('loadedmetadata', apply, { once: true });
+  });
 }
 
 function renderStatic() {
@@ -204,6 +233,7 @@ function renderStatic() {
     <div class="diary-page diary-page--left">${leftPageHTML(entry)}</div>
     <div class="diary-page diary-page--right">${rightPageHTML(entry)}</div>
   `;
+  hydrateSingleMediaLayouts(stage);
 }
 
 // Runs once on page load. Shows a loading message inside .diary-stage

@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   createDiaryState,
   openBook,
@@ -24,6 +25,19 @@ import {
   resolveDragSettle,
   resolveMediaLayout,
 } from './diary-state.mjs';
+
+const diarySource = readFileSync(new URL('./diary.js', import.meta.url), 'utf8');
+
+test('settled single-media pages hydrate from intrinsic dimensions', () => {
+  assert.match(diarySource, /naturalWidth/);
+  assert.match(diarySource, /videoWidth/);
+  assert.match(diarySource, /loadedmetadata/);
+  assert.match(diarySource, /resolveMediaLayout/);
+
+  const mediaGridStyleSource = diarySource.match(/function mediaGridStyle\(count\) \{[\s\S]*?\n\}/);
+  assert.ok(mediaGridStyleSource);
+  assert.doesNotMatch(mediaGridStyleSource[0], /aspect-ratio\s*:\s*3\s*\/\s*4/);
+});
 
 test('starts closed on the first page', () => {
   const state = createDiaryState(3);

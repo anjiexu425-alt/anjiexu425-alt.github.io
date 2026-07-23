@@ -710,12 +710,33 @@
   aspect-ratio: 1 / 1;
 }
 
+.diary-page__media--single {
+  aspect-ratio: var(--diary-media-aspect, 3 / 4);
+  max-height: min(430px, 58vh);
+  margin-inline: auto;
+  background: color-mix(in srgb, var(--color-surface) 88%, #d8cdbb);
+  transition: aspect-ratio 220ms ease, width 220ms ease;
+}
+
+.diary-page__media--landscape {
+  width: 100%;
+}
+
+.diary-page__media--square {
+  width: min(100%, 410px);
+}
+
+.diary-page__media--portrait,
+.diary-page__media--unknown {
+  width: min(100%, 330px);
+}
+
 .diary-page__video {
   width: 100%;
   height: 100%;
   min-height: 0;
   border-radius: 2px;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 /* Only real photos are enlargeable — the cursor signals it. object-fit:
@@ -1397,6 +1418,12 @@
 .diary-pagination__count {
   font-size: 0.8rem;
   color: var(--color-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diary-page__media--single {
+    transition: none;
+  }
 }
 
 @media (max-width: 768px) {
