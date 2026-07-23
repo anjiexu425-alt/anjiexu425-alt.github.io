@@ -87,7 +87,8 @@ export function computeSliceLayout(thetasDeg, sliceWidthPx) {
   };
 }
 
-export function contentOffsetForSlice(k, sliceCount, face) {
+export function contentOffsetForSlice(k, sliceCount, faceOrDirection, legacyFace) {
+  const face = legacyFace ?? faceOrDirection;
   return face === 'back' ? sliceCount - 1 - k : k;
 }
 

@@ -134,6 +134,11 @@ test('content strips depend on paper face, not navigation direction', () => {
   assert.equal(contentOffsetForSlice(15, 16, 'back'), 0);
 });
 
+test('content strips preserve legacy direction and face arguments', () => {
+  assert.equal(contentOffsetForSlice(0, 16, 'next', 'back'), 15);
+  assert.equal(contentOffsetForSlice(15, 16, 'prev', 'back'), 0);
+});
+
 test('next transition plays canonical curl forward', () => {
   assert.deepEqual(createFlipTransition(2, 'next'), {
     fromIndex: 2,
