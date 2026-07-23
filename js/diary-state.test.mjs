@@ -35,6 +35,71 @@ import {
 
 const diarySource = readFileSync(new URL('./diary.js', import.meta.url), 'utf8');
 const diaryCSS = readFileSync(new URL('../css/pages.css', import.meta.url), 'utf8');
+const diaryHTML = readFileSync(new URL('../study-diary.html', import.meta.url), 'utf8');
+
+test('Write/Edit form exposes an accessible default page-layout choice', () => {
+  const layoutFieldset = diaryHTML.match(
+    /<fieldset class="diary-form__layout">[\s\S]*?<\/fieldset>/,
+  )?.[0];
+
+  assert.ok(layoutFieldset);
+  assert.match(layoutFieldset, /<legend>Page layout<\/legend>/);
+  assert.match(
+    layoutFieldset,
+    /name="pageLayout"[^>]*value="text-left"[^>]*checked/,
+  );
+  assert.match(layoutFieldset, /name="pageLayout"[^>]*value="media-left"/);
+  assert.match(layoutFieldset, /Text Left · Media Right/);
+  assert.match(layoutFieldset, /Media Left · Text Right/);
+});
+
+test('page-layout choice has checked, keyboard-focus, and responsive styles', () => {
+  assert.match(diaryCSS, /\.diary-form__layout\s*\{/);
+  assert.match(diaryCSS, /\.diary-form__layout-option:has\(input:checked\)/);
+  assert.match(diaryCSS, /\.diary-form__layout-option input:focus-visible\s*\{/);
+  assert.match(
+    diaryCSS,
+    /@media \(max-width: 560px\) \{[\s\S]*?\.diary-form__layout\s*\{[\s\S]*?grid-template-columns:\s*1fr/,
+  );
+});
+
+test('Write/Edit layout is filled, saved, and reset through normalized form state', () => {
+  const setMediaTypeSource = diarySource.match(
+    /function setMediaType[\s\S]*?\n\}/,
+  )?.[0];
+  const handleOpenEditorSource = diarySource.match(
+    /function handleOpenEditor[\s\S]*?\n\}/,
+  )?.[0];
+  const closeWriteModalSource = diarySource.match(
+    /function closeWriteModal[\s\S]*?\n\}/,
+  )?.[0];
+  const handleFormSubmitSource = diarySource.match(
+    /async function handleFormSubmit[\s\S]*?\n\}\n\ndocument/,
+  )?.[0];
+
+  assert.ok(setMediaTypeSource);
+  assert.doesNotMatch(setMediaTypeSource, /pageLayout|reset\(/);
+  assert.ok(handleOpenEditorSource);
+  assert.match(
+    handleOpenEditorSource,
+    /form\.pageLayout\.value\s*=\s*normalizePageLayout\(entry\.media\.layout\)/,
+  );
+  assert.ok(closeWriteModalSource);
+  assert.match(
+    closeWriteModalSource,
+    /form\.reset\(\);[\s\S]*?form\.pageLayout\.value\s*=\s*'text-left'/,
+  );
+  assert.ok(handleFormSubmitSource);
+  assert.match(
+    handleFormSubmitSource,
+    /const pageLayout\s*=\s*normalizePageLayout\(data\.get\('pageLayout'\)\)/,
+  );
+  assert.match(handleFormSubmitSource, /layout:\s*pageLayout/);
+  assert.equal(
+    handleFormSubmitSource.match(/mediaWithPageLayout\(/g)?.length,
+    2,
+  );
+});
 
 test('Polaroid frames use orientation-specific desktop widths', () => {
   const desktopCSS = diaryCSS.match(

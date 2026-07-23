@@ -94,6 +94,18 @@
           <textarea name="body" rows="6" placeholder="What happened, what you noticed, how it felt. Leave a blank line between paragraphs." required></textarea>
         </label>
 
+        <fieldset class="diary-form__layout">
+          <legend>Page layout</legend>
+          <label class="diary-form__layout-option">
+            <input type="radio" name="pageLayout" value="text-left" checked />
+            <span>Text Left · Media Right</span>
+          </label>
+          <label class="diary-form__layout-option">
+            <input type="radio" name="pageLayout" value="media-left" />
+            <span>Media Left · Text Right</span>
+          </label>
+        </fieldset>
+
         <div class="diary-form__current-media" hidden>
           <p class="diary-form__current-media-label">Current media — leave the fields below blank to keep it.</p>
           <div class="diary-form__current-media-grid"></div>

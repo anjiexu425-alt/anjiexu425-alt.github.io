@@ -43,6 +43,10 @@ import {
   resolveMediaUrls,
   buildEditPatch,
 } from './diary-validation.mjs';
+import {
+  normalizePageLayout,
+  mediaWithPageLayout,
+} from './diary-layout.mjs';
 
 // Placeholder image labels always start with '[' (site-wide convention);
 // anything else is treated as a real image URL/path.
@@ -804,6 +808,7 @@ function handleOpenEditor(entry) {
   form.quote.value = entry.quote;
   form.body.value = entry.body;
   form.caption.value = entry.media.caption;
+  form.pageLayout.value = normalizePageLayout(entry.media.layout);
   setMediaType(entry.media.type);
 
   const currentMediaEl = document.querySelector('.diary-form__current-media');
@@ -816,8 +821,10 @@ function handleOpenEditor(entry) {
 
 function closeWriteModal() {
   const backdrop = document.querySelector('.diary-modal-backdrop');
+  const form = document.querySelector('.diary-form');
   backdrop.hidden = true;
-  document.querySelector('.diary-form').reset();
+  form.reset();
+  form.pageLayout.value = 'text-left';
   setMediaType('image');
   editingEntryId = null;
   setWriteModalMode('write');
@@ -847,6 +854,7 @@ async function handleFormSubmit(event) {
   const title = data.get('title').trim();
   const body = data.get('body').trim();
   const date = data.get('date').trim();
+  const pageLayout = normalizePageLayout(data.get('pageLayout'));
   if (!title || !body || !date) return;
 
   const errorEl = document.querySelector('.diary-form .diary-form__error');
@@ -876,7 +884,10 @@ async function handleFormSubmit(event) {
       const urls = resolveMediaUrls(uploadedUrls, existingEntry.media, mediaType);
       const patch = buildEditPatch(
         { category: data.get('category'), date, title, quote: data.get('quote').trim(), body },
-        { type: mediaType, urls, caption }
+        mediaWithPageLayout(
+          { type: mediaType, urls, caption, layout: pageLayout },
+          pageLayout
+        )
       );
       const row = await updateEntry(editingEntryId, patch);
       const index = ENTRIES.findIndex((entry) => entry.id === editingEntryId);
@@ -900,7 +911,10 @@ async function handleFormSubmit(event) {
         title,
         quote: data.get('quote').trim(),
         body,
-        media: { type: mediaType, urls, caption },
+        media: mediaWithPageLayout(
+          { type: mediaType, urls, caption, layout: pageLayout },
+          pageLayout
+        ),
         mood: '',
         weather: '',
       };
