@@ -1087,7 +1087,8 @@
   margin-top: var(--space-3);
 }
 
-.diary-write-btn {
+.diary-write-btn,
+.diary-edit-btn {
   padding: var(--space-1) var(--space-3);
   border: 1px solid var(--color-klein-blue);
   border-radius: 999px;
@@ -1099,9 +1100,20 @@
   transition: background var(--transition-fast), color var(--transition-fast);
 }
 
-.diary-write-btn:hover {
+.diary-write-btn:hover,
+.diary-edit-btn:hover {
   background: var(--color-klein-blue);
   color: #fff;
+}
+
+.diary-edit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.diary-edit-btn:disabled:hover {
+  background: none;
+  color: var(--color-klein-blue);
 }
 
 /* No backdrop-filter: a blurred modal scrim compositing above the flip

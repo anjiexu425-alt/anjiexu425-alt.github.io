@@ -269,6 +269,7 @@ function closeMoodModal() {
 function applyAuthState(session) {
   isLoggedIn = Boolean(session);
   document.querySelector('.diary-write-btn').hidden = !isLoggedIn;
+  document.querySelector('.diary-edit-btn').hidden = !isLoggedIn;
   document.querySelector('.diary-login-btn').textContent = isLoggedIn ? 'Log Out' : 'Log In';
   renderStatic();
 }
@@ -347,6 +348,7 @@ function updateChrome() {
   });
   document.querySelector('.diary-nav--prev').disabled = !canGoPrevious(state) || isFlipping;
   document.querySelector('.diary-nav--next').disabled = !canGoNext(state) || isFlipping;
+  document.querySelector('.diary-edit-btn').disabled = ENTRIES.length === 0;
 }
 
 function buildDots() {
@@ -710,6 +712,24 @@ function openWriteModal() {
   document.querySelector('.diary-modal-backdrop').hidden = false;
 }
 
+// Opens the write/edit modal pre-filled with an existing entry's text
+// fields, so submitting updates that entry instead of creating a new one.
+// Media (file inputs) can't be pre-filled by the browser — see Task 4 for
+// the "current media" preview that covers that gap.
+function handleOpenEditor(entry) {
+  editingEntryId = entry.id;
+  const form = document.querySelector('.diary-form');
+  form.category.value = entry.category;
+  form.date.value = entry.date;
+  form.title.value = entry.title;
+  form.quote.value = entry.quote;
+  form.body.value = entry.body;
+  form.caption.value = entry.media.caption;
+  setMediaType(entry.media.type);
+  setWriteModalMode('edit');
+  document.querySelector('.diary-modal-backdrop').hidden = false;
+}
+
 function closeWriteModal() {
   const backdrop = document.querySelector('.diary-modal-backdrop');
   backdrop.hidden = true;
@@ -873,6 +893,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (event.key === 'ArrowLeft') playFlip('prev');
   });
 
+  document.querySelector('.diary-edit-btn').addEventListener('click', () => {
+    if (ENTRIES.length === 0) return;
+    handleOpenEditor(ENTRIES[state.current]);
+  });
   document.querySelector('.diary-write-btn').addEventListener('click', openWriteModal);
   document.querySelector('.diary-modal__close').addEventListener('click', closeWriteModal);
   document.querySelector('.diary-form__cancel').addEventListener('click', closeWriteModal);
