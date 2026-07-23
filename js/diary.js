@@ -54,12 +54,23 @@ import {
   renderSettledSpreadDOM,
   buildCurlSpreadDOM,
 } from './diary-dom.mjs';
+import {
+  normalizeCategory,
+  mergeCategoryOptions,
+  categoryOptionsHTML,
+} from './diary-category.mjs';
 
 // Entries live in Supabase now (see js/diary-supabase.js) — this array is
 // populated asynchronously by initEntries() on page load, and mutated in
 // place by handleDiscard/setMood/handleFormSubmit after each successful
 // write so the UI stays in sync with the database.
 let ENTRIES = [];
+
+function refreshCategoryOptions() {
+  document.querySelector('#diary-category-options').innerHTML = categoryOptionsHTML(
+    mergeCategoryOptions(ENTRIES),
+  );
+}
 
 let state = createDiaryState(ENTRIES.length);
 let isFlipping = false;
@@ -157,6 +168,7 @@ async function initEntries() {
     mediaLayoutCache.invalidate();
     ENTRIES = rows.map(supabaseRowToEntry);
     mediaLayoutCache.prune(ENTRIES);
+    refreshCategoryOptions();
   } catch (error) {
     stage.innerHTML = '<p class="diary-empty">Couldn’t load diary entries. Please check your connection and try again.</p>';
     console.error('Failed to load diary entries', error);
@@ -275,6 +287,7 @@ async function handleDiscard(id) {
   mediaLayoutCache.invalidate(ENTRIES[removedIndex]);
   ENTRIES.splice(removedIndex, 1);
   mediaLayoutCache.prune(ENTRIES);
+  refreshCategoryOptions();
   const nextIndex = Math.max(0, Math.min(state.current, ENTRIES.length - 1));
   state = goToPage(openBook(createDiaryState(ENTRIES.length)), nextIndex);
   buildDots();
@@ -677,6 +690,7 @@ function setWriteModalMode(mode) {
 }
 
 function openWriteModal() {
+  refreshCategoryOptions();
   document.querySelector('.diary-modal-backdrop').hidden = false;
 }
 
@@ -700,6 +714,7 @@ function currentMediaPreviewHTML(media) {
 // entry instead of creating a new one.
 function handleOpenEditor(entry) {
   editingEntryId = entry.id;
+  refreshCategoryOptions();
   const form = document.querySelector('.diary-form');
   form.category.value = entry.category;
   form.date.value = entry.date;
@@ -753,8 +768,9 @@ async function handleFormSubmit(event) {
   const title = data.get('title').trim();
   const body = data.get('body').trim();
   const date = data.get('date').trim();
+  const category = normalizeCategory(data.get('category'));
   const pageLayout = normalizePageLayout(data.get('pageLayout'));
-  if (!title || !body || !date) return;
+  if (!category || !title || !body || !date) return;
 
   const errorEl = document.querySelector('.diary-form .diary-form__error');
   errorEl.hidden = true;
@@ -782,7 +798,7 @@ async function handleFormSubmit(event) {
       const existingEntry = ENTRIES.find((entry) => entry.id === editingEntryId);
       const urls = resolveMediaUrls(uploadedUrls, existingEntry.media, mediaType);
       const patch = buildEditPatch(
-        { category: data.get('category'), date, title, quote: data.get('quote').trim(), body },
+        { category, date, title, quote: data.get('quote').trim(), body },
         mediaWithPageLayout(
           { type: mediaType, urls, caption, layout: pageLayout },
           pageLayout
@@ -793,6 +809,7 @@ async function handleFormSubmit(event) {
       mediaLayoutCache.invalidate(existingEntry);
       ENTRIES[index] = supabaseRowToEntry(row);
       mediaLayoutCache.prune(ENTRIES);
+      refreshCategoryOptions();
       void mediaIntrinsicPrewarmer.prewarm(ENTRIES[index]);
 
       renderStatic();
@@ -806,7 +823,7 @@ async function handleFormSubmit(event) {
 
       const newEntry = {
         number: String(ENTRIES.length + 1).padStart(2, '0'),
-        category: data.get('category'),
+        category,
         date,
         title,
         quote: data.get('quote').trim(),
@@ -821,6 +838,7 @@ async function handleFormSubmit(event) {
       const row = await insertEntry(entryToSupabaseRow(newEntry));
       ENTRIES.push(supabaseRowToEntry(row));
       mediaLayoutCache.prune(ENTRIES);
+      refreshCategoryOptions();
       void mediaIntrinsicPrewarmer.prewarm(ENTRIES.at(-1));
 
       state = goToPage(openBook(createDiaryState(ENTRIES.length)), ENTRIES.length - 1);

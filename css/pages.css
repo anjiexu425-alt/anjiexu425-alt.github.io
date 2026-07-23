@@ -1340,7 +1340,6 @@
 }
 
 .diary-form__field input,
-.diary-form__field select,
 .diary-form__field textarea {
   font-family: var(--font-body);
   font-size: 0.9rem;

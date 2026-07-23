@@ -4,6 +4,7 @@ import {
   BUILT_IN_CATEGORIES,
   normalizeCategory,
   mergeCategoryOptions,
+  categoryOptionsHTML,
 } from './diary-category.mjs';
 
 test('normalizeCategory trims a category value', () => {
@@ -36,4 +37,12 @@ test('mergeCategoryOptions ignores empty categories and deduplicates without cas
   assert.equal(result.find((category) => category.toLowerCase() === 'study'), 'Study');
   assert.equal(result.filter((category) => category.toLowerCase() === 'film notes').length, 1);
   assert.equal(result.find((category) => category.toLowerCase() === 'film notes'), 'Film Notes');
+});
+
+test('categoryOptionsHTML escapes custom labels before rendering options', () => {
+  assert.equal(
+    categoryOptionsHTML(['Film & TV', 'A "Quoted" <Category>']),
+    '<option value="Film &amp; TV"></option>'
+      + '<option value="A &quot;Quoted&quot; &lt;Category&gt;"></option>',
+  );
 });

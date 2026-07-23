@@ -65,16 +65,15 @@
         <div class="diary-form__row">
           <label class="diary-form__field">
             <span>Category</span>
-            <select name="category">
-              <option value="Study">📖 Study</option>
-              <option value="Abroad / Travel">✈️ Abroad / Travel</option>
-              <option value="Chill Beach">🏖️ Chill Beach</option>
-              <option value="Cozy Coffee Shop">☕ Cozy Coffee Shop</option>
-              <option value="Quiet Nature">🌳 Quiet Nature</option>
-              <option value="City Sunset">🌆 City Sunset</option>
-              <option value="Rainy Reflection">🌧️ Rainy Reflection</option>
-              <option value="Midnight Wanderer">🌙 Midnight Wanderer</option>
-            </select>
+            <input
+              type="text"
+              name="category"
+              list="diary-category-options"
+              placeholder="Choose or type a category"
+              autocomplete="off"
+              required
+            />
+            <datalist id="diary-category-options"></datalist>
           </label>
           <label class="diary-form__field">
             <span>Date</span>

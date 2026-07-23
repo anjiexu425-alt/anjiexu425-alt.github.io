@@ -30,3 +30,17 @@ export function mergeCategoryOptions(entries = []) {
 
   return categories;
 }
+
+function escapeAttribute(value) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
+
+export function categoryOptionsHTML(categories) {
+  return categories
+    .map((category) => `<option value="${escapeAttribute(category)}"></option>`)
+    .join('');
+}
