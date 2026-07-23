@@ -117,19 +117,13 @@ function fakeMediaRoot(containers) {
   };
 }
 
-test('diary rendering shares resolved layouts with temporary flip HTML', () => {
-  const rightPageSource = diarySource.match(/function rightPageHTML[\s\S]*?\n\}/);
+test('diary rendering preserves media cache lifecycle across static and temporary HTML', () => {
   const renderStaticSource = diarySource.match(/function renderStatic[\s\S]*?\n\}/);
   const buildCurlSource = diarySource.match(/function buildCurlDOM[\s\S]*?\n\}\n\nfunction updateCurl/);
   const initEntriesSource = diarySource.match(/async function initEntries[\s\S]*?\n\}/);
   const handleDiscardSource = diarySource.match(/async function handleDiscard[\s\S]*?\n\}/);
   const handleFormSubmitSource = diarySource.match(/async function handleFormSubmit[\s\S]*?\n\}\n\ndocument/);
 
-  assert.ok(rightPageSource);
-  assert.match(rightPageSource[0], /mediaContainerHTML/);
-  assert.match(rightPageSource[0], /layoutCache:\s*mediaLayoutCache/);
-  assert.match(rightPageSource[0], /polaroidClassForEntry/);
-  assert.match(rightPageSource[0], /diary-polaroid \$\{polaroidClass\}/);
   assert.ok(renderStaticSource);
   assert.match(renderStaticSource[0], /hydrateSingleMediaLayouts/);
   assert.match(renderStaticSource[0], /mediaLayoutCache\.begin/);
@@ -160,7 +154,7 @@ test('single-media layout updates the orientation class and CSS aspect variable'
   assert.equal(container.style.getPropertyValue('--diary-media-aspect'), String(16 / 9));
 });
 
-test('Polaroid HTML classes use cached layouts and safe gallery fallbacks', () => {
+test('right-page media frames serialize cached layouts and safe outer fallbacks', () => {
   const landscapeEntry = {
     id: 'landscape-polaroid',
     media: { type: 'image', urls: ['landscape.jpg'] },
@@ -176,11 +170,23 @@ test('Polaroid HTML classes use cached layouts and safe gallery fallbacks', () =
   const layoutCache = createMediaLayoutCache();
   const generation = layoutCache.begin(landscapeEntry);
   layoutCache.set(generation, { orientation: 'landscape', aspectRatio: 16 / 9 });
+  const renderFrame = (entry) => diaryMedia.rightPageMediaFrameHTML(entry, {
+    layoutCache,
+    renderItem: () => '<img class="diary-page__photo">',
+  });
 
-  assert.equal(typeof diaryMedia.polaroidClassForEntry, 'function');
-  assert.equal(diaryMedia.polaroidClassForEntry(landscapeEntry, layoutCache), 'diary-polaroid--landscape');
-  assert.equal(diaryMedia.polaroidClassForEntry(uncachedEntry, layoutCache), 'diary-polaroid--unknown');
-  assert.equal(diaryMedia.polaroidClassForEntry(galleryEntry, layoutCache), 'diary-polaroid--gallery');
+  assert.match(
+    renderFrame(landscapeEntry),
+    /<div class="diary-polaroid diary-polaroid--landscape">/,
+  );
+  assert.match(
+    renderFrame(uncachedEntry),
+    /<div class="diary-polaroid diary-polaroid--unknown">/,
+  );
+  assert.match(
+    renderFrame(galleryEntry),
+    /<div class="diary-polaroid diary-polaroid--gallery">/,
+  );
 });
 
 test('single-media hydration replaces the closest Polaroid orientation class', () => {
@@ -286,7 +292,7 @@ test('placeholder and multi-image containers are not hydrated', () => {
   assert.equal(resolvedCount, 0);
 });
 
-test('temporary flip HTML uses each source or target entry cached layout without hydration', () => {
+test('temporary right-page and slice HTML serialize each cached outer Polaroid orientation', () => {
   const entry = {
     id: 'wide-entry',
     title: 'Wide view',
@@ -315,7 +321,8 @@ test('temporary flip HTML uses each source or target entry cached layout without
     orientation: 'square',
     aspectRatio: 1,
   });
-  const html = mediaContainerHTML(entry, {
+  assert.equal(typeof diaryMedia.rightPageMediaFrameHTML, 'function');
+  const sliceFrontHTML = diaryMedia.rightPageMediaFrameHTML(entry, {
     active: false,
     layoutCache,
     renderItem: (_entry, _url, _index, _total, active) => {
@@ -323,17 +330,25 @@ test('temporary flip HTML uses each source or target entry cached layout without
       return '<img class="diary-page__photo">';
     },
   });
-  const targetHTML = mediaContainerHTML(targetEntry, {
+  const targetPageHTML = diaryMedia.rightPageMediaFrameHTML(targetEntry, {
     active: false,
     layoutCache,
     renderItem: () => '<img class="diary-page__photo">',
   });
 
-  assert.match(html, /diary-page__media--landscape/);
-  assert.match(html, /--diary-media-aspect:1\.777/);
-  assert.doesNotMatch(html, /diary-page__media--unknown/);
-  assert.match(targetHTML, /diary-page__media--square/);
-  assert.match(targetHTML, /--diary-media-aspect:1;/);
+  assert.match(
+    sliceFrontHTML,
+    /<div class="diary-polaroid diary-polaroid--landscape">/,
+  );
+  assert.match(sliceFrontHTML, /diary-page__media--landscape/);
+  assert.match(sliceFrontHTML, /--diary-media-aspect:1\.777/);
+  assert.doesNotMatch(sliceFrontHTML, /diary-polaroid--unknown/);
+  assert.match(
+    targetPageHTML,
+    /<div class="diary-polaroid diary-polaroid--square">/,
+  );
+  assert.match(targetPageHTML, /diary-page__media--square/);
+  assert.match(targetPageHTML, /--diary-media-aspect:1;/);
 });
 
 test('uncached temporary HTML and placeholders use the safe unknown fallback', () => {

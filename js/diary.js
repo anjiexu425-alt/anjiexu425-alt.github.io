@@ -22,8 +22,7 @@ import {
 import {
   createMediaLayoutCache,
   hydrateSingleMediaLayouts,
-  mediaContainerHTML,
-  polaroidClassForEntry,
+  rightPageMediaFrameHTML,
 } from './diary-media.mjs';
 import {
   fetchEntries,
@@ -158,14 +157,6 @@ function rightPageHTML(entry, active = true) {
   const index = ENTRIES.indexOf(entry);
   const urls = entry.media.urls;
   const isGrid = urls.length > 1;
-  const layout = isGrid ? undefined : mediaLayoutCache.get(entry);
-  const polaroidClass = polaroidClassForEntry(entry, mediaLayoutCache, layout?.orientation ?? 'unknown');
-  const mediaHTML = mediaContainerHTML(entry, {
-    active,
-    layoutCache: mediaLayoutCache,
-    layout,
-    renderItem: mediaItemHTML,
-  });
   const badgeHTML = isGrid ? '<span class="diary-polaroid__badge">Gallery</span>' : '';
   const captionHTML = entry.media.caption ? `<p class="diary-polaroid__caption">${entry.media.caption}</p>` : '';
   const countLabel = entry.media.type === 'video' ? '1 Video' : `${urls.length} Snapshot${urls.length === 1 ? '' : 's'}`;
@@ -175,19 +166,20 @@ function rightPageHTML(entry, active = true) {
         <button type="button" class="diary-mood-btn" data-mood-kind="weather" data-entry-id="${entry.id}">${entry.weather || '+ Weather'}</button>
       </div>`
     : '';
+  const mediaFrameHTML = rightPageMediaFrameHTML(entry, {
+    active,
+    layoutCache: mediaLayoutCache,
+    renderItem: mediaItemHTML,
+    beforeMediaHTML: badgeHTML,
+    afterMediaHTML: `${captionHTML}${moodRowHTML}`,
+  });
 
   return `
     <div class="diary-page__header">
       <span class="diary-page__label">Page Spread ${index + 1} of ${ENTRIES.length}</span>
       <span class="diary-page__count">${countLabel}</span>
     </div>
-    <div class="diary-polaroid ${polaroidClass}">
-      <span class="diary-polaroid__tape" aria-hidden="true"></span>
-      ${badgeHTML}
-      ${mediaHTML}
-      ${captionHTML}
-      ${moodRowHTML}
-    </div>
+    ${mediaFrameHTML}
     <div class="diary-page__footer diary-page__footer--right">
       <span>${DIARY_BRAND}</span>
       <span>${DIARY_EDITION}</span>

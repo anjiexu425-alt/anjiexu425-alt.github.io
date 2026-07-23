@@ -138,6 +138,35 @@ export function mediaContainerHTML(entry, options = {}) {
   return `<div class="${mediaClass}" style="${mediaGridStyle(urls.length)}${aspectStyle}">${itemsHTML}</div>`;
 }
 
+export function rightPageMediaFrameHTML(entry, {
+  active = true,
+  layoutCache = createMediaLayoutCache(),
+  renderItem,
+  beforeMediaHTML = '',
+  afterMediaHTML = '',
+} = {}) {
+  const urls = Array.isArray(entry?.media?.urls) ? entry.media.urls : [];
+  const layout = urls.length === 1 ? layoutCache.get(entry) : undefined;
+  const polaroidClass = polaroidClassForEntry(
+    entry,
+    layoutCache,
+    layout?.orientation ?? 'unknown',
+  );
+  const mediaHTML = mediaContainerHTML(entry, {
+    active,
+    layoutCache,
+    layout,
+    renderItem,
+  });
+
+  return `<div class="diary-polaroid ${polaroidClass}">
+      <span class="diary-polaroid__tape" aria-hidden="true"></span>
+      ${beforeMediaHTML}
+      ${mediaHTML}
+      ${afterMediaHTML}
+    </div>`;
+}
+
 function applyPolaroidOrientation(frame, orientation) {
   if (!frame) return;
   frame.classList.remove(...POLAROID_ORIENTATION_CLASSES);
