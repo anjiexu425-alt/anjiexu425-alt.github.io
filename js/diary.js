@@ -6,10 +6,13 @@ import {
   canGoNext,
   canGoPrevious,
   goToPage,
-  isSheetEventTarget,
   computeDragProgress,
-  computeFlipVisualState,
   shouldCompleteFlip,
+  computeSliceThetas,
+  computeSliceLayout,
+  computeCurlMotion,
+  contentOffsetForSlice,
+  easeInOutCubic,
 } from './diary-state.mjs';
 import {
   fetchEntries,
@@ -384,26 +387,25 @@ function prefersInstantTransition() {
   );
 }
 
-// Builds the static halves (with underlay shadows) and the flip sheet
-// (with front/back faces and curl shadows) for a flip in progress, and
-// appends everything to .diary-stage. Shared by the click/keyboard-
-// triggered animated flip (playFlip) and the pointer-driven drag flip —
-// both need the identical visual structure, they just drive the sheet's
-// transform/opacity differently afterward (a CSS animation vs. live
-// pointer tracking). Returns the sheet element.
-function buildFlipDOM(direction, oldEntry, newEntry) {
+const SLICE_COUNT = 16;
+
+function readFlipDurationMs() {
+  const raw = getComputedStyle(document.querySelector('.diary'))
+    .getPropertyValue('--diary-flip-duration')
+    .trim();
+  const value = parseFloat(raw);
+  if (!Number.isFinite(value)) return 700;
+  return raw.endsWith('ms') ? value : value * 1000;
+}
+
+function buildCurlDOM(direction, oldEntry, newEntry) {
   const stage = document.querySelector('.diary-stage');
-  // Stop decode immediately rather than waiting on GC of the removed
-  // elements — cheap insurance against multiple videos competing for the
-  // hardware decoder mid-flip.
   stage.querySelectorAll('video').forEach((video) => video.pause());
   stage.innerHTML = '';
 
   const leftEntry = direction === 'next' ? oldEntry : newEntry;
   const rightEntry = direction === 'next' ? newEntry : oldEntry;
 
-  // Every page rendered during the flip is transitional — none of it is the
-  // settled foreground page, so media loads inactive (see mediaItemHTML).
   const leftPage = document.createElement('div');
   leftPage.className = 'diary-page diary-page--left';
   leftPage.innerHTML = leftPageHTML(leftEntry);
@@ -412,10 +414,6 @@ function buildFlipDOM(direction, oldEntry, newEntry) {
   rightPage.className = 'diary-page diary-page--right';
   rightPage.innerHTML = rightPageHTML(rightEntry, false);
 
-  // The static half NOT under the moving sheet fades a shadow in (the
-  // turning page casting a shadow as it lifts); the half already revealed
-  // underneath fades its shadow out (was dark under the page, now landing
-  // in the light). Which side is which flips with direction.
   const underlayIn = document.createElement('div');
   underlayIn.className = 'diary-underlay-shadow diary-underlay-shadow--in';
   const underlayOut = document.createElement('div');
@@ -433,62 +431,98 @@ function buildFlipDOM(direction, oldEntry, newEntry) {
 
   const sheet = document.createElement('div');
   sheet.className = `diary-flip-sheet diary-flip-sheet--${direction}`;
-
-  const front = document.createElement('div');
-  front.className = 'diary-flip-sheet__face diary-flip-sheet__face--front';
-  const back = document.createElement('div');
-  back.className = 'diary-flip-sheet__face diary-flip-sheet__face--back';
-
-  if (direction === 'next') {
-    front.innerHTML = `<div class="diary-page diary-page--right">${rightPageHTML(oldEntry, false)}</div>`;
-    back.innerHTML = `<div class="diary-page diary-page--left">${leftPageHTML(newEntry)}</div>`;
-  } else {
-    front.innerHTML = `<div class="diary-page diary-page--left">${leftPageHTML(oldEntry)}</div>`;
-    back.innerHTML = `<div class="diary-page diary-page--right">${rightPageHTML(newEntry, false)}</div>`;
-  }
-
-  // Curl shadow riding the turning sheet itself: strongest near the spine
-  // it's pivoting on, easing off across the transition (deepens, then
-  // settles — not a flat fade) on the front face; the back face starts
-  // partly shadowed and clears as it comes fully face-up. The gradient
-  // direction is fixed per face in local (pre-rotation) space — the back
-  // face's own static rotateY(180deg) mirrors it back to the correct side
-  // once flipped, so front/back keep the same two directions regardless of
-  // next/prev... except next/prev mount the sheet at opposite spines, so
-  // the directions swap between the two directions too.
-  const frontShadow = document.createElement('div');
-  frontShadow.className = 'diary-flip-shadow diary-flip-shadow--front';
-  frontShadow.style.background = direction === 'next'
-    ? 'linear-gradient(to right, rgba(0,0,0,0.25), rgba(0,0,0,0.05) 40%, transparent)'
-    : 'linear-gradient(to left, rgba(0,0,0,0.25), rgba(0,0,0,0.05) 40%, transparent)';
-  front.appendChild(frontShadow);
-
-  const backShadow = document.createElement('div');
-  backShadow.className = 'diary-flip-shadow diary-flip-shadow--back';
-  backShadow.style.background = direction === 'next'
-    ? 'linear-gradient(to left, rgba(0,0,0,0.25), rgba(0,0,0,0.05) 40%, transparent)'
-    : 'linear-gradient(to right, rgba(0,0,0,0.25), rgba(0,0,0,0.05) 40%, transparent)';
-  back.appendChild(backShadow);
-
-  sheet.appendChild(front);
-  sheet.appendChild(back);
   stage.appendChild(sheet);
 
-  return sheet;
+  const sheetWidthPx = sheet.getBoundingClientRect().width;
+  const sheetHeightPx = sheet.getBoundingClientRect().height;
+  const segWidth = sheetWidthPx / SLICE_COUNT;
+  const frontHTML = direction === 'next' ? rightPageHTML(oldEntry, false) : leftPageHTML(oldEntry);
+  const backHTML = direction === 'next' ? leftPageHTML(newEntry) : rightPageHTML(newEntry, false);
+  const frontClass = direction === 'next' ? 'diary-page--right' : 'diary-page--left';
+  const backClass = direction === 'next' ? 'diary-page--left' : 'diary-page--right';
+  const slices = [];
+
+  for (let k = 0; k < SLICE_COUNT; k++) {
+    const sliceEl = document.createElement('div');
+    sliceEl.className = 'diary-flip-slice';
+    sliceEl.style.width = `${segWidth + 1.2}px`;
+    sliceEl.style.height = `${sheetHeightPx}px`;
+
+    const front = document.createElement('div');
+    front.className = 'diary-flip-slice__face diary-flip-slice__face--front';
+    const back = document.createElement('div');
+    back.className = 'diary-flip-slice__face diary-flip-slice__face--back';
+    const frontCanvas = document.createElement('div');
+    frontCanvas.className = 'diary-flip-slice__canvas';
+    frontCanvas.style.width = `${sheetWidthPx}px`;
+    frontCanvas.style.height = `${sheetHeightPx}px`;
+    frontCanvas.innerHTML = `<div class="diary-page ${frontClass}">${frontHTML}</div>`;
+    frontCanvas.style.transform = `translateX(${-contentOffsetForSlice(k, SLICE_COUNT, direction, 'front') * segWidth}px)`;
+    const backCanvas = document.createElement('div');
+    backCanvas.className = 'diary-flip-slice__canvas';
+    backCanvas.style.width = `${sheetWidthPx}px`;
+    backCanvas.style.height = `${sheetHeightPx}px`;
+    backCanvas.innerHTML = `<div class="diary-page ${backClass}">${backHTML}</div>`;
+    backCanvas.style.transform = `translateX(${-contentOffsetForSlice(k, SLICE_COUNT, direction, 'back') * segWidth}px)`;
+    const frontShade = document.createElement('div');
+    frontShade.className = 'diary-flip-slice__shade';
+    const backShade = document.createElement('div');
+    backShade.className = 'diary-flip-slice__shade';
+    front.append(frontCanvas, frontShade);
+    back.append(backCanvas, backShade);
+    sliceEl.append(front, back);
+    sheet.appendChild(sliceEl);
+    slices.push({ el: sliceEl, frontShade, backShade });
+  }
+
+  const tipEl = document.createElement('div');
+  tipEl.className = 'diary-flip-tip';
+  const castShadowEl = document.createElement('div');
+  castShadowEl.className = 'diary-flip-castshadow';
+  sheet.append(tipEl, castShadowEl);
+  const elements = { slices, tipEl, castShadowEl, segWidth, sheetWidthPx };
+  updateCurl(0, direction, elements);
+  return elements;
 }
 
-// A real 3D page-turn: a half-width "sheet" with two faces (front = the page
-// currently showing, back = the page it reveals) sits over the static pages
-// beneath it and rotates -180deg/180deg around the book's spine, with an
-// arc lift and mid-rotation opacity dip layered on via the diary-flip-next/
-// diary-flip-prev @keyframes. Both faces use backface-visibility:hidden so
-// only one is ever shown at a time as it turns through profile. Driven by
-// requestAnimationFrame + animationend (not framer-motion, which needs a
-// bundler) — the initial state is committed to layout before the
-// is-flipped class (which starts the @keyframes animation) is added, kept
-// from the transition-based version out of caution even though a CSS
-// animation doesn't strictly require it the way a transition did.
-function playFlip(direction) {
+function updateCurl(progress, direction, elements) {
+  const { slices, tipEl, castShadowEl, segWidth, sheetWidthPx } = elements;
+  const thetas = computeSliceThetas(progress, SLICE_COUNT, direction);
+  const { positions, tip } = computeSliceLayout(thetas, segWidth, direction);
+  const motion = computeCurlMotion(progress);
+  slices.forEach(({ el, frontShade, backShade }, k) => {
+    const { x, z } = positions[k];
+    el.style.transform = `translate3d(${x}px, 0, ${z}px) rotateY(${thetas[k]}deg)`;
+    frontShade.style.opacity = String(motion * 0.35);
+    backShade.style.opacity = String(motion * 0.3);
+  });
+  tipEl.style.opacity = String(motion * 0.85);
+  tipEl.style.transform = `translate3d(${tip.x}px, 0, ${tip.z}px) rotateY(${tip.rotateDeg}deg)`;
+  const shadowWidth = sheetWidthPx * 0.4;
+  castShadowEl.style.width = `${shadowWidth}px`;
+  castShadowEl.style.opacity = String(motion * 0.48);
+  castShadowEl.style.transform = `translate3d(${tip.x - shadowWidth / 2}px, 0, 0) scaleX(${0.72 + motion * 0.55})`;
+}
+
+function runFlipAnimation(direction, elements, fromProgress, toProgress) {
+  return new Promise((resolve) => {
+    const durationMs = readFlipDurationMs();
+    const start = performance.now();
+    function tick(now) {
+      const linear = durationMs > 0 ? Math.min(1, (now - start) / durationMs) : 1;
+      const eased = easeInOutCubic(linear);
+      updateCurl(fromProgress + (toProgress - fromProgress) * eased, direction, elements);
+      if (linear < 1) requestAnimationFrame(tick);
+      else {
+        updateCurl(toProgress, direction, elements);
+        resolve();
+      }
+    }
+    requestAnimationFrame(tick);
+  });
+}
+
+async function playFlip(direction) {
   if (isFlipping) return;
   const oldIndex = state.current;
   const newIndex = direction === 'next' ? oldIndex + 1 : oldIndex - 1;
@@ -506,46 +540,12 @@ function playFlip(direction) {
 
   const oldEntry = ENTRIES[oldIndex];
   const newEntry = ENTRIES[newIndex];
-  const sheet = buildFlipDOM(direction, oldEntry, newEntry);
-
-  // Force layout so the un-flipped starting transform is committed before
-  // the target class gets added on the next frame.
-  void sheet.offsetHeight;
-
-  requestAnimationFrame(() => {
-    sheet.classList.add('is-flipped');
-  });
-
-  // Completing the flip must happen exactly once, triggered by whichever
-  // comes first: the sheet's own flip animation finishing, or (if that
-  // event never arrives — observed in some WebKit/embedded-WebView builds)
-  // a fallback timeout. isSheetEventTarget rejects animationend events
-  // bubbled up from a descendant (animationend bubbles like any other DOM
-  // event), so a child's unrelated animation can't end the flip early.
-  let flipFinished = false;
-  function finishFlip() {
-    if (flipFinished) return;
-    flipFinished = true;
-    sheet.removeEventListener('animationend', onSheetAnimationEnd);
-    clearTimeout(fallbackTimer);
-    state = direction === 'next' ? goToNext(state) : goToPrevious(state);
-    isFlipping = false;
-    renderStatic();
-    updateChrome();
-  }
-
-  function onSheetAnimationEnd(event) {
-    if (isSheetEventTarget(event, sheet)) finishFlip();
-  }
-
-  sheet.addEventListener('animationend', onSheetAnimationEnd);
-
-  // Read the duration straight off the sheet's own computed style rather
-  // than hardcoding a second copy of it — this can never drift out of
-  // sync with --diary-flip-duration (the CSS custom property that also
-  // drives the shadow animations' duration) however that value changes.
-  const flipDurationMs = parseFloat(getComputedStyle(sheet).animationDuration) * 1000 || 700;
-  const fallbackTimer = setTimeout(finishFlip, flipDurationMs + 150);
+  const elements = buildCurlDOM(direction, oldEntry, newEntry);
+  await runFlipAnimation(direction, elements, 0, 1);
+  state = direction === 'next' ? goToNext(state) : goToPrevious(state);
+  isFlipping = false;
+  renderStatic();
+  updateChrome();
 }
 
 const DRAG_THRESHOLD_PX = 8;
@@ -567,10 +567,8 @@ function findDragDirection(target) {
 function applyDragFlipVisualState() {
   const rawDeltaX = dragFlip.currentX - dragFlip.startX;
   const signedDeltaX = dragFlip.direction === 'next' ? -rawDeltaX : rawDeltaX;
-  const progress = computeDragProgress(signedDeltaX, dragFlip.pageWidth);
-  const { rotateDeg, liftPx, opacity } = computeFlipVisualState(progress, dragFlip.direction);
-  dragFlip.sheet.style.transform = `translate3d(0, ${liftPx}px, 0) rotateY(${rotateDeg}deg)`;
-  dragFlip.sheet.style.opacity = String(opacity);
+  const progress = computeDragProgress(signedDeltaX, dragFlip.elements.sheetWidthPx);
+  updateCurl(progress, dragFlip.direction, dragFlip.elements);
   dragFlip.progress = progress;
 }
 
@@ -600,8 +598,7 @@ function handleStagePointerDown(event) {
     currentX: event.clientX,
     moved: false,
     rafScheduled: false,
-    sheet: null,
-    pageWidth: 0,
+    elements: null,
     progress: 0,
     oldIndex: state.current,
     newIndex,
@@ -620,48 +617,25 @@ function handleStagePointerMove(event) {
     document.querySelector('.diary-stage').classList.add('diary-stage--dragging');
     const oldEntry = ENTRIES[dragFlip.oldIndex];
     const newEntry = ENTRIES[dragFlip.newIndex];
-    dragFlip.sheet = buildFlipDOM(dragFlip.direction, oldEntry, newEntry);
-    dragFlip.pageWidth = dragFlip.sheet.getBoundingClientRect().width;
+    dragFlip.elements = buildCurlDOM(dragFlip.direction, oldEntry, newEntry);
   }
 
   scheduleDragFlipUpdate();
 }
 
-function settleDragFlip() {
-  const { direction, sheet, progress } = dragFlip;
+async function settleDragFlip() {
+  const { direction, elements, progress } = dragFlip;
   const completing = shouldCompleteFlip(progress);
-  const finalRotateDeg = completing ? (direction === 'next' ? -180 : 180) : 0;
+  const target = completing ? 1 : 0;
 
   document.querySelector('.diary-stage').classList.remove('diary-stage--dragging');
-  sheet.classList.add('diary-flip-sheet--settling');
-
-  let settled = false;
-  function finishDragFlip() {
-    if (settled) return;
-    settled = true;
-    sheet.removeEventListener('transitionend', onSettleTransitionEnd);
-    clearTimeout(settleFallbackTimer);
-    if (completing) {
-      state = direction === 'next' ? goToNext(state) : goToPrevious(state);
-    }
-    isFlipping = false;
-    renderStatic();
-    updateChrome();
+  await runFlipAnimation(direction, elements, progress, target);
+  if (completing) {
+    state = direction === 'next' ? goToNext(state) : goToPrevious(state);
   }
-
-  function onSettleTransitionEnd(event) {
-    if (isSheetEventTarget(event, sheet)) finishDragFlip();
-  }
-
-  sheet.addEventListener('transitionend', onSettleTransitionEnd);
-
-  requestAnimationFrame(() => {
-    sheet.style.transform = `translate3d(0, 0, 0) rotateY(${finalRotateDeg}deg)`;
-    sheet.style.opacity = '1';
-  });
-
-  const settleDurationMs = parseFloat(getComputedStyle(sheet).transitionDuration) * 1000 || 700;
-  const settleFallbackTimer = setTimeout(finishDragFlip, settleDurationMs + 150);
+  isFlipping = false;
+  renderStatic();
+  updateChrome();
 }
 
 function handleStagePointerUp(event) {

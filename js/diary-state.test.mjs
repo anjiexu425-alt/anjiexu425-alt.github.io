@@ -8,10 +8,13 @@ import {
   canGoNext,
   canGoPrevious,
   goToPage,
-  isSheetEventTarget,
   computeDragProgress,
-  computeFlipVisualState,
   shouldCompleteFlip,
+  computeCurlMotion,
+  easeInOutCubic,
+  computeSliceThetas,
+  computeSliceLayout,
+  contentOffsetForSlice,
 } from './diary-state.mjs';
 
 test('starts closed on the first page', () => {
@@ -56,17 +59,6 @@ test('goToPage clamps to the valid range', () => {
   assert.equal(goToPage(state, 99).current, 4);
 });
 
-test('isSheetEventTarget is true only for the sheet element itself', () => {
-  const sheet = {};
-  assert.equal(isSheetEventTarget({ target: sheet }, sheet), true);
-});
-
-test('isSheetEventTarget rejects an event bubbled up from a child element', () => {
-  const sheet = {};
-  const childElement = {};
-  assert.equal(isSheetEventTarget({ target: childElement }, sheet), false);
-});
-
 test('computeDragProgress returns 0 when there is no movement', () => {
   assert.equal(computeDragProgress(0, 300), 0);
 });
@@ -87,31 +79,6 @@ test('computeDragProgress returns 0 for a non-positive pageWidth', () => {
   assert.equal(computeDragProgress(150, 0), 0);
 });
 
-test('computeFlipVisualState at progress 0 is fully flat, no lift, opaque', () => {
-  const result = computeFlipVisualState(0, 'next');
-  assert.equal(result.rotateDeg, 0);
-  assert.equal(result.liftPx, 0);
-  assert.equal(result.opacity, 1);
-});
-
-test('computeFlipVisualState at progress 1 for next direction is fully rotated', () => {
-  const result = computeFlipVisualState(1, 'next');
-  assert.equal(Math.round(result.rotateDeg), -180);
-  assert.ok(Math.abs(result.liftPx) < 1e-9);
-  assert.equal(Math.round(result.opacity * 100) / 100, 1);
-});
-
-test('computeFlipVisualState at progress 1 for prev direction rotates the opposite way', () => {
-  const result = computeFlipVisualState(1, 'prev');
-  assert.equal(Math.round(result.rotateDeg), 180);
-});
-
-test('computeFlipVisualState peaks lift and dips opacity at progress 0.5', () => {
-  const result = computeFlipVisualState(0.5, 'next');
-  assert.equal(result.liftPx, -16);
-  assert.equal(Math.round(result.opacity * 100) / 100, 0.65);
-});
-
 test('shouldCompleteFlip is false below the halfway point', () => {
   assert.equal(shouldCompleteFlip(0.49), false);
 });
@@ -119,4 +86,53 @@ test('shouldCompleteFlip is false below the halfway point', () => {
 test('shouldCompleteFlip is true at or above the halfway point', () => {
   assert.equal(shouldCompleteFlip(0.5), true);
   assert.equal(shouldCompleteFlip(0.9), true);
+});
+
+test('computeCurlMotion is 0 at both ends and peaks at the midpoint', () => {
+  assert.ok(Math.abs(computeCurlMotion(0)) < 1e-9);
+  assert.equal(computeCurlMotion(0.5), 1);
+  assert.ok(Math.abs(computeCurlMotion(1)) < 1e-9);
+});
+
+test('easeInOutCubic passes through the endpoints and midpoint', () => {
+  assert.equal(easeInOutCubic(0), 0);
+  assert.equal(easeInOutCubic(0.5), 0.5);
+  assert.equal(easeInOutCubic(1), 1);
+});
+
+test('computeSliceThetas is flat at progress 0 and fully rotated at 1', () => {
+  assert.deepEqual(computeSliceThetas(0, 16, 'next'), Array(16).fill(0));
+  computeSliceThetas(1, 16, 'next').forEach((deg) => assert.ok(Math.abs(deg + 180) < 1e-6));
+  computeSliceThetas(1, 16, 'prev').forEach((deg) => assert.ok(Math.abs(deg - 180) < 1e-6));
+});
+
+test('computeSliceThetas mirrors next and previous directions', () => {
+  const next = computeSliceThetas(0.5, 16, 'next');
+  const prev = computeSliceThetas(0.5, 16, 'prev');
+  next.forEach((deg, index) => assert.ok(Math.abs(deg + prev[index]) < 1e-9));
+});
+
+test('computeSliceLayout lays out and mirrors flat slices', () => {
+  assert.deepEqual(computeSliceLayout([0, 0, 0, 0], 10, 'next'), {
+    positions: [{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 20, z: 0 }, { x: 30, z: 0 }],
+    tip: { x: 40, z: 0, rotateDeg: 0 },
+  });
+  assert.deepEqual(computeSliceLayout([0, 0, 0, 0], 10, 'prev').positions, [
+    { x: 30, z: 0 }, { x: 20, z: 0 }, { x: 10, z: 0 }, { x: 0, z: 0 },
+  ]);
+});
+
+test('computeSliceLayout carries curl depth into the tip', () => {
+  const { tip } = computeSliceLayout([-30], 10, 'next');
+  const radians = (-30 * Math.PI) / 180;
+  assert.ok(Math.abs(tip.x - 10 * Math.cos(radians)) < 1e-9);
+  assert.ok(Math.abs(tip.z + 10 * Math.sin(radians)) < 1e-9);
+});
+
+test('contentOffsetForSlice maps front and mirrored back strips', () => {
+  assert.equal(contentOffsetForSlice(0, 16, 'next', 'front'), 0);
+  assert.equal(contentOffsetForSlice(15, 16, 'next', 'front'), 15);
+  assert.equal(contentOffsetForSlice(0, 16, 'prev', 'front'), 15);
+  assert.equal(contentOffsetForSlice(0, 16, 'next', 'back'), 15);
+  assert.equal(contentOffsetForSlice(15, 16, 'prev', 'back'), 15);
 });

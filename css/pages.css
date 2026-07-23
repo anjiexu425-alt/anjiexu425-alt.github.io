@@ -447,15 +447,7 @@
 .diary {
   position: relative;
   min-height: 70vh;
-  /* Single source of truth for the page-flip's timing: the flip sheet's
-     own rotation and every shadow effect that accompanies it read from
-     this one value, so they can never drift out of sync with each other
-     (they previously ran 0.7s vs 0.9s, so the DOM got torn down and
-     rebuilt at 0.7s while the shadows still had 0.2s left to fade,
-     reading as a flicker/snap). js/diary.js also reads this duration off
-     the sheet's computed style for its completion-timeout fallback.
-     Change this one value to retime the whole flip; nothing else needs
-     to change. */
+  /* Shared timing for the requestAnimationFrame curl and the page shadows. */
   --diary-flip-duration: 0.7s;
 }
 
@@ -887,105 +879,98 @@
 }
 
 
-/* Real 3D page-turn: a half-width sheet with two backface-hidden faces
-   rotates around the book's spine; the perspective on .diary-stage does
-   the foreshortening. Shadow casting is animated (not a static gradient):
-   the static half not under the sheet fades a shadow in as the turning
-   page lifts off it, the half already revealed underneath fades its
-   shadow out as it lands in the light, and each sheet face carries its
-   own curl shadow that deepens then eases as it rotates through profile. */
+/* The turning page is split into thin vertical strips. Small differences
+   in their angles form a continuous curling silhouette rather than a flat
+   card rotation; click, keyboard and drag gestures share this geometry. */
 .diary-flip-sheet {
   position: absolute;
   top: 0;
   width: 50%;
   height: 100%;
   z-index: 20;
+  pointer-events: none;
   -webkit-transform-style: preserve-3d;
   transform-style: preserve-3d;
-  will-change: transform, opacity;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  pointer-events: none;
 }
 
-/* translate3d(0,0,0) alongside the rotation forces this onto its own GPU
-   layer from the start instead of only once the rotation makes it "3D
-   enough" to qualify — avoids a layer-promotion hitch right as the flip
-   starts. */
 .diary-flip-sheet--next {
   left: 50%;
-  transform-origin: left center;
-  transform: translate3d(0, 0, 0) rotateY(0deg);
 }
 
 .diary-flip-sheet--prev {
   left: 0;
-  transform-origin: right center;
-  transform: translate3d(0, 0, 0) rotateY(0deg);
 }
 
-/* Real 3D page-turn, redesigned: instead of a plain two-point rotateY
-   transition, an @keyframes animation adds an arc lift (the page rises
-   as it turns, like being picked up rather than pivoting flat) and dips
-   opacity around the 50% midpoint, where the rotation is nearest
-   edge-on to the viewer. That's exactly where Safari renders
-   live text/photos inside a preserve-3d rotation as garbled/broken (a
-   WebKit text-rasterization quirk, confirmed via systematic-debugging —
-   not a paint-performance problem, which is why contain/font-smoothing
-   didn't fix it) — fading the content there masks the artifact instead
-   of fighting it, and reads naturally since a real page mid-turn isn't
-   legible either.
-   Timing is linear, not the eased curve used elsewhere: a non-linear
-   timing function on a multi-keyframe animation replays in full across
-   *each* keyframe interval (0%->40%, 40%->60%, 60%->100%), not once
-   across the whole animation — three eased bursts chained together reads
-   as visible stutter/juddering, which is exactly what a real user caught.
-   linear keeps the eased "picked up and turned" feel entirely in the
-   keyframe values themselves (the arc lift, the uneven spacing of the
-   rotation waypoints) rather than in a repeatedly-replayed easing curve. */
-.diary-flip-sheet--next.is-flipped {
-  animation: diary-flip-next var(--diary-flip-duration) linear forwards;
+.diary-flip-slice {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  transform-origin: left center;
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+  will-change: transform;
 }
 
-.diary-flip-sheet--prev.is-flipped {
-  animation: diary-flip-prev var(--diary-flip-duration) linear forwards;
-}
-
-/* Single peak at 50% (not a 40%-60% plateau) — the lift's vertical
-   velocity only ever changes direction once, at the very top of the arc,
-   which reads as a natural apex rather than a "stop dead, then move
-   again" jerk. Rotation moves at a constant rate throughout (-1.8deg per
-   1% of duration on both halves), so there's no velocity change there at
-   all, even at the 50% keyframe. */
-@keyframes diary-flip-next {
-  0% { transform: translate3d(0, 0, 0) rotateY(0deg); opacity: 1; }
-  50% { transform: translate3d(0, -16px, 0) rotateY(-90deg); opacity: 0.65; }
-  100% { transform: translate3d(0, 0, 0) rotateY(-180deg); opacity: 1; }
-}
-
-@keyframes diary-flip-prev {
-  0% { transform: translate3d(0, 0, 0) rotateY(0deg); opacity: 1; }
-  50% { transform: translate3d(0, -16px, 0) rotateY(90deg); opacity: 0.65; }
-  100% { transform: translate3d(0, 0, 0) rotateY(180deg); opacity: 1; }
-}
-
-.diary-flip-sheet__face {
+.diary-flip-slice__face {
   position: absolute;
   inset: 0;
-  transform: translate3d(0, 0, 0);
+  overflow: hidden;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
-  overflow: hidden;
   background: var(--color-surface);
 }
 
-.diary-flip-sheet__face--back {
-  transform: translate3d(0, 0, 0) rotateY(180deg);
+.diary-flip-slice__face--back {
+  transform: rotateY(180deg);
+}
+
+.diary-flip-slice__canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.diary-flip-slice__canvas > .diary-page {
+  width: 100%;
+  height: 100%;
+}
+
+.diary-flip-slice__shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.6);
+  opacity: 0;
+}
+
+.diary-flip-tip {
+  position: absolute;
+  top: 1.5%;
+  height: 97%;
+  width: 3px;
+  z-index: 25;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(70,60,45,.32), rgba(255,255,255,.12));
+  box-shadow: 0 0 12px rgba(30,25,18,.25);
+}
+
+.diary-flip-castshadow {
+  position: absolute;
+  top: 1.5%;
+  height: 97%;
+  z-index: 18;
+  pointer-events: none;
+  opacity: 0;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(20,17,12,.28), rgba(25,20,15,.12) 45%, transparent 75%);
+  filter: blur(2px);
 }
 
 /* Cursor affordance: grab-able while idle, grabbing while an active drag
    is in progress (the class is toggled on .diary-stage itself, which
-   never gets replaced by buildFlipDOM — only its children do — so it's a
+   never gets replaced by buildCurlDOM — only its children do — so it's a
    stable place to hang drag-state styling). */
 .diary.is-open .diary-page--left,
 .diary.is-open .diary-page--right {
@@ -996,16 +981,6 @@
 .diary-stage--dragging .diary-page--left,
 .diary-stage--dragging .diary-page--right {
   cursor: grabbing;
-}
-
-/* The post-release settle: a single-interval transition (start = wherever
-   the drag left the sheet, end = fully open or fully reverted) — not
-   @keyframes, so it can't reintroduce the multi-stop stutter problem.
-   Toggled on only for the settle phase; during an active drag the sheet's
-   transform/opacity are written directly with no transition running. */
-.diary-flip-sheet--settling {
-  transition: transform var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1),
-    opacity var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 /* Static halves beneath the turning sheet: one side darkens as the page
@@ -1044,39 +1019,6 @@
 @keyframes diary-underlay-out {
   from { opacity: 0.7; }
   to { opacity: 0; }
-}
-
-/* Curl shadow riding the sheet itself, strongest near whichever edge it's
-   pivoting on (gradient direction is set inline per instance in JS, since
-   it depends on both the face and the flip direction). The front face's
-   shadow deepens then eases; the back face starts partly shadowed and
-   clears as it comes face-up. */
-/* Same reasoning as .diary-underlay-shadow above: no mix-blend-mode. */
-.diary-flip-shadow {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 2;
-}
-
-.diary-flip-shadow--front {
-  animation: diary-face-shadow-front var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1) forwards;
-}
-
-.diary-flip-shadow--back {
-  animation: diary-face-shadow-back var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1) forwards;
-}
-
-@keyframes diary-face-shadow-front {
-  0% { opacity: 0; }
-  50% { opacity: 0.45; }
-  100% { opacity: 0.2; }
-}
-
-@keyframes diary-face-shadow-back {
-  0% { opacity: 0.3; }
-  50% { opacity: 0.45; }
-  100% { opacity: 0; }
 }
 
 .diary-toolbar {

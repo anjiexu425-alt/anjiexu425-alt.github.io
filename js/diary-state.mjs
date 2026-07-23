@@ -29,14 +29,6 @@ export function goToPage(state, index) {
   return { ...state, current: clamped };
 }
 
-// Both animationend (the click/keyboard flip's @keyframes) and
-// transitionend (the drag flip's post-release settle transition) bubble:
-// a descendant firing one must not be mistaken for the sheet's own flip
-// finishing. Only an event whose target IS the sheet itself counts.
-export function isSheetEventTarget(event, sheet) {
-  return event.target === sheet;
-}
-
 // deltaX is the pixel distance dragged in the direction that progresses
 // the flip (the caller is responsible for giving this the right sign
 // based on which way the page is being dragged) — always returns a value
@@ -46,24 +38,66 @@ export function computeDragProgress(deltaX, pageWidth) {
   return Math.max(0, Math.min(1, deltaX / pageWidth));
 }
 
-// A continuous curve (not fixed keyframe stops) driven directly by live
-// drag progress: rotation is linear in progress, lift and opacity each
-// follow a single-peaked sine curve (zero/full at both ends, peak at the
-// midpoint) so there's no plateau or velocity discontinuity of the kind
-// that caused stutter in the earlier @keyframes-based design.
-export function computeFlipVisualState(progress, direction) {
-  const sign = direction === 'next' ? -1 : 1;
-  // `+ 0` normalizes a -0 result (e.g. progress === 0) to 0 — Object.is
-  // (used by node:assert's strict .equal) treats -0 and 0 as unequal.
-  // Adding 0 rather than `|| 0` keeps a NaN input surfacing as NaN instead
-  // of silently becoming 0.
+export function shouldCompleteFlip(progress) {
+  return progress >= 0.5;
+}
+
+export function computeCurlMotion(progress) {
+  const clamped = Math.max(0, Math.min(1, progress));
+  return Math.sin(Math.PI * clamped) + 0;
+}
+
+export function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+export function computeSliceThetas(progress, sliceCount, direction) {
+  const sign = direction === 'next' ? 1 : -1;
+  const base = -Math.PI * progress;
+  const motion = Math.sin(Math.PI * progress);
+  const thetas = [];
+  for (let k = 0; k < sliceCount; k++) {
+    const t = (k + 0.5) / sliceCount;
+    const edgeLag = 0.24 * Math.sin(2 * Math.PI * progress) * Math.pow(t, 1.3);
+    const softBow = 0.045 * motion * Math.sin(Math.PI * t);
+    const radians = sign * (base + edgeLag + softBow);
+    thetas.push(((radians * 180) / Math.PI) + 0);
+  }
+  return thetas;
+}
+
+export function computeSliceLayout(thetasDeg, sliceWidthPx, direction) {
+  let x = 0;
+  let z = 0;
+  const raw = [];
+  for (const theta of thetasDeg) {
+    const radians = (theta * Math.PI) / 180;
+    raw.push({ x, z });
+    x += sliceWidthPx * Math.cos(radians);
+    z -= sliceWidthPx * Math.sin(radians);
+  }
+  const lastTheta = thetasDeg.length ? thetasDeg[thetasDeg.length - 1] : 0;
+  if (direction === 'next') {
+    return { positions: raw, tip: { x, z, rotateDeg: lastTheta } };
+  }
+
+  const sheetWidthPx = thetasDeg.length * sliceWidthPx;
+  const positions = raw.map((point) => ({
+    x: (sheetWidthPx - sliceWidthPx - point.x) + 0,
+    z: point.z,
+  }));
+  const lastRaw = raw.length ? raw[raw.length - 1] : { x: 0, z: 0 };
   return {
-    rotateDeg: sign * progress * 180 + 0,
-    liftPx: -16 * Math.sin(progress * Math.PI) + 0,
-    opacity: 1 - 0.35 * Math.sin(progress * Math.PI),
+    positions,
+    tip: {
+      x: (sheetWidthPx - sliceWidthPx - lastRaw.x) + 0,
+      z,
+      rotateDeg: lastTheta,
+    },
   };
 }
 
-export function shouldCompleteFlip(progress) {
-  return progress >= 0.5;
+export function contentOffsetForSlice(k, sliceCount, direction, face) {
+  const frontOffset = direction === 'next' ? k : sliceCount - 1 - k;
+  return face === 'back' ? sliceCount - 1 - frontOffset : frontOffset;
 }
