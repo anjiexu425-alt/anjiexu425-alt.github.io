@@ -36,6 +36,51 @@ import {
 const diarySource = readFileSync(new URL('./diary.js', import.meta.url), 'utf8');
 const diaryCSS = readFileSync(new URL('../css/pages.css', import.meta.url), 'utf8');
 
+test('Polaroid frames use orientation-specific desktop widths', () => {
+  const desktopCSS = diaryCSS.match(
+    /\.diary-polaroid \{[\s\S]*?(?=@media \(min-width: 769px\))/,
+  )?.[0];
+
+  assert.ok(desktopCSS);
+  assert.match(desktopCSS, /\.diary-polaroid--landscape[\s\S]*width:\s*380px/);
+  assert.match(desktopCSS, /\.diary-polaroid--square[\s\S]*width:\s*350px/);
+  assert.match(desktopCSS, /\.diary-polaroid--portrait[\s\S]*width:\s*330px/);
+  assert.match(desktopCSS, /\.diary-polaroid--unknown[\s\S]*width:\s*330px/);
+  assert.match(desktopCSS, /\.diary-polaroid--gallery[\s\S]*width:\s*330px/);
+  assert.match(
+    desktopCSS,
+    /\.diary-polaroid \{[\s\S]*transition:\s*transform var\(--transition-slow\),\s*width 220ms ease/,
+  );
+});
+
+test('Polaroid frames stay fluid at tablet and mobile widths', () => {
+  const tabletCSS = diaryCSS.match(
+    /@media \(min-width: 769px\) and \(max-width: 1024px\) \{([\s\S]*?)\n\}\n\n\.diary-page__header/,
+  )?.[1];
+  const mobileCSS = diaryCSS.slice(diaryCSS.lastIndexOf('@media (max-width: 768px)'));
+
+  assert.ok(tabletCSS);
+  assert.match(tabletCSS, /\.diary-polaroid--landscape[\s\S]*width:\s*min\(350px,\s*100%\)/);
+  assert.match(tabletCSS, /\.diary-polaroid--square[\s\S]*width:\s*min\(330px,\s*100%\)/);
+  assert.match(tabletCSS, /\.diary-polaroid--portrait[\s\S]*width:\s*min\(310px,\s*100%\)/);
+  assert.match(tabletCSS, /\.diary-polaroid--unknown[\s\S]*width:\s*min\(310px,\s*100%\)/);
+  assert.match(tabletCSS, /\.diary-polaroid--gallery[\s\S]*width:\s*min\(310px,\s*100%\)/);
+
+  assert.match(mobileCSS, /^@media \(max-width: 768px\) \{/);
+  assert.match(mobileCSS, /\.diary-polaroid--landscape[\s\S]*width:\s*min\(360px,\s*100%\)/);
+  assert.match(mobileCSS, /\.diary-polaroid--square[\s\S]*width:\s*min\(320px,\s*100%\)/);
+  assert.match(mobileCSS, /\.diary-polaroid--portrait[\s\S]*width:\s*min\(270px,\s*100%\)/);
+  assert.match(mobileCSS, /\.diary-polaroid--unknown[\s\S]*width:\s*min\(270px,\s*100%\)/);
+  assert.match(mobileCSS, /\.diary-polaroid--gallery[\s\S]*width:\s*min\(270px,\s*100%\)/);
+});
+
+test('reduced motion removes the Polaroid frame width transition', () => {
+  assert.match(
+    diaryCSS,
+    /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\.diary-polaroid\s*\{\s*transition:\s*none;\s*\}[\s\S]*?\}/,
+  );
+});
+
 function fakeClassList(...classNames) {
   const values = new Set(classNames);
   return {
