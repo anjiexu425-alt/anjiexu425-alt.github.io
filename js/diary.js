@@ -712,10 +712,22 @@ function openWriteModal() {
   document.querySelector('.diary-modal-backdrop').hidden = false;
 }
 
+// Builds the small thumbnail strip shown in edit mode so the user can see
+// what media the entry currently has, since file inputs can't be pre-filled.
+function currentMediaPreviewHTML(media) {
+  if (media.type === 'video') {
+    const url = media.urls[0];
+    if (isPlaceholder(url)) return '<p class="diary-form__current-media-empty">No video uploaded yet.</p>';
+    return `<video src="${url}" muted></video>`;
+  }
+  const realUrls = media.urls.filter((url) => !isPlaceholder(url));
+  if (realUrls.length === 0) return '<p class="diary-form__current-media-empty">No photos uploaded yet.</p>';
+  return realUrls.map((url) => `<img src="${url}" alt="" />`).join('');
+}
+
 // Opens the write/edit modal pre-filled with an existing entry's text
-// fields, so submitting updates that entry instead of creating a new one.
-// Media (file inputs) can't be pre-filled by the browser — see Task 4 for
-// the "current media" preview that covers that gap.
+// fields and a preview of its current media, so submitting updates that
+// entry instead of creating a new one.
 function handleOpenEditor(entry) {
   editingEntryId = entry.id;
   const form = document.querySelector('.diary-form');
@@ -726,6 +738,11 @@ function handleOpenEditor(entry) {
   form.body.value = entry.body;
   form.caption.value = entry.media.caption;
   setMediaType(entry.media.type);
+
+  const currentMediaEl = document.querySelector('.diary-form__current-media');
+  currentMediaEl.hidden = false;
+  document.querySelector('.diary-form__current-media-grid').innerHTML = currentMediaPreviewHTML(entry.media);
+
   setWriteModalMode('edit');
   document.querySelector('.diary-modal-backdrop').hidden = false;
 }
@@ -737,6 +754,8 @@ function closeWriteModal() {
   setMediaType('image');
   editingEntryId = null;
   setWriteModalMode('write');
+  document.querySelector('.diary-form__current-media').hidden = true;
+  document.querySelector('.diary-form__current-media-grid').innerHTML = '';
 }
 
 async function uploadMediaFiles(files) {

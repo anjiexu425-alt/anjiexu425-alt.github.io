@@ -1116,6 +1116,36 @@
   color: var(--color-klein-blue);
 }
 
+.diary-form__current-media {
+  margin-bottom: var(--space-2);
+}
+
+.diary-form__current-media-label {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+}
+
+.diary-form__current-media-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.diary-form__current-media-grid img,
+.diary-form__current-media-grid video {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.diary-form__current-media-empty {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
 /* No backdrop-filter: a blurred modal scrim compositing above the flip
    sheet's preserve-3d/translate3d layers is a known GPU layer-blend
    flicker trigger (same reasoning as .site-nav.is-scrolled below) — a
