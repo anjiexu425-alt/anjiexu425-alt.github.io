@@ -15,6 +15,8 @@ import {
   computeSliceThetas,
   computeSliceLayout,
   contentOffsetForSlice,
+  createFlipTransition,
+  shouldCompleteDirectionalFlip,
 } from './diary-state.mjs';
 
 test('starts closed on the first page', () => {
@@ -100,39 +102,59 @@ test('easeInOutCubic passes through the endpoints and midpoint', () => {
   assert.equal(easeInOutCubic(1), 1);
 });
 
-test('computeSliceThetas is flat at progress 0 and fully rotated at 1', () => {
-  assert.deepEqual(computeSliceThetas(0, 16, 'next'), Array(16).fill(0));
-  computeSliceThetas(1, 16, 'next').forEach((deg) => assert.ok(Math.abs(deg + 180) < 1e-6));
-  computeSliceThetas(1, 16, 'prev').forEach((deg) => assert.ok(Math.abs(deg - 180) < 1e-6));
-});
-
-test('computeSliceThetas mirrors next and previous directions', () => {
-  const next = computeSliceThetas(0.5, 16, 'next');
-  const prev = computeSliceThetas(0.5, 16, 'prev');
-  next.forEach((deg, index) => assert.ok(Math.abs(deg + prev[index]) < 1e-9));
-});
-
-test('computeSliceLayout lays out and mirrors flat slices', () => {
-  assert.deepEqual(computeSliceLayout([0, 0, 0, 0], 10, 'next'), {
-    positions: [{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 20, z: 0 }, { x: 30, z: 0 }],
-    tip: { x: 40, z: 0, rotateDeg: 0 },
+test('canonical slice geometry is flat right at 0 and flat left at 1', () => {
+  assert.deepEqual(computeSliceThetas(0, 16), Array(16).fill(0));
+  computeSliceThetas(1, 16).forEach((deg) => {
+    assert.ok(Math.abs(deg + 180) < 1e-6);
   });
-  assert.deepEqual(computeSliceLayout([0, 0, 0, 0], 10, 'prev').positions, [
-    { x: 30, z: 0 }, { x: 20, z: 0 }, { x: 10, z: 0 }, { x: 0, z: 0 },
+});
+
+test('canonical layout starts at the spine and needs no direction mirror', () => {
+  const result = computeSliceLayout([0, 0, 0, 0], 10);
+  assert.deepEqual(result.positions, [
+    { x: 0, z: 0 },
+    { x: 10, z: 0 },
+    { x: 20, z: 0 },
+    { x: 30, z: 0 },
   ]);
+  assert.deepEqual(result.tip, { x: 40, z: 0, rotateDeg: 0 });
 });
 
 test('computeSliceLayout carries curl depth into the tip', () => {
-  const { tip } = computeSliceLayout([-30], 10, 'next');
+  const { tip } = computeSliceLayout([-30], 10);
   const radians = (-30 * Math.PI) / 180;
   assert.ok(Math.abs(tip.x - 10 * Math.cos(radians)) < 1e-9);
   assert.ok(Math.abs(tip.z + 10 * Math.sin(radians)) < 1e-9);
 });
 
-test('contentOffsetForSlice maps front and mirrored back strips', () => {
-  assert.equal(contentOffsetForSlice(0, 16, 'next', 'front'), 0);
-  assert.equal(contentOffsetForSlice(15, 16, 'next', 'front'), 15);
-  assert.equal(contentOffsetForSlice(0, 16, 'prev', 'front'), 15);
-  assert.equal(contentOffsetForSlice(0, 16, 'next', 'back'), 15);
-  assert.equal(contentOffsetForSlice(15, 16, 'prev', 'back'), 15);
+test('content strips depend on paper face, not navigation direction', () => {
+  assert.equal(contentOffsetForSlice(0, 16, 'front'), 0);
+  assert.equal(contentOffsetForSlice(15, 16, 'front'), 15);
+  assert.equal(contentOffsetForSlice(0, 16, 'back'), 15);
+  assert.equal(contentOffsetForSlice(15, 16, 'back'), 0);
+});
+
+test('next transition plays canonical curl forward', () => {
+  assert.deepEqual(createFlipTransition(2, 'next'), {
+    fromIndex: 2,
+    toIndex: 3,
+    startProgress: 0,
+    targetProgress: 1,
+  });
+});
+
+test('previous transition plays the same canonical curl backward', () => {
+  assert.deepEqual(createFlipTransition(2, 'prev'), {
+    fromIndex: 1,
+    toIndex: 2,
+    startProgress: 1,
+    targetProgress: 0,
+  });
+});
+
+test('directional completion uses opposite sides of the midpoint', () => {
+  assert.equal(shouldCompleteDirectionalFlip(0.6, 'next'), true);
+  assert.equal(shouldCompleteDirectionalFlip(0.4, 'next'), false);
+  assert.equal(shouldCompleteDirectionalFlip(0.4, 'prev'), true);
+  assert.equal(shouldCompleteDirectionalFlip(0.6, 'prev'), false);
 });

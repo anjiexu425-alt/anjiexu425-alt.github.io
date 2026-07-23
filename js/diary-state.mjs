@@ -51,53 +51,52 @@ export function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
-export function computeSliceThetas(progress, sliceCount, direction) {
-  const sign = direction === 'next' ? 1 : -1;
-  const base = -Math.PI * progress;
-  const motion = Math.sin(Math.PI * progress);
+export function computeSliceThetas(progress, sliceCount) {
+  const clamped = Math.max(0, Math.min(1, progress));
+  const base = -Math.PI * clamped;
+  const motion = Math.sin(Math.PI * clamped);
+  const curl = motion * (0.4 + 0.1 * motion);
   const thetas = [];
   for (let k = 0; k < sliceCount; k++) {
     const t = (k + 0.5) / sliceCount;
-    const edgeLag = 0.24 * Math.sin(2 * Math.PI * progress) * Math.pow(t, 1.3);
-    const softBow = 0.045 * motion * Math.sin(Math.PI * t);
-    const radians = sign * (base + edgeLag + softBow);
+    const profile = Math.sin(Math.PI * t) * (0.3 + 0.7 * t);
+    const counterCurl = 0.08 * motion * Math.sin(2 * Math.PI * t);
+    const radians = base + curl * profile + counterCurl;
     thetas.push(((radians * 180) / Math.PI) + 0);
   }
   return thetas;
 }
 
-export function computeSliceLayout(thetasDeg, sliceWidthPx, direction) {
+export function computeSliceLayout(thetasDeg, sliceWidthPx) {
   let x = 0;
   let z = 0;
-  const raw = [];
+  const positions = [];
   for (const theta of thetasDeg) {
     const radians = (theta * Math.PI) / 180;
-    raw.push({ x, z });
+    positions.push({ x, z });
     x += sliceWidthPx * Math.cos(radians);
     z -= sliceWidthPx * Math.sin(radians);
   }
-  const lastTheta = thetasDeg.length ? thetasDeg[thetasDeg.length - 1] : 0;
-  if (direction === 'next') {
-    return { positions: raw, tip: { x, z, rotateDeg: lastTheta } };
-  }
-
-  const sheetWidthPx = thetasDeg.length * sliceWidthPx;
-  const positions = raw.map((point) => ({
-    x: (sheetWidthPx - sliceWidthPx - point.x) + 0,
-    z: point.z,
-  }));
-  const lastRaw = raw.length ? raw[raw.length - 1] : { x: 0, z: 0 };
   return {
     positions,
     tip: {
-      x: (sheetWidthPx - sliceWidthPx - lastRaw.x) + 0,
+      x,
       z,
-      rotateDeg: lastTheta,
+      rotateDeg: thetasDeg.length ? thetasDeg[thetasDeg.length - 1] : 0,
     },
   };
 }
 
-export function contentOffsetForSlice(k, sliceCount, direction, face) {
-  const frontOffset = direction === 'next' ? k : sliceCount - 1 - k;
-  return face === 'back' ? sliceCount - 1 - frontOffset : frontOffset;
+export function contentOffsetForSlice(k, sliceCount, face) {
+  return face === 'back' ? sliceCount - 1 - k : k;
+}
+
+export function createFlipTransition(currentIndex, direction) {
+  return direction === 'next'
+    ? { fromIndex: currentIndex, toIndex: currentIndex + 1, startProgress: 0, targetProgress: 1 }
+    : { fromIndex: currentIndex - 1, toIndex: currentIndex, startProgress: 1, targetProgress: 0 };
+}
+
+export function shouldCompleteDirectionalFlip(progress, direction) {
+  return direction === 'next' ? progress >= 0.5 : progress < 0.5;
 }
