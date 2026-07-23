@@ -1,0 +1,135 @@
+:root {
+  --color-klein-blue: #002FA7;
+  --color-klein-blue-soft: #E8ECF9;
+  --color-bg: #F5F5F3;
+  --color-surface: #FFFFFF;
+  --color-text: #2B2B2E;
+  --color-text-muted: #6B6B70;
+  --color-border-dashed: rgba(0, 47, 167, 0.35);
+
+  --font-display: 'Playfair Display', 'Noto Serif SC', Georgia, serif;
+  --font-body: Georgia, 'Noto Serif SC', serif;
+
+  --space-1: 0.5rem;
+  --space-2: 1rem;
+  --space-3: 1.5rem;
+  --space-4: 2.5rem;
+  --space-5: 4rem;
+  --space-6: 6rem;
+
+  --radius-md: 12px;
+  --radius-lg: 20px;
+
+  --transition-fast: 0.4s ease-in-out;
+  --transition-slow: 0.8s ease-in-out;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  margin: 0 0 var(--space-2);
+}
+
+p {
+  margin: 0 0 var(--space-2);
+}
+
+a {
+  color: var(--color-klein-blue);
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+.emphasis {
+  color: var(--color-klein-blue);
+  font-weight: 700;
+}
+
+.placeholder-img {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-2);
+  background: linear-gradient(135deg, var(--color-klein-blue-soft), var(--color-surface));
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  border-radius: var(--radius-md);
+  min-height: 240px;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 var(--space-3);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.button {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-klein-blue);
+  border-radius: 999px;
+  color: var(--color-klein-blue);
+  margin: var(--space-3) 0;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.button--primary:hover {
+  background: var(--color-klein-blue);
+  color: #fff;
+}
+
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 var(--space-4);
+}
+
+.tag {
+  border: 1px dashed var(--color-border-dashed);
+  color: var(--color-klein-blue);
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+@keyframes breathe {
+  from { transform: translate(-50%, -50%) scale(0.95); opacity: 0.85; }
+  to { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+}

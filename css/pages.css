@@ -1,0 +1,1513 @@
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  min-height: calc(100vh - 80px);
+  flex-wrap: wrap;
+}
+
+.hero__intro {
+  max-width: 480px;
+}
+
+.hero__line {
+  min-height: 1.3em;
+}
+
+.hero__line--1 {
+  font-family: var(--font-display);
+  font-size: 3rem;
+  color: var(--color-klein-blue);
+}
+
+.hero__line--2 {
+  font-size: 1.25rem;
+}
+
+.hero__line--3 {
+  font-size: 1.1rem;
+  color: var(--color-text-muted);
+}
+
+.typewriter-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  color: var(--color-klein-blue);
+  animation: cursor-blink 0.5s steps(1) infinite;
+}
+
+@keyframes cursor-blink {
+  50% { opacity: 0; }
+}
+
+.circle-nav {
+  position: relative;
+  width: 360px;
+  height: 360px;
+  flex-shrink: 0;
+  animation: float 5s ease-in-out infinite alternate;
+}
+
+.circle-nav__orb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 160px;
+  height: 160px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(0, 47, 167, 0.85) 0%,
+    rgba(0, 47, 167, 0.5) 32%,
+    rgba(0, 47, 167, 0.22) 58%,
+    rgba(0, 47, 167, 0.06) 78%,
+    transparent 100%);
+  filter: blur(18px);
+  animation: breathe 3.2s ease-in-out infinite alternate;
+}
+
+.circle-nav__orb::after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(0, 47, 167, 0.4) 0%,
+    rgba(0, 47, 167, 0.12) 50%,
+    transparent 80%);
+  filter: blur(28px);
+  animation: breathe-outer 4.6s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes breathe-outer {
+  from { transform: scale(0.95); opacity: 0.6; }
+  to { transform: scale(1.05); opacity: 0.9; }
+}
+
+.circle-nav__spin {
+  position: absolute;
+  inset: 0;
+}
+
+.circle-nav__orbit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.circle-nav__orbit-line {
+  fill: none;
+  stroke: rgba(0, 47, 167, 0.22);
+  stroke-width: 1;
+}
+
+.circle-nav__item {
+  fill: var(--color-text-muted);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: fill var(--transition-fast);
+}
+
+.circle-nav__item:hover,
+.circle-nav__item:focus-visible {
+  fill: var(--color-klein-blue);
+}
+
+.circle-nav__mobile-list {
+  display: none;
+}
+
+@keyframes float {
+  from { transform: translateY(-8px); }
+  to { transform: translateY(8px); }
+}
+
+@media (max-width: 768px) {
+  .circle-nav {
+    width: auto;
+    height: auto;
+    animation: none;
+  }
+
+  .circle-nav__spin {
+    display: none;
+  }
+
+  .circle-nav__orb {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    width: 80px;
+    height: 80px;
+    margin: 0 auto var(--space-3);
+  }
+
+  .circle-nav__orb::after {
+    display: none;
+  }
+
+  .circle-nav__mobile-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    list-style: none;
+    padding: 0;
+    text-align: center;
+  }
+}
+
+.about {
+  display: flex;
+  gap: var(--space-5);
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding: var(--space-5) 0;
+}
+
+.about__photo {
+  flex: 1 1 320px;
+  aspect-ratio: 3 / 4;
+  min-height: 380px;
+  width: 100%;
+  max-width: 380px;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+}
+
+.about__content {
+  flex: 1 1 380px;
+}
+
+.about__content h1 {
+  font-size: 1.8rem;
+  line-height: 1.5;
+  margin-bottom: var(--space-3);
+}
+
+.experience-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-5) 0;
+}
+
+.experience-header__number {
+  font-family: var(--font-display);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.experience-header__glow {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 47, 167, 0.9), transparent 70%);
+  animation: breathe 4s ease-in-out infinite alternate;
+}
+
+.experience-fan {
+  position: relative;
+  height: 580px;
+  margin-bottom: var(--space-5);
+}
+
+.polaroid {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 260px;
+  padding: 12px 12px 54px;
+  background: var(--color-surface);
+  border-radius: 3px;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.16);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transform-origin: bottom center;
+  /* Cubic-bezier approximation of the reference's spring animation
+     (stiffness 120 / damping 15) — plain CSS transitions can't do true
+     spring physics, this "back ease" gives a similar soft-overshoot feel. */
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow var(--transition-slow), border-color var(--transition-slow);
+  text-align: left;
+}
+
+.polaroid:hover,
+.polaroid.is-flipped {
+  box-shadow: 0 20px 36px rgba(0, 0, 0, 0.24);
+}
+
+.polaroid.is-active {
+  border-color: rgba(0, 47, 167, 0.2);
+  box-shadow: 0 24px 44px rgba(0, 0, 0, 0.2);
+}
+
+.polaroid__flip {
+  position: relative;
+  display: block;
+  perspective: 1000px;
+}
+
+.polaroid__face {
+  display: block;
+  backface-visibility: hidden;
+  transition: transform var(--transition-slow);
+}
+
+.polaroid__photo {
+  width: 100%;
+  height: 300px;
+  object-fit: cover;
+  border-radius: 1px;
+}
+
+.polaroid__face--back {
+  position: absolute;
+  inset: 0;
+  padding: var(--space-3);
+  transform: rotateY(180deg);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  overflow-y: auto;
+}
+
+.polaroid.is-flipped .polaroid__face--front {
+  transform: rotateY(180deg);
+}
+
+.polaroid.is-flipped .polaroid__face--back {
+  transform: rotateY(0deg);
+}
+
+.polaroid__caption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 10px;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.polaroid__caption strong {
+  color: var(--color-text);
+  font-weight: 700;
+  font-size: 0.84rem;
+}
+
+.experience-compass {
+  position: relative;
+  max-width: 768px;
+  height: 320px;
+  margin: var(--space-2) auto 0;
+  overflow: hidden;
+}
+
+.experience-compass__svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.experience-compass__dial {
+  /* Cubic-bezier approximation of the reference's spring rotation
+     (stiffness 85 / damping 15) — see .polaroid for the same trade-off. */
+  transition: transform 0.7s cubic-bezier(0.3, 1.4, 0.6, 1);
+}
+
+.experience-compass__track {
+  fill: none;
+  stroke: rgba(0, 47, 167, 0.12);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 6;
+}
+
+.experience-compass__arc-line {
+  fill: none;
+  stroke: rgba(0, 47, 167, 0.22);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.experience-compass__active-segment {
+  fill: none;
+  stroke: var(--color-klein-blue);
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.experience-compass__connector {
+  stroke: var(--color-klein-blue-soft);
+  stroke-width: 1.2;
+  cursor: pointer;
+  transition: stroke var(--transition-fast), stroke-width var(--transition-fast);
+}
+
+.experience-compass__connector.is-active {
+  stroke: var(--color-klein-blue);
+  stroke-width: 3.5;
+}
+
+.experience-compass__label {
+  fill: var(--color-text-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: fill var(--transition-fast);
+}
+
+.experience-compass__label.is-active {
+  fill: var(--color-klein-blue);
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.experience-compass__pivot-outer {
+  fill: none;
+  stroke: var(--color-klein-blue-soft);
+  stroke-width: 1.5;
+}
+
+.experience-compass__pivot-mid {
+  fill: var(--color-surface);
+  stroke: rgba(0, 47, 167, 0.2);
+  stroke-width: 1;
+}
+
+.experience-compass__pivot-center {
+  fill: var(--color-klein-blue);
+}
+
+.experience-compass__pointer-shadow {
+  fill: var(--color-klein-blue);
+  opacity: 0.15;
+}
+
+.experience-compass__pointer-arrow {
+  fill: var(--color-klein-blue);
+}
+
+.experience-compass__pointer-detail {
+  stroke: #fff;
+  stroke-width: 1.2;
+  opacity: 0.8;
+}
+
+.experience-compass__active-period {
+  text-align: center;
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.experience-compass__active-period strong {
+  color: var(--color-klein-blue);
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .experience-fan {
+    position: static;
+    display: flex;
+    overflow-x: auto;
+    gap: var(--space-3);
+    height: auto;
+    padding: var(--space-2) var(--space-1) var(--space-3);
+  }
+
+  .polaroid {
+    position: relative;
+    top: auto;
+    left: auto;
+    flex-shrink: 0;
+    transform: none !important;
+  }
+
+  .experience-compass {
+    height: 220px;
+  }
+}
+
+.diary {
+  position: relative;
+  min-height: 70vh;
+  /* Single source of truth for the page-flip's timing: the flip sheet's
+     own rotation and every shadow effect that accompanies it read from
+     this one value, so they can never drift out of sync with each other
+     (they previously ran 0.7s vs 0.9s, so the DOM got torn down and
+     rebuilt at 0.7s while the shadows still had 0.2s left to fade,
+     reading as a flicker/snap). js/diary.js also reads this duration off
+     the sheet's computed style for its completion-timeout fallback.
+     Change this one value to retime the whole flip; nothing else needs
+     to change. */
+  --diary-flip-duration: 0.7s;
+}
+
+.diary-cover {
+  position: relative;
+  width: 320px;
+  min-height: 460px;
+  margin: var(--space-5) auto;
+  padding: var(--space-4);
+  background: var(--color-klein-blue);
+  color: #fff;
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.diary-cover__label {
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  opacity: 0.75;
+}
+
+.diary-cover__title {
+  font-size: 2rem;
+  line-height: 1.2;
+}
+
+.diary-cover__open {
+  position: absolute;
+  top: 50%;
+  right: -22px;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: #fff;
+  color: var(--color-klein-blue);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.diary-cover__open.is-clicked {
+  background: var(--color-klein-blue);
+  color: #fff;
+  box-shadow: 0 0 20px rgba(0, 47, 167, 0.6);
+}
+
+.diary-book {
+  display: none;
+}
+
+.diary.is-open .diary-cover {
+  display: none;
+}
+
+.diary.is-open .diary-book {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: stretch;
+  gap: var(--space-2);
+  background-color: #f5f2eb;
+  background-image:
+    radial-gradient(rgba(0, 0, 0, 0.035) 1px, transparent 0),
+    radial-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 0);
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+  padding: var(--space-4);
+  position: relative;
+}
+
+/* Book crease: the two pages fold away from a shared spine, darkest at
+   the center and catching a sliver of light just off it either side. */
+.diary.is-open .diary-book::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: var(--space-4);
+  bottom: var(--space-4);
+  width: 36px;
+  margin-left: -18px;
+  z-index: 12;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.5) 15%,
+    rgba(0, 0, 0, 0.16) 48%,
+    rgba(0, 0, 0, 0.2) 50%,
+    rgba(0, 0, 0, 0.16) 52%,
+    rgba(255, 255, 255, 0.5) 85%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+.diary-stage {
+  position: relative;
+  display: flex;
+  -webkit-perspective: 2000px;
+  perspective: 2000px;
+  /* Fixed so the book doesn't resize as pages with more/fewer photos are
+     shown — sized to comfortably fit the two-photo page (the tallest
+     regular entry); pages with fewer photos just have their image(s)
+     stretch to fill the same box instead of leaving it shorter. */
+  height: 560px;
+}
+
+.diary-page {
+  position: relative;
+  width: 50%;
+  padding: 0 var(--space-1);
+  /* Forces its own GPU compositing layer so it doesn't get repainted as
+     part of the neighboring 3D flip-sheet's animation. */
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* Inner shadow where each page tucks into the spine. */
+.diary-page--left::after,
+.diary-page--right::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.diary-page--left::after {
+  background-image: linear-gradient(to right, rgba(0, 0, 0, 0) 88%, rgba(0, 0, 0, 0.04) 96%, rgba(0, 0, 0, 0.1) 100%);
+}
+
+.diary-page--right::after {
+  background-image: linear-gradient(to left, rgba(0, 0, 0, 0) 88%, rgba(0, 0, 0, 0.04) 96%, rgba(0, 0, 0, 0.1) 100%);
+}
+
+.diary-page--left {
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+  padding-right: var(--space-3);
+  padding-left: 32px;
+  overflow-y: auto;
+}
+
+.diary-page__body {
+  line-height: 28px;
+  margin: 0 0 28px;
+  font-size: 0.92rem;
+}
+
+.diary-page__body:last-child {
+  margin-bottom: 0;
+}
+
+.diary-page--right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+}
+
+/* Polaroid frame: white cardstock, a wide bottom margin for a caption, a
+   soft stack of shadows, and a slight resting tilt that straightens on
+   hover — reads as something physically set down on the page, not a
+   flat rectangle. A fixed, responsive width (not flex:1) keeps it from
+   being squeezed narrow or stretched full-bleed across the page. */
+.diary-polaroid {
+  flex: none;
+  width: 330px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  padding: 14px 14px 28px;
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.08),
+    0 10px 18px rgba(0, 0, 0, 0.12),
+    0 24px 36px rgba(0, 0, 0, 0.08);
+  transform: rotate(-2deg);
+  transition: transform var(--transition-slow);
+  position: relative;
+}
+
+.diary-polaroid:hover {
+  transform: rotate(0deg);
+}
+
+.diary-polaroid__badge {
+  position: absolute;
+  top: 22px;
+  left: 22px;
+  z-index: 3;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.diary-polaroid__caption {
+  margin: 14px 0 2px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.diary-mood-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.diary-mood-btn {
+  padding: 4px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 999px;
+  background: var(--color-bg);
+  font-family: var(--font-body);
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.diary-mood-btn:hover {
+  background: var(--color-surface);
+  border-color: var(--color-klein-blue);
+}
+
+/* Washi tape "holding" the polaroid to the page — a torn-paper edge via
+   a zigzag clip-path rather than hand-authored path data. */
+.diary-polaroid__tape {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  width: 90px;
+  height: 30px;
+  transform: translateX(-50%) rotate(-4deg);
+  background: rgba(255, 255, 250, 0.55);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  clip-path: polygon(
+    0% 18%, 6% 0%, 12% 18%, 18% 0%, 24% 18%, 30% 0%, 36% 18%, 42% 0%, 48% 18%, 54% 0%, 60% 18%, 66% 0%, 72% 18%, 78% 0%, 84% 18%, 90% 0%, 96% 18%, 100% 0%,
+    100% 82%, 94% 100%, 88% 82%, 82% 100%, 76% 82%, 70% 100%, 64% 82%, 58% 100%, 52% 82%, 46% 100%, 40% 82%, 34% 100%, 28% 82%, 22% 100%, 16% 82%, 10% 100%, 4% 82%, 0% 100%
+  );
+  pointer-events: none;
+}
+
+.diary-page__media {
+  aspect-ratio: 1 / 1;
+}
+
+.diary-page__video {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-radius: 2px;
+  object-fit: cover;
+}
+
+/* Only real photos are enlargeable — the cursor signals it. object-fit:
+   contain (not cover) so the whole photo is always visible rather than
+   cropped to fill its square cell — any leftover space around a photo
+   that isn't itself square just shows the polaroid's white card behind
+   it, reading as a photo mat rather than an empty gap. */
+.diary-page__photo {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-radius: 2px;
+  object-fit: contain;
+  cursor: zoom-in;
+}
+
+/* Refined stand-in for a missing photo/video: a dashed cardstock tile with
+   a faint paper-grain texture, rather than bare placeholder text, so an
+   all-placeholder entry still reads as a considered page instead of an
+   unfinished one. */
+.diary-placeholder {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--space-2);
+  background-color: #f4f2ee;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.06) 1px, transparent 0);
+  background-size: 10px 10px;
+  border: 1.5px dashed rgba(0, 0, 0, 0.18);
+  border-radius: 2px;
+  text-align: center;
+  transition: background-color var(--transition-fast);
+}
+
+.diary-placeholder:hover {
+  background-color: #efece4;
+}
+
+.diary-placeholder__icon {
+  font-size: 1.4rem;
+  color: var(--color-klein-blue);
+  opacity: 0.55;
+  transform: scale(1);
+  filter: drop-shadow(0 0 6px rgba(0, 47, 167, 0.25));
+  transition: transform var(--transition-slow), opacity var(--transition-slow);
+}
+
+.diary-placeholder:hover .diary-placeholder__icon {
+  opacity: 0.9;
+  transform: scale(1.15);
+}
+
+.diary-placeholder__label {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.diary-placeholder__hint {
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.35);
+}
+
+/* Tablet-width step between the 768px stacked layout and full desktop. */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .diary-polaroid {
+    width: 310px;
+  }
+}
+
+.diary-page__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-1);
+  margin-bottom: var(--space-2);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.diary-page__label {
+  color: var(--color-klein-blue);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.diary-page__date,
+.diary-page__count {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.diary-page__quote {
+  position: relative;
+  margin: var(--space-2) 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--color-klein-blue);
+  border-radius: 0 6px 6px 0;
+  background: rgba(0, 47, 167, 0.05);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+.diary-page__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-1);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.diary-page__footer--right {
+  text-transform: uppercase;
+}
+
+.diary-page__tagline {
+  font-family: var(--font-display);
+  font-style: italic;
+}
+
+.diary-page__discard {
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.diary-page__discard:hover {
+  color: #b3261e;
+}
+
+.diary-empty {
+  margin: var(--space-4) auto;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+
+/* Real 3D page-turn: a half-width sheet with two backface-hidden faces
+   rotates around the book's spine; the perspective on .diary-stage does
+   the foreshortening. Shadow casting is animated (not a static gradient):
+   the static half not under the sheet fades a shadow in as the turning
+   page lifts off it, the half already revealed underneath fades its
+   shadow out as it lands in the light, and each sheet face carries its
+   own curl shadow that deepens then eases as it rotates through profile. */
+.diary-flip-sheet {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  z-index: 20;
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  pointer-events: none;
+}
+
+/* translate3d(0,0,0) alongside the rotation forces this onto its own GPU
+   layer from the start instead of only once the rotation makes it "3D
+   enough" to qualify — avoids a layer-promotion hitch right as the flip
+   starts. */
+.diary-flip-sheet--next {
+  left: 50%;
+  transform-origin: left center;
+  transform: translate3d(0, 0, 0) rotateY(0deg);
+}
+
+.diary-flip-sheet--prev {
+  left: 0;
+  transform-origin: right center;
+  transform: translate3d(0, 0, 0) rotateY(0deg);
+}
+
+/* Real 3D page-turn, redesigned: instead of a plain two-point rotateY
+   transition, an @keyframes animation adds an arc lift (the page rises
+   as it turns, like being picked up rather than pivoting flat) and dips
+   opacity around the 50% midpoint, where the rotation is nearest
+   edge-on to the viewer. That's exactly where Safari renders
+   live text/photos inside a preserve-3d rotation as garbled/broken (a
+   WebKit text-rasterization quirk, confirmed via systematic-debugging —
+   not a paint-performance problem, which is why contain/font-smoothing
+   didn't fix it) — fading the content there masks the artifact instead
+   of fighting it, and reads naturally since a real page mid-turn isn't
+   legible either.
+   Timing is linear, not the eased curve used elsewhere: a non-linear
+   timing function on a multi-keyframe animation replays in full across
+   *each* keyframe interval (0%->40%, 40%->60%, 60%->100%), not once
+   across the whole animation — three eased bursts chained together reads
+   as visible stutter/juddering, which is exactly what a real user caught.
+   linear keeps the eased "picked up and turned" feel entirely in the
+   keyframe values themselves (the arc lift, the uneven spacing of the
+   rotation waypoints) rather than in a repeatedly-replayed easing curve. */
+.diary-flip-sheet--next.is-flipped {
+  animation: diary-flip-next var(--diary-flip-duration) linear forwards;
+}
+
+.diary-flip-sheet--prev.is-flipped {
+  animation: diary-flip-prev var(--diary-flip-duration) linear forwards;
+}
+
+/* Single peak at 50% (not a 40%-60% plateau) — the lift's vertical
+   velocity only ever changes direction once, at the very top of the arc,
+   which reads as a natural apex rather than a "stop dead, then move
+   again" jerk. Rotation moves at a constant rate throughout (-1.8deg per
+   1% of duration on both halves), so there's no velocity change there at
+   all, even at the 50% keyframe. */
+@keyframes diary-flip-next {
+  0% { transform: translate3d(0, 0, 0) rotateY(0deg); opacity: 1; }
+  50% { transform: translate3d(0, -16px, 0) rotateY(-90deg); opacity: 0.65; }
+  100% { transform: translate3d(0, 0, 0) rotateY(-180deg); opacity: 1; }
+}
+
+@keyframes diary-flip-prev {
+  0% { transform: translate3d(0, 0, 0) rotateY(0deg); opacity: 1; }
+  50% { transform: translate3d(0, -16px, 0) rotateY(90deg); opacity: 0.65; }
+  100% { transform: translate3d(0, 0, 0) rotateY(180deg); opacity: 1; }
+}
+
+.diary-flip-sheet__face {
+  position: absolute;
+  inset: 0;
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.diary-flip-sheet__face--back {
+  transform: translate3d(0, 0, 0) rotateY(180deg);
+}
+
+/* Cursor affordance: grab-able while idle, grabbing while an active drag
+   is in progress (the class is toggled on .diary-stage itself, which
+   never gets replaced by buildFlipDOM — only its children do — so it's a
+   stable place to hang drag-state styling). */
+.diary.is-open .diary-page--left,
+.diary.is-open .diary-page--right {
+  cursor: grab;
+}
+
+.diary-stage--dragging,
+.diary-stage--dragging .diary-page--left,
+.diary-stage--dragging .diary-page--right {
+  cursor: grabbing;
+}
+
+/* The post-release settle: a single-interval transition (start = wherever
+   the drag left the sheet, end = fully open or fully reverted) — not
+   @keyframes, so it can't reintroduce the multi-stop stutter problem.
+   Toggled on only for the settle phase; during an active drag the sheet's
+   transform/opacity are written directly with no transition running. */
+.diary-flip-sheet--settling {
+  transition: transform var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1),
+    opacity var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Static halves beneath the turning sheet: one side darkens as the page
+   lifts off it, the other brightens as it's revealed. Duration shares
+   --diary-flip-duration with the sheet's own rotation (see .diary) so
+   they always finish at exactly the same moment — they used to run on a
+   separate, slightly longer hardcoded duration than the sheet's rotation,
+   so the DOM got torn down and rebuilt while these were still fading,
+   reading as a flicker/snap. */
+/* mix-blend-mode intentionally omitted: these are pure-black overlays, so
+   multiply and normal alpha compositing are mathematically identical here
+   — and mix-blend-mode next to the sheet's preserve-3d rotation is a known
+   Safari/Chrome trigger for flicker during the animation. */
+.diary-underlay-shadow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+}
+
+.diary-underlay-shadow--in {
+  background: rgba(0, 0, 0, 0.15);
+  animation: diary-underlay-in var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.diary-underlay-shadow--out {
+  background: rgba(0, 0, 0, 0.25);
+  animation: diary-underlay-out var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes diary-underlay-in {
+  from { opacity: 0; }
+  to { opacity: 0.6; }
+}
+
+@keyframes diary-underlay-out {
+  from { opacity: 0.7; }
+  to { opacity: 0; }
+}
+
+/* Curl shadow riding the sheet itself, strongest near whichever edge it's
+   pivoting on (gradient direction is set inline per instance in JS, since
+   it depends on both the face and the flip direction). The front face's
+   shadow deepens then eases; the back face starts partly shadowed and
+   clears as it comes face-up. */
+/* Same reasoning as .diary-underlay-shadow above: no mix-blend-mode. */
+.diary-flip-shadow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.diary-flip-shadow--front {
+  animation: diary-face-shadow-front var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.diary-flip-shadow--back {
+  animation: diary-face-shadow-back var(--diary-flip-duration) cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes diary-face-shadow-front {
+  0% { opacity: 0; }
+  50% { opacity: 0.45; }
+  100% { opacity: 0.2; }
+}
+
+@keyframes diary-face-shadow-back {
+  0% { opacity: 0.3; }
+  50% { opacity: 0.45; }
+  100% { opacity: 0; }
+}
+
+.diary-toolbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.diary-write-btn,
+.diary-edit-btn {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-klein-blue);
+  border-radius: 999px;
+  background: none;
+  color: var(--color-klein-blue);
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.diary-write-btn:hover,
+.diary-edit-btn:hover {
+  background: var(--color-klein-blue);
+  color: #fff;
+}
+
+.diary-edit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.diary-edit-btn:disabled:hover {
+  background: none;
+  color: var(--color-klein-blue);
+}
+
+.diary-form__current-media {
+  margin-bottom: var(--space-2);
+}
+
+.diary-form__current-media-label {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+}
+
+.diary-form__current-media-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.diary-form__current-media-grid img,
+.diary-form__current-media-grid video {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.diary-form__current-media-empty {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* No backdrop-filter: a blurred modal scrim compositing above the flip
+   sheet's preserve-3d/translate3d layers is a known GPU layer-blend
+   flicker trigger (same reasoning as .site-nav.is-scrolled below) — a
+   darker, more opaque flat scrim reads just as well without it. */
+.diary-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+  z-index: 100;
+}
+
+.diary-modal-backdrop[hidden] {
+  display: none;
+}
+
+.diary-lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  z-index: 200;
+}
+
+.diary-lightbox-backdrop[hidden] {
+  display: none;
+}
+
+.diary-lightbox__image {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+}
+
+.diary-lightbox__close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-text);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.diary-lightbox__close:hover {
+  background: #fff;
+}
+
+.diary-mood-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+  z-index: 100;
+}
+
+.diary-mood-modal-backdrop[hidden] {
+  display: none;
+}
+
+.diary-mood-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  max-width: 340px;
+  width: 100%;
+  padding: var(--space-4);
+}
+
+.diary-mood-modal__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: var(--space-3) 0;
+}
+
+.diary-mood-modal__option {
+  padding: 6px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 999px;
+  background: var(--color-bg);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.diary-mood-modal__option:hover {
+  background: var(--color-surface);
+  border-color: var(--color-klein-blue);
+}
+
+.diary-mood-modal__clear {
+  width: 100%;
+}
+
+.diary-login-btn {
+  background: none;
+  border: none;
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.diary-login-btn:hover {
+  color: var(--color-klein-blue);
+}
+
+.diary-login-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+  z-index: 100;
+}
+
+.diary-login-modal-backdrop[hidden] {
+  display: none;
+}
+
+.diary-login-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  max-width: 340px;
+  width: 100%;
+  padding: var(--space-4);
+}
+
+.diary-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.diary-form__error {
+  color: #b3261e;
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.diary-form__error[hidden] {
+  display: none;
+}
+
+.diary-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  max-width: 560px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+.diary-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.diary-modal__header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.diary-modal__close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.diary-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.diary-form__row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.diary-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  flex: 1;
+}
+
+.diary-form__field input,
+.diary-form__field select,
+.diary-form__field textarea {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.diary-form__field textarea {
+  resize: vertical;
+}
+
+.diary-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.diary-form__tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--color-bg);
+  padding: 3px;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.diary-form__tab {
+  border: none;
+  background: none;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-family: var(--font-body);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.diary-form__tab.is-active {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.diary-form__media-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.diary-form__media-group[hidden] {
+  display: none;
+}
+
+.diary-nav {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  color: var(--color-text);
+  align-self: center;
+  transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.diary-nav.is-clicked {
+  background: var(--color-klein-blue);
+  color: #fff;
+  box-shadow: 0 0 16px rgba(0, 47, 167, 0.5);
+}
+
+.diary-nav:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.diary-pagination {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+}
+
+.diary-pagination__dots {
+  display: flex;
+  gap: 6px;
+}
+
+.diary-pagination__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(0, 47, 167, 0.25);
+  transition: all var(--transition-fast);
+}
+
+.diary-pagination__dot.is-active {
+  width: 18px;
+  background: var(--color-klein-blue);
+}
+
+.diary-pagination__count {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 768px) {
+  .diary-stage {
+    flex-direction: column;
+    perspective: none;
+    height: auto;
+  }
+
+  .diary-page {
+    width: 100%;
+  }
+
+  .diary-polaroid {
+    width: 270px;
+  }
+
+  .diary-page--left {
+    border-right: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    padding-right: 0;
+    padding-left: 24px;
+    padding-bottom: var(--space-2);
+  }
+
+  /* Spine crease and near-binding edge shadows only make sense when the
+     pages sit side by side. */
+  .diary.is-open .diary-book::before,
+  .diary-page--left::after,
+  .diary-page--right::after {
+    display: none;
+  }
+
+  .diary-form__row {
+    flex-direction: column;
+  }
+}
