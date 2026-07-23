@@ -7,6 +7,14 @@ const MEDIA_ORIENTATION_CLASSES = [
   'diary-page__media--portrait',
 ];
 
+const POLAROID_ORIENTATION_CLASSES = [
+  'diary-polaroid--unknown',
+  'diary-polaroid--landscape',
+  'diary-polaroid--square',
+  'diary-polaroid--portrait',
+  'diary-polaroid--gallery',
+];
+
 function mediaSignature(entry) {
   const urls = Array.isArray(entry?.media?.urls) ? entry.media.urls : [];
   return JSON.stringify([entry?.media?.type ?? '', urls.map(String)]);
@@ -100,19 +108,29 @@ export function mediaGridStyle(count) {
   return 'display:grid; grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(2,1fr); gap:2px;';
 }
 
-export function mediaContainerHTML(entry, {
-  active = true,
-  layoutCache = createMediaLayoutCache(),
-  renderItem,
-} = {}) {
+export function polaroidClassForEntry(entry, layoutCache, orientation) {
+  const urls = Array.isArray(entry?.media?.urls) ? entry.media.urls : [];
+  if (urls.length > 1) return 'diary-polaroid--gallery';
+  const resolvedOrientation = orientation ?? layoutCache.get(entry)?.orientation ?? 'unknown';
+  return `diary-polaroid--${resolvedOrientation}`;
+}
+
+export function mediaContainerHTML(entry, options = {}) {
+  const {
+    active = true,
+    layoutCache = createMediaLayoutCache(),
+    renderItem,
+  } = options;
   const urls = Array.isArray(entry?.media?.urls) ? entry.media.urls : [];
   const isSingle = urls.length <= 1;
-  const layout = urls.length === 1 ? layoutCache.get(entry) : undefined;
-  const orientation = layout?.orientation ?? 'unknown';
+  const resolvedLayout = urls.length === 1
+    ? (Object.hasOwn(options, 'layout') ? options.layout : layoutCache.get(entry))
+    : undefined;
+  const orientation = resolvedLayout?.orientation ?? 'unknown';
   const mediaClass = isSingle
     ? `diary-page__media diary-page__media--single diary-page__media--${orientation}`
     : 'diary-page__media';
-  const aspectStyle = layout ? ` --diary-media-aspect:${layout.aspectRatio};` : '';
+  const aspectStyle = resolvedLayout ? ` --diary-media-aspect:${resolvedLayout.aspectRatio};` : '';
   const itemsHTML = urls
     .map((url, index) => renderItem(entry, url, index, urls.length, active))
     .join('');
@@ -120,10 +138,17 @@ export function mediaContainerHTML(entry, {
   return `<div class="${mediaClass}" style="${mediaGridStyle(urls.length)}${aspectStyle}">${itemsHTML}</div>`;
 }
 
+function applyPolaroidOrientation(frame, orientation) {
+  if (!frame) return;
+  frame.classList.remove(...POLAROID_ORIENTATION_CLASSES);
+  frame.classList.add(`diary-polaroid--${orientation}`);
+}
+
 function applyResolvedSingleMediaLayout(container, layout) {
   container.classList.remove(...MEDIA_ORIENTATION_CLASSES);
   container.classList.add(`diary-page__media--${layout.orientation}`);
   container.style.setProperty('--diary-media-aspect', String(layout.aspectRatio));
+  applyPolaroidOrientation(container.closest('.diary-polaroid'), layout.orientation);
 }
 
 export function applySingleMediaLayout(container, width, height) {

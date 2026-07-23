@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import {
+import * as diaryMedia from './diary-media.mjs';
+const {
   applySingleMediaLayout,
   createMediaLayoutCache,
   hydrateSingleMediaLayouts,
   mediaContainerHTML,
-} from './diary-media.mjs';
+} = diaryMedia;
 import {
   createDiaryState,
   openBook,
@@ -80,6 +81,7 @@ function fakeMedia(overrides = {}) {
 
 function fakeMediaContainer({
   media = null,
+  frame = null,
   classes = [
     'diary-page__media',
     'diary-page__media--single',
@@ -93,6 +95,10 @@ function fakeMediaContainer({
     querySelector() {
       queryCount += 1;
       return media;
+    },
+    closest(selector) {
+      assert.equal(selector, '.diary-polaroid');
+      return frame;
     },
     get queryCount() {
       return queryCount;
@@ -122,6 +128,8 @@ test('diary rendering shares resolved layouts with temporary flip HTML', () => {
   assert.ok(rightPageSource);
   assert.match(rightPageSource[0], /mediaContainerHTML/);
   assert.match(rightPageSource[0], /layoutCache:\s*mediaLayoutCache/);
+  assert.match(rightPageSource[0], /polaroidClassForEntry/);
+  assert.match(rightPageSource[0], /diary-polaroid \$\{polaroidClass\}/);
   assert.ok(renderStaticSource);
   assert.match(renderStaticSource[0], /hydrateSingleMediaLayouts/);
   assert.match(renderStaticSource[0], /mediaLayoutCache\.begin/);
@@ -150,6 +158,44 @@ test('single-media layout updates the orientation class and CSS aspect variable'
   assert.equal(container.classList.contains('diary-page__media--unknown'), false);
   assert.equal(container.classList.contains('diary-page__media--landscape'), true);
   assert.equal(container.style.getPropertyValue('--diary-media-aspect'), String(16 / 9));
+});
+
+test('Polaroid HTML classes use cached layouts and safe gallery fallbacks', () => {
+  const landscapeEntry = {
+    id: 'landscape-polaroid',
+    media: { type: 'image', urls: ['landscape.jpg'] },
+  };
+  const uncachedEntry = {
+    id: 'uncached-polaroid',
+    media: { type: 'image', urls: ['uncached.jpg'] },
+  };
+  const galleryEntry = {
+    id: 'gallery-polaroid',
+    media: { type: 'image', urls: ['first.jpg', 'second.jpg'] },
+  };
+  const layoutCache = createMediaLayoutCache();
+  const generation = layoutCache.begin(landscapeEntry);
+  layoutCache.set(generation, { orientation: 'landscape', aspectRatio: 16 / 9 });
+
+  assert.equal(typeof diaryMedia.polaroidClassForEntry, 'function');
+  assert.equal(diaryMedia.polaroidClassForEntry(landscapeEntry, layoutCache), 'diary-polaroid--landscape');
+  assert.equal(diaryMedia.polaroidClassForEntry(uncachedEntry, layoutCache), 'diary-polaroid--unknown');
+  assert.equal(diaryMedia.polaroidClassForEntry(galleryEntry, layoutCache), 'diary-polaroid--gallery');
+});
+
+test('single-media hydration replaces the closest Polaroid orientation class', () => {
+  const frame = { classList: fakeClassList('diary-polaroid--portrait') };
+  const image = fakeMedia({
+    complete: true,
+    naturalWidth: 1000,
+    naturalHeight: 1000,
+  });
+  const container = fakeMediaContainer({ media: image, frame });
+
+  hydrateSingleMediaLayouts(fakeMediaRoot([container]), { isImage: () => true });
+
+  assert.equal(frame.classList.contains('diary-polaroid--portrait'), false);
+  assert.equal(frame.classList.contains('diary-polaroid--square'), true);
 });
 
 test('a complete cached image hydrates immediately without adding a listener', () => {

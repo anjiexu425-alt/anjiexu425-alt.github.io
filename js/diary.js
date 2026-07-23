@@ -23,6 +23,7 @@ import {
   createMediaLayoutCache,
   hydrateSingleMediaLayouts,
   mediaContainerHTML,
+  polaroidClassForEntry,
 } from './diary-media.mjs';
 import {
   fetchEntries,
@@ -157,9 +158,12 @@ function rightPageHTML(entry, active = true) {
   const index = ENTRIES.indexOf(entry);
   const urls = entry.media.urls;
   const isGrid = urls.length > 1;
+  const layout = isGrid ? undefined : mediaLayoutCache.get(entry);
+  const polaroidClass = polaroidClassForEntry(entry, mediaLayoutCache, layout?.orientation ?? 'unknown');
   const mediaHTML = mediaContainerHTML(entry, {
     active,
     layoutCache: mediaLayoutCache,
+    layout,
     renderItem: mediaItemHTML,
   });
   const badgeHTML = isGrid ? '<span class="diary-polaroid__badge">Gallery</span>' : '';
@@ -177,7 +181,7 @@ function rightPageHTML(entry, active = true) {
       <span class="diary-page__label">Page Spread ${index + 1} of ${ENTRIES.length}</span>
       <span class="diary-page__count">${countLabel}</span>
     </div>
-    <div class="diary-polaroid">
+    <div class="diary-polaroid ${polaroidClass}">
       <span class="diary-polaroid__tape" aria-hidden="true"></span>
       ${badgeHTML}
       ${mediaHTML}
