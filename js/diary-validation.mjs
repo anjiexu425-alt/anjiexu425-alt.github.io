@@ -49,10 +49,20 @@ export function entryToSupabaseRow(entry) {
 }
 
 // Returns the media URLs to save for an edit: newly uploaded files replace
-// the entry's existing media entirely, but an edit with no new uploads (the
-// file inputs left blank) keeps whatever media the entry already had.
-export function resolveMediaUrls(uploadedUrls, existingUrls) {
-  return uploadedUrls.length > 0 ? uploadedUrls : existingUrls;
+// the entry's existing media entirely. An edit with no new uploads (the file
+// inputs left blank) keeps whatever media the entry already had, but only
+// when the active media type still matches the existing entry's media type —
+// if the user switched tabs (e.g. photo -> video) without uploading anything
+// new, the existing urls are the wrong media type to reuse, so a placeholder
+// is returned instead (mirroring the new-entry placeholder convention).
+export function resolveMediaUrls(uploadedUrls, existingMedia, targetMediaType) {
+  if (uploadedUrls.length > 0) return uploadedUrls;
+  if (existingMedia.type === targetMediaType) return existingMedia.urls;
+  return [
+    targetMediaType === 'video'
+      ? '[Photo placeholder: edited entry video]'
+      : '[Photo placeholder: edited entry photo]',
+  ];
 }
 
 // Builds the partial-update patch for editing an existing entry. Deliberately

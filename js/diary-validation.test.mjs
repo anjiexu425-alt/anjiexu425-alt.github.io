@@ -129,11 +129,38 @@ test('entryToSupabaseRow defaults missing quote/mood/weather to null', () => {
 });
 
 test('resolveMediaUrls keeps newly uploaded files when present', () => {
-  assert.deepEqual(resolveMediaUrls(['new.jpg'], ['old.jpg']), ['new.jpg']);
+  assert.deepEqual(
+    resolveMediaUrls(['new.jpg'], { type: 'image', urls: ['old.jpg'] }, 'image'),
+    ['new.jpg']
+  );
 });
 
-test('resolveMediaUrls falls back to the existing urls when nothing was uploaded', () => {
-  assert.deepEqual(resolveMediaUrls([], ['old.jpg', 'old2.jpg']), ['old.jpg', 'old2.jpg']);
+test('resolveMediaUrls falls back to the existing urls when nothing was uploaded and the media type is unchanged', () => {
+  assert.deepEqual(
+    resolveMediaUrls([], { type: 'image', urls: ['old.jpg', 'old2.jpg'] }, 'image'),
+    ['old.jpg', 'old2.jpg']
+  );
+});
+
+test('resolveMediaUrls returns a placeholder instead of the existing urls when the media type was switched and nothing new was uploaded', () => {
+  assert.deepEqual(
+    resolveMediaUrls([], { type: 'image', urls: ['old.jpg'] }, 'video'),
+    ['[Photo placeholder: edited entry video]']
+  );
+});
+
+test('resolveMediaUrls returns a photo placeholder when switching from video to photo with no upload', () => {
+  assert.deepEqual(
+    resolveMediaUrls([], { type: 'video', urls: ['old.mp4'] }, 'image'),
+    ['[Photo placeholder: edited entry photo]']
+  );
+});
+
+test('resolveMediaUrls prefers newly uploaded files even when the media type was switched', () => {
+  assert.deepEqual(
+    resolveMediaUrls(['new.mp4'], { type: 'image', urls: ['old.jpg'] }, 'video'),
+    ['new.mp4']
+  );
 });
 
 test('buildEditPatch maps form fields and media into a Supabase patch, without number/mood/weather', () => {

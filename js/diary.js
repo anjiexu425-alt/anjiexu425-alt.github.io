@@ -719,7 +719,9 @@ function openWriteModal() {
 function currentMediaPreviewHTML(media) {
   if (media.type === 'video') {
     const url = media.urls[0];
-    if (isPlaceholder(url)) return '<p class="diary-form__current-media-empty">No video uploaded yet.</p>';
+    if (media.urls.length === 0 || isPlaceholder(url)) {
+      return '<p class="diary-form__current-media-empty">No video uploaded yet.</p>';
+    }
     return `<video src="${url}" muted></video>`;
   }
   const realUrls = media.urls.filter((url) => !isPlaceholder(url));
@@ -808,7 +810,7 @@ async function handleFormSubmit(event) {
 
     if (editingEntryId) {
       const existingEntry = ENTRIES.find((entry) => entry.id === editingEntryId);
-      const urls = resolveMediaUrls(uploadedUrls, existingEntry.media.urls);
+      const urls = resolveMediaUrls(uploadedUrls, existingEntry.media, mediaType);
       const patch = buildEditPatch(
         { category: data.get('category'), date, title, quote: data.get('quote').trim(), body },
         { type: mediaType, urls, caption }
