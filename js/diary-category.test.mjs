@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import * as diaryCategory from './diary-category.mjs';
 import {
   BUILT_IN_CATEGORIES,
   normalizeCategory,
@@ -44,5 +45,27 @@ test('categoryOptionsHTML escapes custom labels before rendering options', () =>
     categoryOptionsHTML(['Film & TV', 'A "Quoted" <Category>']),
     '<option value="Film &amp; TV"></option>'
       + '<option value="A &quot;Quoted&quot; &lt;Category&gt;"></option>',
+  );
+});
+
+test('prepareCategorySubmission normalizes a special-character custom category', () => {
+  assert.equal(typeof diaryCategory.prepareCategorySubmission, 'function');
+  assert.deepEqual(
+    diaryCategory.prepareCategorySubmission('  Film & "TV" <Notes>  '),
+    {
+      category: 'Film & "TV" <Notes>',
+      validationMessage: '',
+    },
+  );
+});
+
+test('prepareCategorySubmission reports whitespace-only categories as required', () => {
+  assert.equal(typeof diaryCategory.prepareCategorySubmission, 'function');
+  assert.deepEqual(
+    diaryCategory.prepareCategorySubmission('   '),
+    {
+      category: '',
+      validationMessage: 'Please enter a category.',
+    },
   );
 });

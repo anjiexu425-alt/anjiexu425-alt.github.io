@@ -196,6 +196,20 @@ test('old entries without layout keep the text-left spread mapping', () => {
   assertEntryAndRole(spread.rightHTML, 'current', 'media');
 });
 
+test('text page escapes a malicious custom category before innerHTML rendering', () => {
+  const entry = diaryEntry('current', 'text-left');
+  entry.category = 'Film </span><img src=x onerror="globalThis.pwned=true"><span>';
+
+  const html = pageContentHTML(entry, 'text');
+
+  assert.doesNotMatch(html, /<img\b/i);
+  assert.doesNotMatch(html, /<[^>]+\sonerror\s*=/i);
+  assert.match(
+    html,
+    /FILM &lt;\/SPAN&gt;&lt;IMG SRC=X ONERROR=&quot;GLOBALTHIS\.PWNED=TRUE&quot;&gt;&lt;SPAN&gt;/,
+  );
+});
+
 test('inactive media content keeps its caption and controls while deferring video preload', () => {
   const entry = diaryEntry('current', 'media-left');
   entry.media.type = 'video';

@@ -23,6 +23,15 @@ export function isPlaceholder(value) {
   return value.startsWith('[');
 }
 
+function escapeHTMLText(value) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 function bodyParagraphsHTML(body) {
   return body
     .split(/\n{2,}/)
@@ -45,7 +54,7 @@ export function textPageHTML(entry, {
     : '';
   const html = `
     <div class="diary-page__header">
-      <span class="diary-page__label">${entry.number} / ${entry.category.toUpperCase()}</span>
+      <span class="diary-page__label">${entry.number} / ${escapeHTMLText(entry.category.toUpperCase())}</span>
       <span class="diary-page__date">${entry.date}</span>
     </div>
     <h2 class="diary-page__title">${entry.title}</h2>

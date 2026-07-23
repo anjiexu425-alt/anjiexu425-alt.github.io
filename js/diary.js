@@ -55,7 +55,7 @@ import {
   buildCurlSpreadDOM,
 } from './diary-dom.mjs';
 import {
-  normalizeCategory,
+  prepareCategorySubmission,
   mergeCategoryOptions,
   categoryOptionsHTML,
 } from './diary-category.mjs';
@@ -768,11 +768,16 @@ async function handleFormSubmit(event) {
   const title = data.get('title').trim();
   const body = data.get('body').trim();
   const date = data.get('date').trim();
-  const category = normalizeCategory(data.get('category'));
-  const pageLayout = normalizePageLayout(data.get('pageLayout'));
-  if (!category || !title || !body || !date) return;
-
+  const { category, validationMessage } = prepareCategorySubmission(data.get('category'));
   const errorEl = document.querySelector('.diary-form .diary-form__error');
+  if (validationMessage) {
+    errorEl.textContent = validationMessage;
+    errorEl.hidden = false;
+    return;
+  }
+  const pageLayout = normalizePageLayout(data.get('pageLayout'));
+  if (!title || !body || !date) return;
+
   errorEl.hidden = true;
   const submitBtn = form.querySelector('button[type="submit"]');
   const originalSubmitLabel = submitBtn.textContent;

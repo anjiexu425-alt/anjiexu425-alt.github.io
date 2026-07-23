@@ -10,6 +10,7 @@ import {
   resolveMediaUrls,
   buildEditPatch,
 } from './diary-validation.mjs';
+import { normalizeCategory } from './diary-category.mjs';
 
 test('an image under the size limit is allowed', () => {
   assert.equal(isFileSizeAllowed(MAX_IMAGE_BYTES - 1, 'image'), true);
@@ -133,6 +134,24 @@ test('entryToSupabaseRow maps the entry shape back to a database row', () => {
   });
 });
 
+test('entryToSupabaseRow preserves a normalized custom category with special characters', () => {
+  const category = normalizeCategory('  Film & "TV" <Notes>  ');
+  const row = entryToSupabaseRow({
+    number: '01',
+    category,
+    date: '2026.07.20',
+    title: 'A custom category',
+    quote: '',
+    body: 'Body.',
+    media: { type: 'image', urls: [], caption: '' },
+    mood: '',
+    weather: '',
+  });
+
+  assert.equal(category, 'Film & "TV" <Notes>');
+  assert.equal(row.category, category);
+});
+
 test('entryToSupabaseRow defaults missing quote/mood/weather to null', () => {
   const entry = {
     number: '01',
@@ -215,6 +234,17 @@ test('buildEditPatch maps form fields and media into a Supabase patch, without n
     body: 'Body text.',
     media: { type: 'image', urls: ['a.jpg', 'b.jpg'], caption: 'A caption', layout: 'media-left' },
   });
+});
+
+test('buildEditPatch preserves a normalized custom category with special characters', () => {
+  const category = normalizeCategory('  Film & "TV" <Notes>  ');
+  const patch = buildEditPatch(
+    { category, date: '2026.07.20', title: 'Edited Title', quote: '', body: 'Body.' },
+    { type: 'image', urls: [], caption: '' },
+  );
+
+  assert.equal(category, 'Film & "TV" <Notes>');
+  assert.equal(patch.category, category);
 });
 
 test('buildEditPatch defaults an empty quote to null, matching entryToSupabaseRow', () => {

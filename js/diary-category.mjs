@@ -13,6 +13,14 @@ export function normalizeCategory(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+export function prepareCategorySubmission(value) {
+  const category = normalizeCategory(value);
+  return {
+    category,
+    validationMessage: category ? '' : 'Please enter a category.',
+  };
+}
+
 export function mergeCategoryOptions(entries = []) {
   const categories = [];
   const seen = new Set();
