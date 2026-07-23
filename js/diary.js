@@ -44,6 +44,11 @@ let ENTRIES = [];
 let state = createDiaryState(ENTRIES.length);
 let isFlipping = false;
 
+// Non-null while the write/edit modal is open in edit mode — the id of the
+// entry being edited. Reset to null by closeWriteModal() so an in-progress
+// or cancelled edit never leaks into the next "Write Diary" draft.
+let editingEntryId = null;
+
 // Static, per-book branding — not tied to any one entry, printed on every
 // spread like a running header/footer in a real printed book.
 const DIARY_TAGLINE = 'Abroad & Reflection Sanctuary';
@@ -689,6 +694,18 @@ function setMediaType(type) {
   });
 }
 
+// Swaps the write/edit modal's title and submit-button copy. 'edit' is used
+// while editingEntryId is set; 'write' is the default, new-entry copy.
+function setWriteModalMode(mode) {
+  const isEdit = mode === 'edit';
+  document.querySelector('.diary-modal-backdrop .diary-modal__header h3').textContent = isEdit
+    ? 'Edit Diary Entry'
+    : 'Write a Diary Entry';
+  document.querySelector('.diary-form button[type="submit"]').textContent = isEdit
+    ? 'Save Changes'
+    : 'Insert to Abroad Diary';
+}
+
 function openWriteModal() {
   document.querySelector('.diary-modal-backdrop').hidden = false;
 }
@@ -698,6 +715,8 @@ function closeWriteModal() {
   backdrop.hidden = true;
   document.querySelector('.diary-form').reset();
   setMediaType('image');
+  editingEntryId = null;
+  setWriteModalMode('write');
 }
 
 async function uploadMediaFiles(files) {
