@@ -897,10 +897,6 @@
   left: 50%;
 }
 
-.diary-flip-sheet--prev {
-  left: 0;
-}
-
 .diary-flip-slice {
   position: absolute;
   top: 0;

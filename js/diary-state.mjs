@@ -38,13 +38,33 @@ export function computeDragProgress(deltaX, pageWidth) {
   return Math.max(0, Math.min(1, deltaX / pageWidth));
 }
 
+function computeDirectionalDragDistance(startX, currentX, direction) {
+  const deltaX = direction === 'next' ? startX - currentX : currentX - startX;
+  return Math.max(0, deltaX);
+}
+
 export function computeDirectionalDragProgress(startX, currentX, pageWidth, direction) {
-  const distance = computeDragProgress(Math.abs(currentX - startX), pageWidth);
+  const distance = computeDragProgress(
+    computeDirectionalDragDistance(startX, currentX, direction),
+    pageWidth,
+  );
   return direction === 'next' ? distance : 1 - distance;
 }
 
-export function shouldCompleteFlip(progress) {
-  return progress >= 0.5;
+export function shouldActivateDirectionalDrag(startX, currentX, direction, thresholdPx) {
+  return computeDirectionalDragDistance(startX, currentX, direction) >= thresholdPx;
+}
+
+export function isFlipInteractionLocked(isFlipping, dragFlip) {
+  return isFlipping || dragFlip !== null;
+}
+
+export function ownsDragInteraction(currentDrag, candidateDrag, pointerId) {
+  return (
+    currentDrag !== null
+    && currentDrag === candidateDrag
+    && currentDrag.pointerId === pointerId
+  );
 }
 
 export function computeCurlMotion(progress) {
@@ -112,4 +132,18 @@ export function createFlipTransition(currentIndex, direction) {
 
 export function shouldCompleteDirectionalFlip(progress, direction) {
   return direction === 'next' ? progress >= 0.5 : progress < 0.5;
+}
+
+export function resolveDragSettle({
+  progress,
+  direction,
+  startProgress,
+  targetProgress,
+  cancelled = false,
+}) {
+  const completes = !cancelled && shouldCompleteDirectionalFlip(progress, direction);
+  return {
+    completes,
+    settleProgress: completes ? targetProgress : startProgress,
+  };
 }

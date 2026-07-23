@@ -7,8 +7,11 @@ import {
   canGoPrevious,
   goToPage,
   computeDirectionalDragProgress,
+  shouldActivateDirectionalDrag,
+  isFlipInteractionLocked,
+  ownsDragInteraction,
   createFlipTransition,
-  shouldCompleteDirectionalFlip,
+  resolveDragSettle,
   computeSliceThetas,
   computeSliceLayout,
   computeCurlMotion,
@@ -349,12 +352,13 @@ async function handleDiscard(id) {
 
 function updateChrome() {
   const countLabel = state.totalPages === 0 ? '0 / 0' : `${state.current + 1} / ${state.totalPages}`;
+  const interactionLocked = isFlipInteractionLocked(isFlipping, dragFlip);
   document.querySelector('.diary-pagination__count').textContent = countLabel;
   document.querySelectorAll('.diary-pagination__dot').forEach((dot, i) => {
     dot.classList.toggle('is-active', i === state.current);
   });
-  document.querySelector('.diary-nav--prev').disabled = !canGoPrevious(state) || isFlipping;
-  document.querySelector('.diary-nav--next').disabled = !canGoNext(state) || isFlipping;
+  document.querySelector('.diary-nav--prev').disabled = !canGoPrevious(state) || interactionLocked;
+  document.querySelector('.diary-nav--next').disabled = !canGoNext(state) || interactionLocked;
   document.querySelector('.diary-edit-btn').disabled = ENTRIES.length === 0;
 }
 
@@ -368,7 +372,7 @@ function buildDots() {
     dot.setAttribute('tabindex', '0');
     dot.setAttribute('aria-label', `Jump to page ${i + 1}`);
     dot.addEventListener('click', () => {
-      if (isFlipping || i === state.current) return;
+      if (isFlipInteractionLocked(isFlipping, dragFlip) || i === state.current) return;
       state = goToPage(state, i);
       renderStatic();
       updateChrome();
@@ -540,7 +544,7 @@ function runFlipAnimation(elements, fromProgress, toProgress) {
 }
 
 async function playFlip(direction) {
-  if (isFlipping) return;
+  if (isFlipInteractionLocked(isFlipping, dragFlip)) return;
   const descriptor = createFlipTransition(state.current, direction);
   if (descriptor.fromIndex < 0 || descriptor.toIndex >= state.totalPages) return;
 
@@ -585,29 +589,33 @@ function findDragDirection(target) {
   return null;
 }
 
-function applyDragFlipVisualState() {
+function applyDragFlipVisualState(activeDrag) {
   const progress = computeDirectionalDragProgress(
-    dragFlip.startX,
-    dragFlip.currentX,
-    dragFlip.elements.sheetWidthPx,
-    dragFlip.direction,
+    activeDrag.startX,
+    activeDrag.currentX,
+    activeDrag.elements.sheetWidthPx,
+    activeDrag.direction,
   );
-  updateCurl(progress, dragFlip.elements);
-  dragFlip.progress = progress;
+  updateCurl(progress, activeDrag.elements);
+  activeDrag.progress = progress;
 }
 
-function scheduleDragFlipUpdate() {
-  if (dragFlip.rafScheduled) return;
-  dragFlip.rafScheduled = true;
+function scheduleDragFlipUpdate(activeDrag) {
+  if (activeDrag.rafScheduled) return;
+  activeDrag.rafScheduled = true;
   requestAnimationFrame(() => {
-    if (!dragFlip) return;
-    dragFlip.rafScheduled = false;
-    applyDragFlipVisualState();
+    if (!ownsDragInteraction(dragFlip, activeDrag, activeDrag.pointerId)) return;
+    activeDrag.rafScheduled = false;
+    applyDragFlipVisualState(activeDrag);
   });
 }
 
 function handleStagePointerDown(event) {
-  if (isFlipping || !state.isOpen || prefersInstantTransition()) return;
+  if (
+    isFlipInteractionLocked(isFlipping, dragFlip)
+    || !state.isOpen
+    || prefersInstantTransition()
+  ) return;
   if (event.target.closest('.diary-page__discard, .diary-mood-btn, .diary-page__photo')) return;
   const direction = findDragDirection(event.target);
   if (!direction) return;
@@ -629,67 +637,107 @@ function handleStagePointerDown(event) {
     startProgress: descriptor.startProgress,
     targetProgress: descriptor.targetProgress,
   };
+  updateChrome();
 }
 
 function handleStagePointerMove(event) {
-  if (!dragFlip || event.pointerId !== dragFlip.pointerId) return;
-  dragFlip.currentX = event.clientX;
+  const activeDrag = dragFlip;
+  if (!ownsDragInteraction(dragFlip, activeDrag, event.pointerId)) return;
+  activeDrag.currentX = event.clientX;
 
-  if (!dragFlip.moved) {
-    if (Math.abs(event.clientX - dragFlip.startX) < DRAG_THRESHOLD_PX) return;
-    dragFlip.moved = true;
+  if (!activeDrag.moved) {
+    if (!shouldActivateDirectionalDrag(
+      activeDrag.startX,
+      event.clientX,
+      activeDrag.direction,
+      DRAG_THRESHOLD_PX,
+    )) return;
+    activeDrag.moved = true;
     isFlipping = true;
     updateChrome();
     document.querySelector('.diary-stage').classList.add('diary-stage--dragging');
-    dragFlip.elements = buildCurlDOM(
-      ENTRIES[dragFlip.fromIndex],
-      ENTRIES[dragFlip.toIndex],
+    activeDrag.elements = buildCurlDOM(
+      ENTRIES[activeDrag.fromIndex],
+      ENTRIES[activeDrag.toIndex],
     );
   }
 
-  scheduleDragFlipUpdate();
+  scheduleDragFlipUpdate(activeDrag);
 }
 
-async function settleDragFlip() {
+async function settleDragFlip(activeDrag, cancelled) {
   const {
     direction,
     elements,
     progress,
     startProgress,
     targetProgress,
-  } = dragFlip;
-  const completing = shouldCompleteDirectionalFlip(progress, direction);
-  const target = completing ? targetProgress : startProgress;
+  } = activeDrag;
+  const { completes, settleProgress } = resolveDragSettle({
+    progress,
+    direction,
+    startProgress,
+    targetProgress,
+    cancelled,
+  });
 
   document.querySelector('.diary-stage').classList.remove('diary-stage--dragging');
-  await runFlipAnimation(elements, progress, target);
-  if (completing) {
-    state = direction === 'next' ? goToNext(state) : goToPrevious(state);
+  try {
+    await runFlipAnimation(elements, progress, settleProgress);
+    if (completes) {
+      state = direction === 'next' ? goToNext(state) : goToPrevious(state);
+    }
+  } finally {
+    isFlipping = false;
+    renderStatic();
+    updateChrome();
   }
-  isFlipping = false;
-  renderStatic();
-  updateChrome();
+}
+
+function releasePointerCaptureSafely(target, pointerId) {
+  if (typeof target.releasePointerCapture !== 'function') return;
+  if (
+    typeof target.hasPointerCapture === 'function'
+    && !target.hasPointerCapture(pointerId)
+  ) return;
+  try {
+    target.releasePointerCapture(pointerId);
+  } catch (error) {
+    if (error?.name !== 'NotFoundError') throw error;
+  }
 }
 
 function handleStagePointerUp(event) {
-  if (!dragFlip || event.pointerId !== dragFlip.pointerId) return;
-  event.currentTarget.releasePointerCapture(event.pointerId);
+  const activeDrag = dragFlip;
+  if (!ownsDragInteraction(dragFlip, activeDrag, event.pointerId)) return;
+  releasePointerCaptureSafely(event.currentTarget, event.pointerId);
 
-  if (!dragFlip.moved) {
+  if (!activeDrag.moved) {
     dragFlip = null;
+    updateChrome();
     return;
   }
 
   // Pointer-up can beat the queued RAF; apply its final coordinate now.
-  // Clearing dragFlip below makes that queued callback take its null guard.
-  dragFlip.currentX = event.clientX;
-  applyDragFlipVisualState();
-  settleDragFlip();
+  // Clearing dragFlip below makes that queued callback fail its ownership check.
+  activeDrag.currentX = event.clientX;
+  applyDragFlipVisualState(activeDrag);
   dragFlip = null;
+  settleDragFlip(activeDrag, false);
 }
 
 function handleStagePointerCancel(event) {
-  handleStagePointerUp(event);
+  const activeDrag = dragFlip;
+  if (!ownsDragInteraction(dragFlip, activeDrag, event.pointerId)) return;
+  releasePointerCaptureSafely(event.currentTarget, event.pointerId);
+  dragFlip = null;
+
+  if (!activeDrag.moved) {
+    updateChrome();
+    return;
+  }
+
+  settleDragFlip(activeDrag, true);
 }
 
 function openCover(button) {

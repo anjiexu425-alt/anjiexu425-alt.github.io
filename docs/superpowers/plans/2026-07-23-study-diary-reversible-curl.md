@@ -275,7 +275,13 @@ When dragging starts, build the descriptor and canonical sheet. Store
 Map pointer movement with:
 
 ```js
-const distance = computeDragProgress(Math.abs(rawDeltaX), dragFlip.elements.sheetWidthPx);
+const directionalDeltaX = dragFlip.direction === 'next'
+  ? dragFlip.startX - dragFlip.currentX
+  : dragFlip.currentX - dragFlip.startX;
+const distance = computeDragProgress(
+  Math.max(0, directionalDeltaX),
+  dragFlip.elements.sheetWidthPx,
+);
 const progress = dragFlip.direction === 'next' ? distance : 1 - distance;
 updateCurl(progress, dragFlip.elements);
 ```

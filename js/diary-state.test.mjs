@@ -10,7 +10,9 @@ import {
   goToPage,
   computeDragProgress,
   computeDirectionalDragProgress,
-  shouldCompleteFlip,
+  shouldActivateDirectionalDrag,
+  isFlipInteractionLocked,
+  ownsDragInteraction,
   computeCurlMotion,
   computeUnderlayOpacities,
   easeInOutCubic,
@@ -19,6 +21,7 @@ import {
   contentOffsetForSlice,
   createFlipTransition,
   shouldCompleteDirectionalFlip,
+  resolveDragSettle,
 } from './diary-state.mjs';
 
 test('starts closed on the first page', () => {
@@ -83,19 +86,38 @@ test('computeDragProgress returns 0 for a non-positive pageWidth', () => {
   assert.equal(computeDragProgress(150, 0), 0);
 });
 
-test('directional drag progress maps the latest pointer position onto canonical progress', () => {
+test('next drag progress advances only for leftward movement', () => {
   assert.equal(computeDirectionalDragProgress(500, 350, 300, 'next'), 0.5);
+  assert.equal(computeDirectionalDragProgress(500, 650, 300, 'next'), 0);
+});
+
+test('previous drag progress advances only for rightward movement', () => {
   assert.equal(computeDirectionalDragProgress(500, 650, 300, 'prev'), 0.5);
   assert.ok(Math.abs(computeDirectionalDragProgress(500, 740, 300, 'prev') - 0.2) < 1e-9);
+  assert.equal(computeDirectionalDragProgress(500, 350, 300, 'prev'), 1);
 });
 
-test('shouldCompleteFlip is false below the halfway point', () => {
-  assert.equal(shouldCompleteFlip(0.49), false);
+test('drag activation accepts only movement in the page turn direction', () => {
+  assert.equal(shouldActivateDirectionalDrag(500, 492, 'next', 8), true);
+  assert.equal(shouldActivateDirectionalDrag(500, 650, 'next', 8), false);
+  assert.equal(shouldActivateDirectionalDrag(500, 508, 'prev', 8), true);
+  assert.equal(shouldActivateDirectionalDrag(500, 350, 'prev', 8), false);
 });
 
-test('shouldCompleteFlip is true at or above the halfway point', () => {
-  assert.equal(shouldCompleteFlip(0.5), true);
-  assert.equal(shouldCompleteFlip(0.9), true);
+test('a pending drag locks navigation and a second drag start', () => {
+  const pendingDrag = { pointerId: 7, moved: false };
+  assert.equal(isFlipInteractionLocked(false, pendingDrag), true);
+  assert.equal(isFlipInteractionLocked(true, null), true);
+  assert.equal(isFlipInteractionLocked(false, null), false);
+});
+
+test('only the current drag owner can update the interaction', () => {
+  const activeDrag = { pointerId: 7 };
+  const replacementDrag = { pointerId: 7 };
+  assert.equal(ownsDragInteraction(activeDrag, activeDrag, 7), true);
+  assert.equal(ownsDragInteraction(activeDrag, activeDrag, 8), false);
+  assert.equal(ownsDragInteraction(replacementDrag, activeDrag, 7), false);
+  assert.equal(ownsDragInteraction(null, activeDrag, 7), false);
 });
 
 test('computeCurlMotion is 0 at both ends and peaks at the midpoint', () => {
@@ -172,4 +194,30 @@ test('directional completion uses opposite sides of the midpoint', () => {
   assert.equal(shouldCompleteDirectionalFlip(0.4, 'next'), false);
   assert.equal(shouldCompleteDirectionalFlip(0.4, 'prev'), true);
   assert.equal(shouldCompleteDirectionalFlip(0.6, 'prev'), false);
+});
+
+test('cancelled next drag returns to its start even beyond halfway', () => {
+  assert.deepEqual(resolveDragSettle({
+    progress: 0.9,
+    direction: 'next',
+    startProgress: 0,
+    targetProgress: 1,
+    cancelled: true,
+  }), {
+    completes: false,
+    settleProgress: 0,
+  });
+});
+
+test('cancelled previous drag returns to its start even beyond halfway', () => {
+  assert.deepEqual(resolveDragSettle({
+    progress: 0.1,
+    direction: 'prev',
+    startProgress: 1,
+    targetProgress: 0,
+    cancelled: true,
+  }), {
+    completes: false,
+    settleProgress: 1,
+  });
 });
