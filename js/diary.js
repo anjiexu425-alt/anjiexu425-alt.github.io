@@ -27,6 +27,8 @@ import {
   buildUploadPath,
   supabaseRowToEntry,
   entryToSupabaseRow,
+  resolveMediaUrls,
+  buildEditPatch,
 } from './diary-validation.mjs';
 
 // Placeholder image labels always start with '[' (site-wide convention);
@@ -785,6 +787,7 @@ async function handleFormSubmit(event) {
   const errorEl = document.querySelector('.diary-form .diary-form__error');
   errorEl.hidden = true;
   const submitBtn = form.querySelector('button[type="submit"]');
+  const originalSubmitLabel = submitBtn.textContent;
   submitBtn.disabled = true;
   submitBtn.textContent = 'Uploading…';
 
@@ -800,37 +803,56 @@ async function handleFormSubmit(event) {
         .filter((file) => file && file.size > 0);
     }
 
-    let urls = await uploadMediaFiles(files);
-    if (urls.length === 0) {
-      urls = [mediaType === 'video' ? '[Photo placeholder: new entry video]' : '[Photo placeholder: new entry photo]'];
+    const uploadedUrls = await uploadMediaFiles(files);
+    const caption = data.get('caption').trim();
+
+    if (editingEntryId) {
+      const existingEntry = ENTRIES.find((entry) => entry.id === editingEntryId);
+      const urls = resolveMediaUrls(uploadedUrls, existingEntry.media.urls);
+      const patch = buildEditPatch(
+        { category: data.get('category'), date, title, quote: data.get('quote').trim(), body },
+        { type: mediaType, urls, caption }
+      );
+      const row = await updateEntry(editingEntryId, patch);
+      const index = ENTRIES.findIndex((entry) => entry.id === editingEntryId);
+      ENTRIES[index] = supabaseRowToEntry(row);
+
+      renderStatic();
+      updateChrome();
+      closeWriteModal();
+    } else {
+      let urls = uploadedUrls;
+      if (urls.length === 0) {
+        urls = [mediaType === 'video' ? '[Photo placeholder: new entry video]' : '[Photo placeholder: new entry photo]'];
+      }
+
+      const newEntry = {
+        number: String(ENTRIES.length + 1).padStart(2, '0'),
+        category: data.get('category'),
+        date,
+        title,
+        quote: data.get('quote').trim(),
+        body,
+        media: { type: mediaType, urls, caption },
+        mood: '',
+        weather: '',
+      };
+      const row = await insertEntry(entryToSupabaseRow(newEntry));
+      ENTRIES.push(supabaseRowToEntry(row));
+
+      state = goToPage(openBook(createDiaryState(ENTRIES.length)), ENTRIES.length - 1);
+      document.querySelector('.diary').classList.add('is-open');
+      buildDots();
+      renderStatic();
+      updateChrome();
+      closeWriteModal();
     }
-
-    const newEntry = {
-      number: String(ENTRIES.length + 1).padStart(2, '0'),
-      category: data.get('category'),
-      date,
-      title,
-      quote: data.get('quote').trim(),
-      body,
-      media: { type: mediaType, urls, caption: data.get('caption').trim() },
-      mood: '',
-      weather: '',
-    };
-    const row = await insertEntry(entryToSupabaseRow(newEntry));
-    ENTRIES.push(supabaseRowToEntry(row));
-
-    state = goToPage(openBook(createDiaryState(ENTRIES.length)), ENTRIES.length - 1);
-    document.querySelector('.diary').classList.add('is-open');
-    buildDots();
-    renderStatic();
-    updateChrome();
-    closeWriteModal();
   } catch (error) {
     errorEl.textContent = error.message || 'Something went wrong saving this entry. Please try again.';
     errorEl.hidden = false;
+    submitBtn.textContent = originalSubmitLabel;
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Insert to Abroad Diary';
   }
 }
 
