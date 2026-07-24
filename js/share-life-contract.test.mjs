@@ -199,6 +199,8 @@ test('Share Life note forms collect editable like counts and keep them through s
   for (const page of ['../share-life.html', '../share-life-fixture.html']) {
     const html = await readFile(new URL(page, import.meta.url), 'utf8');
 
+    assert.match(html, /<form\b[^>]*id="shareLifeNoteForm"[^>]*\bnovalidate\b[^>]*>/i);
+    assert.doesNotMatch(html, /<form\b[^>]*id="shareLifeLoginForm"[^>]*\bnovalidate\b[^>]*>/i);
     assert.match(html, /<label\b[^>]*for="shareLifeLikesCount"[^>]*>\s*点赞数\s*<\/label>/i);
     assert.match(
       html,
@@ -230,6 +232,12 @@ test('Share Life note forms collect editable like counts and keep them through s
   assert.match(editBlock, /likesCountInput\.value\s*=\s*String\(Math\.max\(0,\s*Number\(currentNote\.likesCount\)\s*\|\|\s*0\)\)/);
   assert.match(submitBlock, /likesCount\s*:\s*likesCountInput\.value/);
   assert.match(submitBlock, /validation\.title\s*\|\|\s*validation\.douyinUrl\s*\|\|\s*validation\.likesCount/);
+  const invalidBranch = submitBlock.slice(
+    submitBlock.indexOf('if (!validation.isValid)'),
+    submitBlock.indexOf('const editingId'),
+  );
+  assert.match(invalidBranch, /return/);
+  assert.doesNotMatch(invalidBranch, /\.reset\(|closeModal\(/);
   assert.match(createNoteBlock, /likesCount\s*:\s*values\.likesCount/);
   assert.match(editNoteBlock, /likesCount\s*:\s*values\.likesCount/);
   assert.doesNotMatch(editNoteBlock, /likesCount:\s*_staleLikesCount/);
@@ -248,6 +256,12 @@ test('Share Life note forms collect editable like counts and keep them through s
   assert.match(fixtureOpenBlock, /likesCountInput\.value\s*=\s*String\(Math\.max\(0,\s*Number\(note\.likesCount\)\s*\|\|\s*0\)\)/);
   assert.match(fixtureSubmitBlock, /likesCount\s*:\s*likesCountInput\.value/);
   assert.match(fixtureSubmitBlock, /likesCount\s*:\s*validation\.values\.likesCount/);
+  const fixtureInvalidBranch = fixtureSubmitBlock.slice(
+    fixtureSubmitBlock.indexOf('if (!validation.isValid)'),
+    fixtureSubmitBlock.indexOf('const editingId'),
+  );
+  assert.match(fixtureInvalidBranch, /return/);
+  assert.doesNotMatch(fixtureInvalidBranch, /\.reset\(|closeNoteDialog\(/);
 });
 
 test('Share Life stylesheet preserves native scrolling and accessible motion', async () => {

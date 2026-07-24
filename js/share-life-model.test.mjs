@@ -67,6 +67,23 @@ test('rejects coercible non-count values without rejecting integer inputs', () =
   assert.equal(model.normalizeEditableLikeCount('007'), 7);
 });
 
+test('rejects numeric and string Infinity as editable like counts', () => {
+  assert.equal(model.normalizeEditableLikeCount(Infinity), null);
+  assert.equal(model.normalizeEditableLikeCount('Infinity'), null);
+});
+
+test('validates blank, negative, and fractional like-count form values', () => {
+  for (const likesCount of ['', '-1', '1.5']) {
+    const validation = model.validateNoteFields({
+      title: 'A note',
+      douyinUrl: 'https://www.douyin.com/user/example',
+      likesCount,
+    });
+    assert.equal(validation.isValid, false);
+    assert.equal(validation.likesCount, 'Likes must be a whole number of 0 or more.');
+  }
+});
+
 test('maps rows and preserves existing cover during an edit without upload', () => {
   const row = {
     id: 'n1',
