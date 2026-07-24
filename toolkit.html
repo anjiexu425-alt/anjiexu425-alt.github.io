@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anjie — Toolkit</title>
+  <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Noto+Serif+SC:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/nav.css" />
+  <link rel="stylesheet" href="css/toolkit.css" />
+</head>
+<body>
+  <canvas id="toolkitGalaxyCanvas" class="toolkit-canvas" aria-hidden="true"></canvas>
+
+  <header class="site-nav">
+    <a class="site-nav__brand" href="index.html">Anjie</a>
+    <button type="button" class="site-nav__toggle" aria-label="Toggle navigation menu" aria-expanded="false">☰</button>
+    <nav aria-label="Primary">
+      <ul class="site-nav__links">
+        <li><a href="about.html">About</a></li>
+        <li><a href="experience.html">Experience</a></li>
+        <li><a href="study-diary.html">Study Diary</a></li>
+        <li><a href="share-life.html">Share Life</a></li>
+        <li><a href="toolkit.html" aria-current="page">Toolkit</a></li>
+        <li><a href="contact.html">Contact</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="toolkit-page container">
+    <div class="toolkit-header">
+      <span class="toolkit-header__glow" aria-hidden="true"></span>
+      <h1 class="toolkit-header__title">Toolkit</h1>
+    </div>
+
+    <div class="toolkit-auth">
+      <button id="toolkitLoginButton" class="toolkit-login-btn" type="button" hidden>Log In</button>
+      <button id="toolkitLogoutButton" class="toolkit-logout-btn" type="button" hidden>Log Out</button>
+    </div>
+
+    <div class="toolkit-divider"></div>
+
+    <section aria-labelledby="toolkitSkillsHeading">
+      <div class="toolkit-section-header">
+        <h2 id="toolkitSkillsHeading" class="toolkit-section-title">Skills</h2>
+        <button id="toolkitAddSkillButton" class="toolkit-add-btn" type="button" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          添加 Skill
+        </button>
+      </div>
+      <div id="toolkitSkillsList" class="toolkit-skills"></div>
+    </section>
+
+    <div class="toolkit-divider"></div>
+
+    <section aria-labelledby="toolkitProjectsHeading">
+      <div class="toolkit-section-header">
+        <h2 id="toolkitProjectsHeading" class="toolkit-section-title">Vibe Coding Projects</h2>
+        <button id="toolkitAddProjectButton" class="toolkit-add-btn" type="button" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          添加 Project
+        </button>
+      </div>
+      <div id="toolkitProjectsGrid" class="toolkit-projects"></div>
+    </section>
+
+    <p id="toolkitStatus" class="toolkit-empty" role="status" aria-live="polite">Loading toolkit…</p>
+  </main>
+
+  <div id="toolkitSkillDialogBackdrop" class="toolkit-modal-backdrop" hidden>
+    <div id="toolkitSkillDialog" class="toolkit-modal" role="dialog" aria-modal="true" aria-labelledby="toolkitSkillDialogTitle">
+      <div class="toolkit-modal__header">
+        <h2 id="toolkitSkillDialogTitle">添加 Skill</h2>
+        <button id="toolkitSkillDialogClose" class="toolkit-modal__close" type="button" aria-label="关闭">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+        </button>
+      </div>
+      <form id="toolkitSkillForm" class="toolkit-form" novalidate>
+        <div class="toolkit-form__field">
+          <label for="toolkitSkillName">Skill 名称</label>
+          <input id="toolkitSkillName" name="name" type="text" placeholder="例如：context-snapshot" required />
+        </div>
+        <div class="toolkit-form__field">
+          <label for="toolkitSkillUrl">GitHub 链接</label>
+          <input id="toolkitSkillUrl" name="url" type="url" placeholder="https://github.com/..." required />
+        </div>
+        <div class="toolkit-form__field">
+          <label for="toolkitSkillDesc">描述</label>
+          <input id="toolkitSkillDesc" name="description" type="text" placeholder="简短描述这个 Skill 的作用..." />
+        </div>
+        <div class="toolkit-form__field">
+          <label for="toolkitSkillTagField">标签（按回车添加）</label>
+          <div id="toolkitSkillTagsInput" class="toolkit-tags-input">
+            <input id="toolkitSkillTagField" class="toolkit-tag-field" type="text" placeholder="Context, Migration..." />
+          </div>
+        </div>
+        <p id="toolkitSkillError" class="toolkit-form__error" role="alert" hidden></p>
+        <div class="toolkit-form__actions">
+          <button id="toolkitSkillCancel" class="button" type="button">取消</button>
+          <button class="button button--primary" type="submit">添加</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toolkitProjectDialogBackdrop" class="toolkit-modal-backdrop" hidden>
+    <div id="toolkitProjectDialog" class="toolkit-modal" role="dialog" aria-modal="true" aria-labelledby="toolkitProjectDialogTitle">
+      <div class="toolkit-modal__header">
+        <h2 id="toolkitProjectDialogTitle">添加 Project</h2>
+        <button id="toolkitProjectDialogClose" class="toolkit-modal__close" type="button" aria-label="关闭">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+        </button>
+      </div>
+      <form id="toolkitProjectForm" class="toolkit-form" novalidate>
+        <div class="toolkit-form__field">
+          <label for="toolkitProjectName">项目名称</label>
+          <input id="toolkitProjectName" name="name" type="text" placeholder="例如：AI 数据工作流" required />
+        </div>
+        <div class="toolkit-form__field">
+          <label for="toolkitProjectUrl">GitHub 链接</label>
+          <input id="toolkitProjectUrl" name="url" type="url" placeholder="https://github.com/..." required />
+        </div>
+        <div class="toolkit-form__field">
+          <label for="toolkitProjectDesc">项目描述</label>
+          <textarea id="toolkitProjectDesc" name="description" placeholder="描述这个项目的功能和亮点..."></textarea>
+        </div>
+        <div class="toolkit-form__field">
+          <label for="toolkitProjectTagField">标签 / 徽章（按回车添加）</label>
+          <div id="toolkitProjectTagsInput" class="toolkit-tags-input">
+            <input id="toolkitProjectTagField" class="toolkit-tag-field" type="text" placeholder="人工干预减少 80%..." />
+          </div>
+        </div>
+        <p id="toolkitProjectError" class="toolkit-form__error" role="alert" hidden></p>
+        <div class="toolkit-form__actions">
+          <button id="toolkitProjectCancel" class="button" type="button">取消</button>
+          <button class="button button--primary" type="submit">添加</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toolkitLoginDialogBackdrop" class="toolkit-modal-backdrop" hidden>
+    <div id="toolkitLoginDialog" class="toolkit-modal" role="dialog" aria-modal="true" aria-labelledby="toolkitLoginDialogTitle">
+      <div class="toolkit-modal__header">
+        <h2 id="toolkitLoginDialogTitle">Log In</h2>
+        <button id="toolkitLoginDialogClose" class="toolkit-modal__close" type="button" aria-label="Close login">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+        </button>
+      </div>
+      <form id="toolkitLoginForm" class="toolkit-form">
+        <div class="toolkit-form__field">
+          <label for="toolkitEmail">Email</label>
+          <input id="toolkitEmail" name="email" type="email" autocomplete="email" required />
+        </div>
+        <div class="toolkit-form__field">
+          <label for="toolkitPassword">Password</label>
+          <input id="toolkitPassword" name="password" type="password" autocomplete="current-password" required />
+        </div>
+        <p id="toolkitLoginError" class="toolkit-form__error" role="alert" hidden></p>
+        <div class="toolkit-form__actions">
+          <button id="toolkitLoginCancel" class="button" type="button">Cancel</button>
+          <button class="button button--primary" type="submit">Log In</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <p>&copy; 2026 Anjie</p>
+  </footer>
+
+  <script src="js/nav.js" defer></script>
+  <script type="module" src="js/toolkit.js"></script>
+</body>
+</html>
