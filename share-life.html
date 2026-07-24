@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anjie — Share Life</title>
+  <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&amp;family=Noto+Serif+SC:wght@400;500;700&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/nav.css" />
+  <link rel="stylesheet" href="css/share-life.css" />
+</head>
+<body>
+  <header class="site-nav">
+    <a class="site-nav__brand" href="index.html">Anjie</a>
+    <button type="button" class="site-nav__toggle" aria-label="Toggle navigation menu" aria-expanded="false">☰</button>
+    <nav aria-label="Primary">
+      <ul class="site-nav__links">
+        <li><a href="about.html">About</a></li>
+        <li><a href="experience.html">Experience</a></li>
+        <li><a href="study-diary.html">Study Diary</a></li>
+        <li><a href="share-life.html" aria-current="page">Share Life</a></li>
+        <li><a href="toolkit.html">Toolkit</a></li>
+        <li><a href="contact.html">Contact</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="share-life-page container">
+    <section class="share-life-hero" aria-labelledby="shareLifeHeading">
+      <div class="share-life-hero__title">
+        <p class="share-life-hero__eyebrow">04 — Share Life</p>
+        <h1 id="shareLifeHeading">
+          <span>Share</span>
+          <em>Life &amp; Insights</em>
+        </h1>
+      </div>
+
+      <div class="share-life-hero__info">
+        <p class="share-life-hero__quote" lang="zh-CN">梦想是早日实现经济和精神双独立。</p>
+        <p class="share-life-hero__bio">Record growth in my 20s.<br />AI Explorer｜anjiexu0630@163.com</p>
+        <dl class="share-life-stats" aria-label="Share Life statistics">
+          <div class="share-life-stats__item">
+            <dt>Followers</dt>
+            <dd id="shareLifeFollowersCount">90</dd>
+          </div>
+          <div class="share-life-stats__item">
+            <dt>Likes</dt>
+            <dd id="shareLifeLikesCount">2,500</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="share-life-actions" aria-label="Life note management">
+      <button id="shareLifeAddButton" class="share-life-button share-life-button--add" type="button" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        添加笔记
+      </button>
+      <button id="shareLifeLoginButton" class="share-life-button" type="button" hidden>Log In</button>
+      <button id="shareLifeLogoutButton" class="share-life-button" type="button" hidden>Log Out</button>
+    </section>
+
+    <section class="share-life-slider" aria-label="Life notes">
+      <button id="shareLifePrev" class="share-life-slider__arrow share-life-slider__arrow--prev" type="button" aria-label="Previous notes">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+      </button>
+
+      <div class="share-life-slider__viewport">
+        <div id="shareLifeTrack" class="share-life-slider__track"></div>
+      </div>
+
+      <button id="shareLifeNext" class="share-life-slider__arrow share-life-slider__arrow--next" type="button" aria-label="Next notes">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m9 18 6-6-6-6" />
+        </svg>
+      </button>
+    </section>
+
+    <p id="shareLifeStatus" class="share-life-status" role="status" aria-live="polite">Loading life notes…</p>
+  </main>
+
+  <div id="shareLifeNoteDialogBackdrop" class="share-life-modal-backdrop" hidden>
+    <div
+      id="shareLifeNoteDialog"
+      class="share-life-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="shareLifeNoteDialogTitle"
+    >
+      <div class="share-life-modal__header">
+        <h2 id="shareLifeNoteDialogTitle">添加笔记</h2>
+        <button id="shareLifeNoteDialogClose" class="share-life-modal__close" type="button" aria-label="Close note editor">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <form id="shareLifeNoteForm" class="share-life-form">
+        <input id="shareLifeNoteId" name="noteId" type="hidden" />
+
+        <div class="share-life-form__field">
+          <label for="shareLifeTitle">笔记标题</label>
+          <input id="shareLifeTitle" name="title" type="text" placeholder="输入笔记标题…" required />
+        </div>
+
+        <div class="share-life-form__field">
+          <label for="shareLifeDouyinUrl">抖音主页链接</label>
+          <input id="shareLifeDouyinUrl" name="douyinUrl" type="url" placeholder="https://www.douyin.com/…" required />
+        </div>
+
+        <div class="share-life-form__field">
+          <label for="shareLifeCover">封面图片</label>
+          <input id="shareLifeCover" name="cover" type="file" accept="image/*" />
+          <div id="shareLifeCoverPreview" class="share-life-form__preview">
+            <img src="assets/images/share-life-placeholder.svg" alt="Abstract warm-paper and Klein-blue cover preview" />
+          </div>
+        </div>
+
+        <div class="share-life-form__field">
+          <label for="shareLifeLikes">点赞数（可选）</label>
+          <input id="shareLifeLikes" name="likes" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
+        </div>
+
+        <p id="shareLifeNoteError" class="share-life-form__error" role="alert" hidden></p>
+        <div class="share-life-form__actions">
+          <button id="shareLifeNoteCancel" class="share-life-button" type="button">取消</button>
+          <button class="share-life-button share-life-button--primary" type="submit">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="shareLifeLoginDialogBackdrop" class="share-life-modal-backdrop" hidden>
+    <div
+      id="shareLifeLoginDialog"
+      class="share-life-modal share-life-modal--login"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="shareLifeLoginDialogTitle"
+    >
+      <div class="share-life-modal__header">
+        <h2 id="shareLifeLoginDialogTitle">Log In</h2>
+        <button id="shareLifeLoginDialogClose" class="share-life-modal__close" type="button" aria-label="Close login">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <form id="shareLifeLoginForm" class="share-life-form">
+        <div class="share-life-form__field">
+          <label for="shareLifeEmail">Email</label>
+          <input id="shareLifeEmail" name="email" type="email" autocomplete="email" required />
+        </div>
+        <div class="share-life-form__field">
+          <label for="shareLifePassword">Password</label>
+          <input id="shareLifePassword" name="password" type="password" autocomplete="current-password" required />
+        </div>
+        <p id="shareLifeLoginError" class="share-life-form__error" role="alert" hidden></p>
+        <div class="share-life-form__actions">
+          <button id="shareLifeLoginCancel" class="share-life-button" type="button">Cancel</button>
+          <button class="share-life-button share-life-button--primary" type="submit">Log In</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <p>&copy; 2026 Anjie</p>
+  </footer>
+
+  <script src="js/nav.js" defer></script>
+  <script type="module" src="js/share-life.js"></script>
+</body>
+</html>

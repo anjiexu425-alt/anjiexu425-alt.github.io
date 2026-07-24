@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1200" role="img" aria-labelledby="title description">
+  <title id="title">Abstract warm-paper and Klein-blue cover</title>
+  <desc id="description">Layered cobalt shapes, a sun disc, and fine botanical lines on a warm paper field.</desc>
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8f0df" />
+      <stop offset="0.55" stop-color="#eee2cb" />
+      <stop offset="1" stop-color="#f6ead4" />
+    </linearGradient>
+    <pattern id="grain" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="4" cy="7" r="1.1" fill="#8d7658" opacity=".12" />
+      <circle cx="19" cy="21" r=".8" fill="#8d7658" opacity=".1" />
+      <path d="M8 24h5M21 5h3" stroke="#8d7658" stroke-width="1" opacity=".09" />
+    </pattern>
+    <clipPath id="frame">
+      <rect x="42" y="42" width="816" height="1116" rx="28" />
+    </clipPath>
+  </defs>
+
+  <rect width="900" height="1200" fill="url(#paper)" />
+  <rect width="900" height="1200" fill="url(#grain)" />
+  <g clip-path="url(#frame)">
+    <path d="M-40 950C180 740 322 718 496 760c182 44 284 4 444-180v660H-40Z" fill="#002fa7" />
+    <path d="M-40 1040c188-188 326-218 475-178 196 53 332 16 505-170v548H-40Z" fill="#173f98" opacity=".66" />
+    <circle cx="676" cy="302" r="132" fill="#e9a953" />
+    <path d="M-8 462c154-84 298-84 434 0 126 78 275 83 482 12" fill="none" stroke="#002fa7" stroke-width="84" />
+    <path d="M-8 453c154-84 298-84 434 0 126 78 275 83 482 12" fill="none" stroke="#f8f0df" stroke-width="2" opacity=".75" />
+    <path d="M142 872c38-142 113-259 225-350M194 757c52-10 101-36 147-77M238 674c-16-53-12-103 11-152M299 610c51-19 89-54 116-105" fill="none" stroke="#2b2b2e" stroke-linecap="round" stroke-width="4" opacity=".72" />
+    <path d="M680 808c-33-107-31-202 6-286M679 689c-37-24-63-58-79-101M680 624c39-28 65-64 78-109" fill="none" stroke="#2b2b2e" stroke-linecap="round" stroke-width="4" opacity=".62" />
+    <circle cx="142" cy="250" r="14" fill="#002fa7" />
+    <circle cx="184" cy="250" r="14" fill="#002fa7" opacity=".65" />
+    <circle cx="226" cy="250" r="14" fill="#002fa7" opacity=".3" />
+  </g>
+  <rect x="42" y="42" width="816" height="1116" rx="28" fill="none" stroke="#002fa7" stroke-width="3" opacity=".35" />
+</svg>
