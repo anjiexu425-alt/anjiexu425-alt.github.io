@@ -31,6 +31,58 @@ test('Share Life local acceptance fixture is deterministic and isolated from Sup
   assert.doesNotMatch(fixtureSource, /\.from\(\s*['"]share_life_notes['"]\s*\)/i);
 });
 
+test('Share Life fixture only captures real card drags and suppresses their immediate link click', async () => {
+  const script = await readFile(new URL('./share-life-fixture.js', import.meta.url), 'utf8');
+  const pointerDownStart = script.indexOf("viewport.addEventListener('pointerdown'");
+  const pointerMoveStart = script.indexOf("viewport.addEventListener('pointermove'");
+  const finishDragStart = script.indexOf('const finishDrag');
+  const pointerUpStart = script.indexOf("viewport.addEventListener('pointerup'");
+  const pointerDownHandler = script.slice(pointerDownStart, pointerMoveStart);
+  const pointerMoveHandler = script.slice(pointerMoveStart, finishDragStart);
+  const finishDragHandler = script.slice(finishDragStart, pointerUpStart);
+
+  assert.ok(pointerDownStart >= 0 && pointerMoveStart > pointerDownStart);
+  assert.doesNotMatch(pointerDownHandler, /setPointerCapture/);
+  assert.match(pointerDownHandler, /pointerStartedOnCardLink\s*=/);
+  assert.match(pointerMoveHandler, /Math\.abs\(distance\)\s*>\s*4\s*&&\s*!isDragging/);
+  assert.match(pointerMoveHandler, /viewport\.setPointerCapture\(event\.pointerId\)/);
+  assert.match(pointerMoveHandler, /if\s*\(\s*!isDragging\s*\)\s*return/);
+  assert.match(
+    finishDragHandler,
+    /shouldSuppressLink\s*=\s*isDragging\s*&&\s*pointerStartedOnCardLink/,
+  );
+  assert.match(finishDragHandler, /window\.setTimeout\(\(\)\s*=>\s*\{/);
+  assert.match(
+    script,
+    /viewport\.addEventListener\(\s*['"]click['"][\s\S]*?suppressNextCardLinkClick[\s\S]*?preventDefault\(\)[\s\S]*?stopPropagation\(\)[\s\S]*?\},\s*true\s*\)/,
+  );
+});
+
+test('Share Life fixture restores the current cover after invalid or unreadable selections', async () => {
+  const script = await readFile(new URL('./share-life-fixture.js', import.meta.url), 'utf8');
+  const restoreStart = script.indexOf('function restoreCurrentCoverPreview');
+  const readStart = script.indexOf('function readFileAsDataUrl');
+  const changeStart = script.indexOf('async function handleCoverChange');
+  const submitStart = script.indexOf('function handleNoteSubmit');
+  const restoreHelper = script.slice(restoreStart, readStart);
+  const changeHandler = script.slice(changeStart, submitStart);
+
+  assert.ok(restoreStart >= 0 && readStart > restoreStart);
+  assert.match(restoreHelper, /selectedCoverDataUrl\s*=\s*['"]/);
+  assert.match(restoreHelper, /notes\.find\(\(note\)\s*=>\s*note\.id\s*===\s*noteIdInput\.value\)/);
+  assert.match(restoreHelper, /coverPreview\.src\s*=\s*editingNote\?\.coverUrl\s*\|\|\s*PLACEHOLDER_URL/);
+
+  const invalidStart = changeHandler.indexOf('if (!isShareLifeImageAllowed');
+  const readTryStart = changeHandler.indexOf('try {', invalidStart);
+  const invalidBranch = changeHandler.slice(invalidStart, readTryStart);
+  assert.match(invalidBranch, /restoreCurrentCoverPreview\(\)/);
+
+  const catchStart = changeHandler.indexOf('catch', readTryStart);
+  const catchBranch = changeHandler.slice(catchStart);
+  assert.match(catchBranch, /restoreCurrentCoverPreview\(\)/);
+  assert.match(catchBranch, /showFormError\(/);
+});
+
 test('Share Life page exposes its semantic and accessibility contract', async () => {
   const html = await readFile(new URL('../share-life.html', import.meta.url), 'utf8');
 

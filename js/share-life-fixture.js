@@ -319,6 +319,15 @@ function trapDialogFocus(event) {
   focusable[targetIndex].focus();
 }
 
+function restoreCurrentCoverPreview() {
+  selectedCoverDataUrl = '';
+  const editingNote = notes.find((note) => note.id === noteIdInput.value);
+  coverPreview.src = editingNote?.coverUrl || PLACEHOLDER_URL;
+  coverPreview.alt = editingNote
+    ? `${editingNote.title} cover preview`
+    : 'Life note cover preview';
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -334,15 +343,13 @@ async function handleCoverChange() {
   const readGeneration = ++coverReadGeneration;
 
   if (!file) {
-    selectedCoverDataUrl = '';
-    const editingNote = notes.find((note) => note.id === noteIdInput.value);
-    coverPreview.src = editingNote?.coverUrl || PLACEHOLDER_URL;
+    restoreCurrentCoverPreview();
     return;
   }
 
   if (!isShareLifeImageAllowed(file.size, file.type)) {
     coverInput.value = '';
-    selectedCoverDataUrl = '';
+    restoreCurrentCoverPreview();
     showFormError('Choose an image no larger than 8 MB.');
     return;
   }
@@ -355,7 +362,7 @@ async function handleCoverChange() {
     coverPreview.alt = `${file.name} cover preview`;
   } catch {
     if (readGeneration !== coverReadGeneration || noteDialogBackdrop.hidden) return;
-    selectedCoverDataUrl = '';
+    restoreCurrentCoverPreview();
     showFormError('The selected image could not be previewed.');
   }
 }
@@ -449,14 +456,7 @@ function handleLike(noteId) {
 
 function handleTrackClick(event) {
   const action = event.target.closest('[data-fixture-action]');
-  if (!action) {
-    if (suppressNextCardLinkClick && event.target.closest('.share-life-card__link')) {
-      event.preventDefault();
-      event.stopPropagation();
-      suppressNextCardLinkClick = false;
-    }
-    return;
-  }
+  if (!action) return;
 
   event.preventDefault();
   event.stopPropagation();
@@ -489,31 +489,62 @@ function initializeSliderDrag() {
   let pointerId = null;
   let startX = 0;
   let startScrollLeft = 0;
-  let dragged = false;
+  let isDragging = false;
+  let pointerStartedOnCardLink = false;
 
   viewport.addEventListener('pointerdown', (event) => {
     if (!isMouseDragPointer(event) || isSliderControlTarget(event.target)) return;
     pointerId = event.pointerId;
     startX = event.clientX;
     startScrollLeft = viewport.scrollLeft;
-    dragged = false;
-    viewport.setPointerCapture(pointerId);
+    isDragging = false;
+    pointerStartedOnCardLink = event.target instanceof Element
+      && Boolean(event.target.closest('.share-life-card__link'));
   });
 
   viewport.addEventListener('pointermove', (event) => {
     if (event.pointerId !== pointerId) return;
     const distance = event.clientX - startX;
-    if (Math.abs(distance) > 4) dragged = true;
+    if (Math.abs(distance) > 4 && !isDragging) {
+      isDragging = true;
+      viewport.setPointerCapture(event.pointerId);
+    }
+    if (!isDragging) return;
+
+    event.preventDefault();
     viewport.scrollLeft = startScrollLeft - distance;
   });
 
   const finishDrag = (event) => {
     if (event.pointerId !== pointerId) return;
-    suppressNextCardLinkClick = dragged;
-    if (viewport.hasPointerCapture(pointerId)) viewport.releasePointerCapture(pointerId);
+    const shouldSuppressLink = isDragging && pointerStartedOnCardLink;
+    if (viewport.hasPointerCapture(event.pointerId)) {
+      viewport.releasePointerCapture(event.pointerId);
+    }
     pointerId = null;
+    isDragging = false;
+    pointerStartedOnCardLink = false;
+    if (shouldSuppressLink) {
+      suppressNextCardLinkClick = true;
+      window.setTimeout(() => {
+        suppressNextCardLinkClick = false;
+      }, 0);
+    }
     updateSliderButtons();
   };
+
+  viewport.addEventListener('click', (event) => {
+    if (
+      !suppressNextCardLinkClick
+      || !(event.target instanceof Element)
+      || !event.target.closest('.share-life-card__link')
+    ) {
+      return;
+    }
+    suppressNextCardLinkClick = false;
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
 
   viewport.addEventListener('pointerup', finishDrag);
   viewport.addEventListener('pointercancel', finishDrag);
