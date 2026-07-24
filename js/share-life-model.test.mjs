@@ -55,6 +55,18 @@ test('normalizes editable like counts, validates them, and maps them to Supabase
   }).likes_count, 7);
 });
 
+test('rejects coercible non-count values without rejecting integer inputs', () => {
+  assert.equal(model.normalizeEditableLikeCount('   '), null);
+  assert.equal(model.normalizeEditableLikeCount(true), null);
+  assert.equal(model.normalizeEditableLikeCount(false), null);
+  assert.equal(model.normalizeEditableLikeCount([]), null);
+  assert.equal(model.normalizeEditableLikeCount([12]), null);
+  assert.equal(model.normalizeEditableLikeCount({}), null);
+  assert.equal(model.normalizeEditableLikeCount(0), 0);
+  assert.equal(model.normalizeEditableLikeCount(42), 42);
+  assert.equal(model.normalizeEditableLikeCount('007'), 7);
+});
+
 test('maps rows and preserves existing cover during an edit without upload', () => {
   const row = {
     id: 'n1',

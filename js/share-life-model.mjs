@@ -15,8 +15,14 @@ export function normalizeDouyinUrl(value) {
 }
 
 export function normalizeEditableLikeCount(value) {
-  if (value === '' || value === null || value === undefined) return null;
-  const count = Number(value);
+  let count;
+  if (typeof value === 'number') {
+    count = value;
+  } else if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+    count = Number(value.trim());
+  } else {
+    return null;
+  }
   return Number.isFinite(count) && Number.isInteger(count) && count >= 0
     ? count
     : null;
