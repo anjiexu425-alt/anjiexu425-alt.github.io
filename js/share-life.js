@@ -2,15 +2,23 @@ import {
   buildShareLifeCardView,
   buildShareLifeEditPatch,
   buildShareLifeUploadPath,
+  canConsumeHorizontalWheel,
+  createDialogOperationToken,
   isShareLifeImageAllowed,
+  isDialogOperationCurrent,
+  isMouseDragPointer,
+  mergeShareLifeNoteById,
   nextLikeIntent,
   parseLikedNoteIds,
+  resolveCreatedCover,
   resolveEditedCover,
+  resolveFocusReturnTarget,
+  resolveFocusTrapTarget,
   resolveScrollBehavior,
+  setLikedNoteId,
   shareLifeNoteToInsertRow,
   sumLikeCounts,
   supabaseRowToShareLifeNote,
-  toggleLikedNoteId,
   validateNoteFields,
 } from './share-life-model.mjs';
 import {
@@ -32,6 +40,14 @@ import {
 const PLACEHOLDER_URL = '/assets/images/share-life-placeholder.svg';
 const LIKED_NOTE_IDS_KEY = 'shareLifeLikedNoteIds';
 const INTERACTIVE_SELECTOR = 'a, button, input, textarea, select, label';
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
 const track = document.getElementById('shareLifeTrack');
@@ -71,8 +87,10 @@ let notes = [];
 let likedNoteIds = new Set();
 let isLoggedIn = false;
 let authSubscribed = false;
+let notesLoaded = false;
 let openDialog = null;
 let previewObjectUrl = '';
+let dialogGeneration = 0;
 const pendingLikeIds = new Set();
 
 function createSvgIcon(pathData) {
@@ -118,30 +136,111 @@ function revokePreviewObjectUrl() {
   previewObjectUrl = '';
 }
 
-function openModal(backdrop, firstField, opener) {
+function resetFormSubmitButton(form) {
+  const submitButton = form.querySelector('button[type="submit"]');
+  if (!submitButton) return;
+  submitButton.disabled = false;
+  if (submitButton.dataset.idleLabel) {
+    submitButton.textContent = submitButton.dataset.idleLabel;
+    delete submitButton.dataset.idleLabel;
+  }
+}
+
+function setFormPending(form, pendingLabel) {
+  const submitButton = form.querySelector('button[type="submit"]');
+  submitButton.dataset.idleLabel = submitButton.textContent;
+  submitButton.disabled = true;
+  submitButton.textContent = pendingLabel;
+  return submitButton;
+}
+
+function findReplacementEditButton(noteId) {
+  if (!noteId) return null;
+  return [...track.querySelectorAll('[data-share-life-action="edit"]')]
+    .find((button) => button.dataset.noteId === noteId) ?? null;
+}
+
+function restoreModalFocus(opener, focusReturn = null) {
+  const replacementEdit = findReplacementEditButton(focusReturn?.noteId);
+  const targetType = resolveFocusReturnTarget({
+    openerConnected: opener instanceof HTMLElement
+      && opener.isConnected
+      && !opener.hidden
+      && !opener.disabled,
+    matchingEditExists: replacementEdit instanceof HTMLElement,
+    addAvailable: !addButton.hidden && !addButton.disabled,
+    loginAvailable: !loginButton.hidden && !loginButton.disabled,
+  });
+  const target = {
+    opener,
+    edit: replacementEdit,
+    add: addButton,
+    login: loginButton,
+  }[targetType];
+  if (target instanceof HTMLElement) target.focus();
+}
+
+function openModal(backdrop, firstField, opener, focusReturn = null) {
   if (openDialog && openDialog.backdrop !== backdrop) {
     closeModal(openDialog.backdrop, false);
   }
 
-  openDialog = { backdrop, opener };
+  dialogGeneration += 1;
+  openDialog = {
+    backdrop,
+    opener,
+    focusReturn,
+    generation: dialogGeneration,
+  };
   backdrop.hidden = false;
   firstField.focus();
 }
 
-function closeModal(backdrop, restoreFocus = true) {
+function closeModal(backdrop, restoreFocus = true, focusReturnOverride = null) {
   if (backdrop.hidden) return;
 
-  const opener = openDialog?.backdrop === backdrop ? openDialog.opener : null;
+  const dialog = openDialog?.backdrop === backdrop ? openDialog : null;
   backdrop.hidden = true;
-  if (openDialog?.backdrop === backdrop) openDialog = null;
+  if (dialog) {
+    openDialog = null;
+    dialogGeneration += 1;
+  }
 
   if (backdrop === noteDialogBackdrop) {
     revokePreviewObjectUrl();
+    resetFormSubmitButton(noteForm);
+  } else if (backdrop === loginDialogBackdrop) {
+    resetFormSubmitButton(loginForm);
   }
 
-  if (restoreFocus && opener instanceof HTMLElement && opener.isConnected) {
-    opener.focus();
+  if (restoreFocus) {
+    restoreModalFocus(dialog?.opener, focusReturnOverride ?? dialog?.focusReturn);
   }
+}
+
+function isCurrentModalOperation(backdrop, token, editingId = null) {
+  return Boolean(
+    openDialog?.backdrop === backdrop
+    && isDialogOperationCurrent(
+      token,
+      openDialog.generation,
+      editingId,
+    ),
+  );
+}
+
+function trapModalFocus(event) {
+  const focusable = [...openDialog.backdrop.querySelectorAll(FOCUSABLE_SELECTOR)]
+    .filter((element) => element instanceof HTMLElement && !element.hidden);
+  const currentIndex = focusable.indexOf(document.activeElement);
+  const targetIndex = resolveFocusTrapTarget(
+    currentIndex,
+    focusable.length,
+    event.shiftKey,
+  );
+  if (targetIndex === -1) return;
+  event.preventDefault();
+  focusable[targetIndex].focus();
 }
 
 function updateSliderButtons() {
@@ -198,13 +297,13 @@ function createManageButton(className, label, iconPath, handler) {
   return button;
 }
 
-function createLikeButton(note, view) {
+function createLikeButton(noteId, view) {
   const button = document.createElement('button');
   button.className = 'share-life-card__likes';
   button.type = 'button';
   button.setAttribute('aria-label', `${view.isLiked ? 'Unlike' : 'Like'} ${view.titleText}`);
   button.setAttribute('aria-pressed', String(view.isLiked));
-  button.disabled = pendingLikeIds.has(note.id);
+  button.disabled = pendingLikeIds.has(noteId);
   button.append(createSvgIcon('M12 21s-7-4.6-9.2-8.4C.8 9.2 2.2 5 6.2 4.2c2.1-.4 4.1.5 5.8 2.5 1.7-2 3.7-2.9 5.8-2.5 4 .8 5.4 5 3.4 8.4C19 16.4 12 21 12 21Z'));
 
   const count = document.createElement('span');
@@ -214,7 +313,7 @@ function createLikeButton(note, view) {
   button.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    void handleLike(note, button);
+    void handleLike(noteId, button);
   });
 
   return button;
@@ -224,13 +323,7 @@ function createCard(note) {
   const view = buildShareLifeCardView(note, likedNoteIds, isLoggedIn);
   const card = document.createElement('article');
   card.className = 'share-life-card';
-
-  const link = document.createElement('a');
-  link.className = 'share-life-card__link';
-  link.href = view.douyinUrl;
-  link.target = '_blank';
-  link.rel = 'noopener';
-  link.setAttribute('aria-label', `Open ${view.titleText} on Douyin`);
+  card.dataset.noteId = note.id;
 
   const imageWrap = document.createElement('div');
   imageWrap.className = 'share-life-card__image-wrap';
@@ -253,15 +346,24 @@ function createCard(note) {
 
   const footer = document.createElement('div');
   footer.className = 'share-life-card__footer';
-  footer.append(createLikeButton(note, view));
+  footer.append(createLikeButton(note.id, view));
 
   const destination = document.createElement('span');
-  destination.textContent = 'Douyin ↗';
+  destination.textContent = view.douyinUrl ? 'Douyin ↗' : 'Link unavailable';
   footer.append(destination);
 
   content.append(title, footer);
-  link.append(imageWrap);
-  card.append(link, content);
+  card.append(imageWrap, content);
+
+  if (view.douyinUrl) {
+    const link = document.createElement('a');
+    link.className = 'share-life-card__link';
+    link.href = view.douyinUrl;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.setAttribute('aria-label', `Open ${view.titleText} on Douyin`);
+    card.append(link);
+  }
 
   if (view.canManage) {
     const editButton = createManageButton(
@@ -270,12 +372,16 @@ function createCard(note) {
       'M4 20h4L19 9l-4-4L4 16v4Zm9.5-13.5 4 4',
       () => openEditDialog(note, editButton),
     );
+    editButton.dataset.shareLifeAction = 'edit';
+    editButton.dataset.noteId = note.id;
     const deleteButton = createManageButton(
       'share-life-card__manage--delete',
       `Delete ${view.titleText}`,
       ['M4 7h16', 'M9 7V4h6v3', 'M7 7l1 13h8l1-13', 'M10 11v5M14 11v5'],
       (selectedButton) => void handleDelete(note, selectedButton),
     );
+    deleteButton.dataset.shareLifeAction = 'delete';
+    deleteButton.dataset.noteId = note.id;
     card.append(editButton, deleteButton);
   }
 
@@ -299,9 +405,9 @@ function renderNotes() {
   requestAnimationFrame(updateSliderButtons);
 }
 
-function renderPage() {
+function renderAuthState() {
   renderChrome();
-  renderNotes();
+  if (notesLoaded) renderNotes();
 }
 
 function readLikedNoteIds() {
@@ -331,28 +437,30 @@ async function bestEffortRemoveCover(path) {
 
 function openCreateDialog() {
   noteForm.reset();
+  resetFormSubmitButton(noteForm);
   clearAlert(noteError);
   noteIdInput.value = '';
   noteDialogTitle.textContent = '添加笔记';
   setPreview(PLACEHOLDER_URL);
-  openModal(noteDialogBackdrop, titleInput, addButton);
+  openModal(noteDialogBackdrop, titleInput, addButton, { type: 'add' });
 }
 
 function openEditDialog(note, opener) {
   noteForm.reset();
+  resetFormSubmitButton(noteForm);
   clearAlert(noteError);
   noteIdInput.value = note.id;
   titleInput.value = note.title;
   douyinUrlInput.value = note.douyinUrl;
   noteDialogTitle.textContent = '编辑笔记';
   setPreview(note.coverUrl || PLACEHOLDER_URL, note.title);
-  openModal(noteDialogBackdrop, titleInput, opener);
+  openModal(noteDialogBackdrop, titleInput, opener, {
+    type: 'edit',
+    noteId: note.id,
+  });
 }
 
-function validateSelectedCover(file, isCreate) {
-  if (!file && isCreate) {
-    return 'Please choose a cover image.';
-  }
+function validateSelectedCover(file) {
   if (file && !isShareLifeImageAllowed(file.size, file.type)) {
     return 'Please choose an image file up to 8 MB.';
   }
@@ -360,25 +468,34 @@ function validateSelectedCover(file, isCreate) {
 }
 
 async function createNote(values, file) {
-  const uploadPath = buildShareLifeUploadPath(file.name);
-  const uploadedCover = await uploadShareLifeCover(file, uploadPath);
+  let uploadedCover = null;
+  if (file) {
+    const uploadPath = buildShareLifeUploadPath(file.name);
+    uploadedCover = await uploadShareLifeCover(file, uploadPath);
+  }
+  const createdCover = resolveCreatedCover(uploadedCover);
   let row;
 
   try {
     row = await insertShareLifeNote(shareLifeNoteToInsertRow({
       title: values.title,
       douyinUrl: values.douyinUrl,
-      ...uploadedCover,
+      ...createdCover,
     }));
   } catch (error) {
-    await bestEffortRemoveCover(uploadedCover.coverPath);
+    if (uploadedCover) {
+      await bestEffortRemoveCover(uploadedCover.coverPath);
+    }
     throw error;
   }
 
   notes.push(supabaseRowToShareLifeNote(row));
 }
 
-async function editNote(existingNote, values, file) {
+async function editNote(existingNoteId, values, file) {
+  const existingNote = notes.find((note) => note.id === existingNoteId);
+  if (!existingNote) throw new Error('This life note no longer exists.');
+
   let uploadedCover = null;
   if (file) {
     const uploadPath = buildShareLifeUploadPath(file.name);
@@ -409,8 +526,12 @@ async function editNote(existingNote, values, file) {
     await bestEffortRemoveCover(existingNote.coverPath);
   }
 
-  const index = notes.findIndex((note) => note.id === existingNote.id);
-  if (index !== -1) notes[index] = supabaseRowToShareLifeNote(row);
+  const updatedNote = supabaseRowToShareLifeNote(row);
+  const {
+    likesCount: _staleLikesCount,
+    ...editPatch
+  } = updatedNote;
+  notes = mergeShareLifeNoteById(notes, existingNoteId, editPatch);
 }
 
 async function handleNoteSubmit(event) {
@@ -431,34 +552,51 @@ async function handleNoteSubmit(event) {
     return;
   }
 
-  const existingNote = notes.find((note) => note.id === noteIdInput.value) ?? null;
+  const editingId = noteIdInput.value || null;
+  const existingNote = editingId
+    ? notes.find((note) => note.id === editingId) ?? null
+    : null;
+  if (editingId && !existingNote) {
+    showAlert(noteError, 'This life note no longer exists.');
+    return;
+  }
   const file = coverInput.files?.[0] ?? null;
-  const coverError = validateSelectedCover(file, !existingNote);
+  const coverError = validateSelectedCover(file);
   if (coverError) {
     showAlert(noteError, coverError);
     return;
   }
 
-  const submitButton = noteForm.querySelector('button[type="submit"]');
-  const idleLabel = submitButton.textContent;
-  submitButton.disabled = true;
-  submitButton.textContent = '保存中…';
+  const operationToken = createDialogOperationToken(
+    openDialog?.generation,
+    editingId,
+  );
+  const focusReturn = openDialog?.focusReturn
+    ? { ...openDialog.focusReturn }
+    : null;
+  setFormPending(noteForm, '保存中…');
 
   try {
     if (existingNote) {
-      await editNote(existingNote, validation.values, file);
+      await editNote(editingId, validation.values, file);
     } else {
       await createNote(validation.values, file);
     }
 
     renderNotes();
-    closeModal(noteDialogBackdrop);
+    if (!isCurrentModalOperation(noteDialogBackdrop, operationToken, editingId)) {
+      return;
+    }
     noteForm.reset();
+    closeModal(noteDialogBackdrop, true, focusReturn);
   } catch (error) {
-    showAlert(noteError, errorMessage(error, 'Could not save this life note.'));
+    if (isCurrentModalOperation(noteDialogBackdrop, operationToken, editingId)) {
+      showAlert(noteError, errorMessage(error, 'Could not save this life note.'));
+    }
   } finally {
-    submitButton.disabled = false;
-    submitButton.textContent = idleLabel;
+    if (isCurrentModalOperation(noteDialogBackdrop, operationToken, editingId)) {
+      resetFormSubmitButton(noteForm);
+    }
   }
 }
 
@@ -468,11 +606,19 @@ async function handleDelete(note, button) {
   button.disabled = true;
   try {
     await deleteShareLifeNote(note.id);
-    await bestEffortRemoveCover(note.coverPath);
     notes = notes.filter((candidate) => candidate.id !== note.id);
-    likedNoteIds.delete(note.id);
+    likedNoteIds = setLikedNoteId(likedNoteIds, note.id, false);
     persistLikedNoteIds();
     renderNotes();
+
+    try {
+      await removeShareLifeCover(note.coverPath);
+    } catch (error) {
+      announceError(
+        error,
+        'Life note deleted, but its cover could not be removed.',
+      );
+    }
   } catch (error) {
     announceError(error, 'Could not delete this life note.');
   } finally {
@@ -480,49 +626,67 @@ async function handleDelete(note, button) {
   }
 }
 
-async function handleLike(note, button) {
-  if (pendingLikeIds.has(note.id)) return;
+async function handleLike(noteId, button) {
+  if (pendingLikeIds.has(noteId)) return;
 
+  const note = notes.find((candidate) => candidate.id === noteId);
+  if (!note) return;
   const intent = nextLikeIntent(note, likedNoteIds);
-  pendingLikeIds.add(note.id);
+  pendingLikeIds.add(noteId);
   button.disabled = true;
+  let didApply = false;
 
   try {
-    const nextCount = await adjustShareLifeLike(note.id, intent.delta);
-    note.likesCount = Math.max(0, Number.isFinite(nextCount) ? nextCount : 0);
-    likedNoteIds = toggleLikedNoteId(likedNoteIds, note.id);
+    const nextCount = await adjustShareLifeLike(noteId, intent.delta);
+    const currentNote = notes.find((candidate) => candidate.id === noteId);
+    if (!currentNote) return;
+    notes = mergeShareLifeNoteById(notes, noteId, {
+      likesCount: Math.max(0, Number.isFinite(nextCount) ? nextCount : 0),
+    });
+    likedNoteIds = setLikedNoteId(likedNoteIds, noteId, intent.nextLiked);
     persistLikedNoteIds();
+    didApply = true;
   } catch (error) {
     announceError(error, 'Could not update this like.');
     return;
   } finally {
-    pendingLikeIds.delete(note.id);
+    pendingLikeIds.delete(noteId);
     button.disabled = false;
   }
 
-  renderNotes();
+  if (didApply) renderNotes();
 }
 
 async function handleLoginSubmit(event) {
   event.preventDefault();
   clearAlert(loginError);
 
-  const submitButton = loginForm.querySelector('button[type="submit"]');
-  const idleLabel = submitButton.textContent;
-  submitButton.disabled = true;
-  submitButton.textContent = 'Logging In…';
+  const operationToken = createDialogOperationToken(
+    openDialog?.generation,
+    null,
+  );
+  const focusReturn = openDialog?.focusReturn
+    ? { ...openDialog.focusReturn }
+    : null;
+  setFormPending(loginForm, 'Logging In…');
 
   try {
     const session = await signIn(emailInput.value, passwordInput.value);
     isLoggedIn = Boolean(session);
-    renderPage();
-    closeModal(loginDialogBackdrop);
+    renderAuthState();
+    if (!isCurrentModalOperation(loginDialogBackdrop, operationToken)) {
+      return;
+    }
     loginForm.reset();
+    closeModal(loginDialogBackdrop, true, focusReturn);
   } catch (error) {
-    showAlert(loginError, errorMessage(error, 'Could not log in.'));
+    if (isCurrentModalOperation(loginDialogBackdrop, operationToken)) {
+      showAlert(loginError, errorMessage(error, 'Could not log in.'));
+    }
   } finally {
-    submitButton.disabled = false;
-    submitButton.textContent = idleLabel;
+    if (isCurrentModalOperation(loginDialogBackdrop, operationToken)) {
+      resetFormSubmitButton(loginForm);
+    }
   }
 }
 
@@ -534,7 +698,7 @@ async function handleLogout() {
   try {
     await signOut();
     isLoggedIn = false;
-    renderPage();
+    renderAuthState();
   } catch (error) {
     announceError(error, 'Could not log out.');
   } finally {
@@ -572,6 +736,12 @@ function configureSliderInteractions() {
     if (
       Math.abs(event.deltaY) <= Math.abs(event.deltaX)
       || isInteractiveTarget(event.target)
+      || !canConsumeHorizontalWheel({
+        scrollLeft: viewport.scrollLeft,
+        scrollWidth: viewport.scrollWidth,
+        clientWidth: viewport.clientWidth,
+        delta: event.deltaY,
+      })
     ) {
       return;
     }
@@ -590,8 +760,8 @@ function configureSliderInteractions() {
 
   viewport.addEventListener('pointerdown', (event) => {
     if (
-      event.button !== 0
-      || !event.isPrimary
+      event.pointerType !== 'mouse'
+      || !isMouseDragPointer(event)
       || isInteractiveTarget(event.target)
     ) {
       return;
@@ -631,8 +801,9 @@ function configureModalInteractions() {
   addButton.addEventListener('click', openCreateDialog);
   loginButton.addEventListener('click', () => {
     loginForm.reset();
+    resetFormSubmitButton(loginForm);
     clearAlert(loginError);
-    openModal(loginDialogBackdrop, emailInput, loginButton);
+    openModal(loginDialogBackdrop, emailInput, loginButton, { type: 'login' });
   });
   logoutButton.addEventListener('click', () => void handleLogout());
 
@@ -649,6 +820,10 @@ function configureModalInteractions() {
   });
 
   document.addEventListener('keydown', (event) => {
+    if (event.key === 'Tab' && openDialog) {
+      trapModalFocus(event);
+      return;
+    }
     if (event.key === 'Escape' && openDialog) {
       closeModal(openDialog.backdrop);
     }
@@ -678,37 +853,48 @@ function configureModalInteractions() {
   loginForm.addEventListener('submit', (event) => void handleLoginSubmit(event));
 }
 
-async function initialize() {
-  renderLoading();
+async function initializeAuth() {
+  if (!authSubscribed) {
+    onAuthStateChange((nextSession) => {
+      isLoggedIn = Boolean(nextSession);
+      renderAuthState();
+    });
+    authSubscribed = true;
+  }
+  try {
+    const session = await getSession();
+    isLoggedIn = Boolean(session);
+    renderAuthState();
+  } catch (error) {
+    renderAuthState();
+    announceError(error, 'Could not determine login status.');
+  }
+}
 
+async function loadShareLifeNotes() {
   try {
     const rows = await fetchShareLifeNotes();
     notes = rows.map(supabaseRowToShareLifeNote);
-
-    const session = await getSession();
-    isLoggedIn = Boolean(session);
-
-    likedNoteIds = readLikedNoteIds();
-
-    if (!authSubscribed) {
-      onAuthStateChange((nextSession) => {
-        isLoggedIn = Boolean(nextSession);
-        renderPage();
-      });
-      authSubscribed = true;
-    }
-
-    renderPage();
+    notesLoaded = true;
+    renderNotes();
   } catch (error) {
-    renderChrome();
+    notesLoaded = false;
     renderStats();
     renderTrackMessage(
       errorMessage(error, 'Could not load life notes.'),
-      () => void initialize(),
+      () => void loadShareLifeNotes(),
     );
   }
 }
 
+function initialize() {
+  renderLoading();
+  likedNoteIds = readLikedNoteIds();
+  renderChrome();
+  void initializeAuth();
+  void loadShareLifeNotes();
+}
+
 configureSliderInteractions();
 configureModalInteractions();
-void initialize();
+initialize();

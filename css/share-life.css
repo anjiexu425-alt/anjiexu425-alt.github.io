@@ -213,6 +213,18 @@
   transform: translateY(-6px);
 }
 
+.share-life-card__link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.share-life-card__link:focus-visible {
+  outline: 3px solid rgba(0, 47, 167, 0.35);
+  outline-offset: -4px;
+}
+
 .share-life-card__image-wrap {
   position: relative;
   width: 100%;
@@ -260,6 +272,8 @@
 }
 
 .share-life-card__likes {
+  position: relative;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;

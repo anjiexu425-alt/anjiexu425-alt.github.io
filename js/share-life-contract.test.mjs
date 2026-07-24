@@ -90,6 +90,12 @@ test('Share Life Supabase schema has its required security contract', async () =
   assert.match(sql, /greatest\(0,\s*likes_count \+ delta\)/i);
   assert.match(sql, /grant execute .* to anon,\s*authenticated/i);
   assert.match(sql, /share-life-media/i);
+  assert.match(sql, /cover_path\s+text(?:\s*,|\s*\n)/i);
+  assert.doesNotMatch(sql, /cover_path\s+text\s+not\s+null/i);
+  assert.match(
+    sql,
+    /alter table\s+public\.share_life_notes\s+alter column\s+cover_path\s+drop not null/i,
+  );
   assert.doesNotMatch(sql, /for update\s+to anon/i);
 });
 
@@ -131,7 +137,16 @@ test('Share Life production module uses safe DOM and shared data boundaries', as
     'validateNoteFields',
     'isShareLifeImageAllowed',
     'buildShareLifeUploadPath',
+    'canConsumeHorizontalWheel',
+    'createDialogOperationToken',
+    'isDialogOperationCurrent',
+    'isMouseDragPointer',
+    'mergeShareLifeNoteById',
+    'resolveCreatedCover',
     'resolveEditedCover',
+    'resolveFocusReturnTarget',
+    'resolveFocusTrapTarget',
+    'setLikedNoteId',
   ]) {
     assert.match(script, new RegExp(`\\b${name}\\b`));
   }
@@ -160,7 +175,55 @@ test('Share Life production module uses safe DOM and shared data boundaries', as
   assert.match(script, /prefers-reduced-motion:\s*reduce/);
   assert.match(script, /addEventListener\(\s*['"]wheel['"]/);
   assert.match(script, /addEventListener\(\s*['"]pointerdown['"]/);
+  assert.match(script, /event\.key\s*===\s*['"]Tab['"]/);
+  assert.match(script, /event\.pointerType\s*!==\s*['"]mouse['"]/);
   assert.doesNotMatch(script, /\.innerHTML\s*=/);
   assert.doesNotMatch(script, /\.outerHTML\s*=/);
   assert.doesNotMatch(script, /insertAdjacentHTML/);
+});
+
+test('Share Life create, modal, auth, and navigation contracts cover review races', async () => {
+  const script = await readFile(new URL('./share-life.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../css/share-life.css', import.meta.url), 'utf8');
+
+  assert.match(script, /function\s+initializeAuth\s*\(/);
+  assert.match(script, /function\s+loadShareLifeNotes\s*\(/);
+  assert.match(script, /void\s+initializeAuth\s*\(\s*\)/);
+  assert.match(script, /void\s+loadShareLifeNotes\s*\(\s*\)/);
+
+  assert.match(script, /if\s*\(\s*view\.douyinUrl\s*\)/);
+  assert.match(script, /share-life-card__link/);
+  assert.match(css, /\.share-life-card__link\s*\{[^}]*position\s*:\s*absolute[^}]*inset\s*:\s*0/is);
+  assert.match(css, /\.share-life-card__likes\s*\{[^}]*position\s*:\s*relative[^}]*z-index\s*:\s*2/is);
+
+  assert.match(script, /const\s+editingId\s*=\s*noteIdInput\.value\s*\|\|\s*null/);
+  assert.match(script, /createDialogOperationToken\(/);
+  assert.match(script, /isDialogOperationCurrent\(/);
+  assert.match(script, /resolveFocusReturnTarget\(/);
+  assert.match(script, /resolveFocusTrapTarget\(/);
+});
+
+test('Share Life delete and like handlers preserve their required operation order', async () => {
+  const script = await readFile(new URL('./share-life.js', import.meta.url), 'utf8');
+  const deleteStart = script.indexOf('async function handleDelete');
+  const likeStart = script.indexOf('async function handleLike');
+  const deleteHandler = script.slice(deleteStart, likeStart);
+  const likeEnd = script.indexOf('async function handleLoginSubmit');
+  const likeHandler = script.slice(likeStart, likeEnd);
+
+  assert.ok(deleteStart >= 0 && likeStart > deleteStart);
+  const rowDelete = deleteHandler.indexOf('await deleteShareLifeNote');
+  const localDelete = deleteHandler.indexOf('notes = notes.filter');
+  const render = deleteHandler.indexOf('renderNotes()');
+  const cleanup = deleteHandler.indexOf('await removeShareLifeCover');
+  assert.ok(rowDelete >= 0 && rowDelete < localDelete);
+  assert.ok(localDelete < render);
+  assert.ok(render < cleanup);
+  assert.match(deleteHandler, /cover could not be removed/i);
+
+  assert.match(likeHandler, /notes\.find\(\(candidate\)\s*=>\s*candidate\.id\s*===\s*noteId\)/);
+  assert.match(likeHandler, /mergeShareLifeNoteById\(/);
+  assert.match(likeHandler, /setLikedNoteId\([^;]+intent\.nextLiked/);
+  assert.doesNotMatch(likeHandler, /\bnote\.likesCount\s*=/);
+  assert.doesNotMatch(likeHandler, /toggleLikedNoteId\(/);
 });

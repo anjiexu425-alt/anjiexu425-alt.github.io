@@ -6,11 +6,14 @@ create table if not exists public.share_life_notes (
   title text not null check (char_length(title) between 1 and 160),
   douyin_url text not null,
   cover_url text not null,
-  cover_path text not null,
+  cover_path text,
   likes_count bigint not null default 0 check (likes_count >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.share_life_notes
+alter column cover_path drop not null;
 
 alter table public.share_life_notes enable row level security;
 

@@ -57,7 +57,7 @@ export function supabaseRowToShareLifeNote(row) {
   return {
     id: row.id,
     title: row.title,
-    douyinUrl: row.douyin_url,
+    douyinUrl: normalizeDouyinUrl(row.douyin_url),
     coverUrl: row.cover_url,
     coverPath: row.cover_path,
     likesCount: row.likes_count,
@@ -90,6 +90,14 @@ export function resolveEditedCover(newCover, existingCoverUrl, existingCoverPath
   };
 }
 
+export function resolveCreatedCover(uploadedCover) {
+  if (uploadedCover) return uploadedCover;
+  return {
+    coverUrl: '/assets/images/share-life-placeholder.svg',
+    coverPath: null,
+  };
+}
+
 export function sumLikeCounts(notes) {
   return notes.reduce((sum, note) => (
     sum + Math.max(0, Number.isFinite(Number(note.likesCount)) ? Number(note.likesCount) : 0)
@@ -116,13 +124,23 @@ export function toggleLikedNoteId(likedNoteIds, noteId) {
   return ids;
 }
 
+export function setLikedNoteId(likedNoteIds, noteId, nextLiked) {
+  const ids = new Set(likedNoteIds);
+  if (nextLiked) {
+    ids.add(noteId);
+  } else {
+    ids.delete(noteId);
+  }
+  return ids;
+}
+
 export function buildShareLifeCardView(note, likedNoteIds, isLoggedIn) {
   const likesCount = Number(note.likesCount);
 
   return {
     id: note.id,
     titleText: note.title,
-    douyinUrl: note.douyinUrl,
+    douyinUrl: normalizeDouyinUrl(note.douyinUrl),
     coverUrl: typeof note.coverUrl === 'string' && note.coverUrl.trim()
       ? note.coverUrl
       : '/assets/images/share-life-placeholder.svg',
@@ -142,4 +160,61 @@ export function nextLikeIntent(note, likedNoteIds) {
 
 export function resolveScrollBehavior(prefersReducedMotion) {
   return prefersReducedMotion ? 'auto' : 'smooth';
+}
+
+export function resolveFocusTrapTarget(currentIndex, focusableCount, shiftKey) {
+  if (focusableCount <= 0) return -1;
+  if (currentIndex < 0) return shiftKey ? focusableCount - 1 : 0;
+  if (shiftKey && currentIndex === 0) return focusableCount - 1;
+  if (!shiftKey && currentIndex === focusableCount - 1) return 0;
+  return -1;
+}
+
+export function resolveFocusReturnTarget({
+  openerConnected,
+  matchingEditExists,
+  addAvailable,
+  loginAvailable,
+} = {}) {
+  if (openerConnected) return 'opener';
+  if (matchingEditExists) return 'edit';
+  if (addAvailable) return 'add';
+  if (loginAvailable) return 'login';
+  return '';
+}
+
+export function createDialogOperationToken(generation, editingId) {
+  return { generation, editingId: editingId || null };
+}
+
+export function isDialogOperationCurrent(token, generation, editingId) {
+  return Boolean(
+    token
+    && token.generation === generation
+    && token.editingId === (editingId || null),
+  );
+}
+
+export function mergeShareLifeNoteById(notes, noteId, patch) {
+  const index = notes.findIndex((note) => note.id === noteId);
+  if (index === -1) return notes;
+  return notes.map((note, candidateIndex) => (
+    candidateIndex === index ? { ...note, ...patch, id: note.id } : note
+  ));
+}
+
+export function canConsumeHorizontalWheel({
+  scrollLeft,
+  scrollWidth,
+  clientWidth,
+  delta,
+} = {}) {
+  const maximumScroll = Math.max(0, Number(scrollWidth) - Number(clientWidth));
+  if (delta > 0) return Number(scrollLeft) < maximumScroll;
+  if (delta < 0) return Number(scrollLeft) > 0;
+  return false;
+}
+
+export function isMouseDragPointer({ pointerType, button, isPrimary } = {}) {
+  return pointerType === 'mouse' && button === 0 && isPrimary === true;
 }
