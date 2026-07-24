@@ -92,3 +92,30 @@ test('Share Life Supabase schema has its required security contract', async () =
   assert.match(sql, /share-life-media/i);
   assert.doesNotMatch(sql, /for update\s+to anon/i);
 });
+
+test('Share Life Supabase adapter reuses the shared client and required resources', async () => {
+  const adapter = await readFile(new URL('./share-life-supabase.js', import.meta.url), 'utf8');
+
+  assert.match(adapter, /import\s*\{\s*supabase\s*\}\s*from\s*['"]\.\/diary-supabase\.js['"]/i);
+  assert.match(adapter, /const\s+TABLE\s*=\s*['"]share_life_notes['"]/i);
+  assert.match(adapter, /\.from\(\s*TABLE\s*\)/i);
+  assert.match(adapter, /\.order\(\s*['"]created_at['"]\s*,\s*\{\s*ascending\s*:\s*true\s*\}\s*\)/i);
+  assert.match(adapter, /\.rpc\(\s*['"]adjust_share_life_like['"]/i);
+  assert.match(adapter, /const\s+BUCKET\s*=\s*['"]share-life-media['"]/i);
+  assert.match(adapter, /storage\.from\(\s*BUCKET\s*\)/i);
+
+  for (const name of [
+    'fetchShareLifeNotes',
+    'insertShareLifeNote',
+    'updateShareLifeNote',
+    'deleteShareLifeNote',
+    'adjustShareLifeLike',
+    'uploadShareLifeCover',
+    'removeShareLifeCover',
+  ]) {
+    assert.match(adapter, new RegExp(`export\\s+(?:async\\s+)?function\\s+${name}\\b`));
+  }
+
+  assert.doesNotMatch(adapter, /https:\/\/[^\s'"]+\.supabase\.co/i);
+  assert.doesNotMatch(adapter, /eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/);
+});
