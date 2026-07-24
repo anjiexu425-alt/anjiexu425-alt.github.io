@@ -1,0 +1,426 @@
+/* Toolkit page: header glow, galaxy background canvas, skills list,
+   projects grid, and shared modal/form styles. */
+
+.toolkit-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.toolkit-page {
+  padding: var(--space-5) 0 var(--space-6);
+}
+
+.toolkit-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.toolkit-header__glow {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 47, 167, 0.9), transparent 70%);
+  animation: breathe 4s ease-in-out infinite alternate;
+}
+
+.toolkit-header__title {
+  font-size: 2.4rem;
+}
+
+.toolkit-auth {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-3);
+}
+
+.toolkit-login-btn,
+.toolkit-logout-btn {
+  background: none;
+  border: none;
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.toolkit-login-btn:hover,
+.toolkit-logout-btn:hover {
+  color: var(--color-klein-blue);
+}
+
+.toolkit-divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  margin: var(--space-4) 0;
+}
+
+.toolkit-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.toolkit-section-title {
+  font-size: 1.6rem;
+}
+
+.toolkit-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.toolkit-add-btn:hover {
+  color: var(--color-klein-blue);
+}
+
+.toolkit-add-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+}
+
+.toolkit-skills {
+  display: flex;
+  flex-direction: column;
+}
+
+.skill-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  text-decoration: none;
+  color: inherit;
+  transition: background var(--transition-fast), padding var(--transition-fast);
+}
+
+.skill-row:last-child {
+  border-bottom: none;
+}
+
+.skill-row:hover {
+  background: rgba(0, 47, 167, 0.03);
+  padding-left: 12px;
+  padding-right: 12px;
+  margin: 0 -12px;
+  border-radius: var(--radius-md);
+}
+
+.skill-main {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.skill-name {
+  font-weight: 700;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.skill-desc {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.skill-row__end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.skill-tags {
+  display: flex;
+  gap: 10px;
+}
+
+.skill-tag {
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.skill-delete,
+.project-delete {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast);
+}
+
+.skill-delete:hover,
+.project-delete:hover {
+  color: #b3261e;
+}
+
+.skill-delete svg,
+.project-delete svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+}
+
+.toolkit-projects {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+.project-card {
+  position: relative;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.project-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.1);
+}
+
+.project-card__link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.project-content {
+  padding: var(--space-3);
+}
+
+.project-name {
+  font-size: 1.1rem;
+  margin-bottom: var(--space-1);
+}
+
+.project-desc {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.project-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.project-badge {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--color-klein-blue-soft);
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+  color: var(--color-klein-blue);
+}
+
+.project-delete {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  opacity: 0;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  transition: opacity var(--transition-fast);
+}
+
+.project-card:hover .project-delete {
+  opacity: 1;
+}
+
+.toolkit-empty {
+  text-align: center;
+  padding: var(--space-4) 0;
+  color: var(--color-text-muted);
+}
+
+.toolkit-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+  z-index: 100;
+}
+
+.toolkit-modal-backdrop[hidden] {
+  display: none;
+}
+
+.toolkit-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  max-width: 480px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+.toolkit-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.toolkit-modal__header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.toolkit-modal__close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.toolkit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.toolkit-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.toolkit-form__field input,
+.toolkit-form__field textarea {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.toolkit-form__field textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+.toolkit-tags-input {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: var(--color-bg);
+  min-height: 44px;
+  align-items: center;
+}
+
+.toolkit-tags-input:focus-within {
+  border-color: var(--color-klein-blue);
+}
+
+.toolkit-tag-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--color-klein-blue-soft);
+  font-size: 0.7rem;
+  color: var(--color-klein-blue);
+}
+
+.toolkit-tag-chip__remove {
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.toolkit-tag-field {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  flex: 1;
+  min-width: 80px;
+  padding: 4px;
+}
+
+.toolkit-form__error {
+  color: #b3261e;
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.toolkit-form__error[hidden] {
+  display: none;
+}
+
+.toolkit-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+@media (max-width: 768px) {
+  .toolkit-projects {
+    grid-template-columns: 1fr;
+  }
+
+  .skill-main {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .skill-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+  }
+
+  .skill-row__end {
+    align-self: flex-end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toolkit-header__glow {
+    animation: none;
+  }
+}
