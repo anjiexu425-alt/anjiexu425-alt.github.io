@@ -315,3 +315,17 @@ test('create availability requires owner readiness and no global pending create'
   assert.equal(model.canStartShareLifeCreate(true, true), false);
   assert.equal(model.canStartShareLifeCreate(false, false), false);
 });
+
+test('maps missing Share Life schema errors to setup guidance', () => {
+  const setupMessage = 'Share Life is not connected yet. Apply supabase/share-life.sql in the Supabase SQL Editor, then retry.';
+
+  assert.equal(model.shareLifeLoadErrorMessage({ code: 'PGRST205' }), setupMessage);
+  assert.equal(
+    model.shareLifeLoadErrorMessage({ message: "Could not find the table 'public.share_life_notes' in the schema cache" }),
+    setupMessage,
+  );
+  assert.equal(
+    model.shareLifeLoadErrorMessage({ message: 'Network request failed' }),
+    'Could not load Share Life notes. Please try again.',
+  );
+});

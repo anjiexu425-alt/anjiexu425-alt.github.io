@@ -259,6 +259,17 @@ export function buildShareLifeCoverCleanupFailureMessage(detail) {
     : 'Note deleted, but cover cleanup failed.';
 }
 
+export function shareLifeLoadErrorMessage(error) {
+  const errorCode = typeof error?.code === 'string' ? error.code : '';
+  const errorMessage = typeof error?.message === 'string' ? error.message : '';
+  const isMissingSchema = errorCode === 'PGRST205'
+    || /share_life_notes|schema cache/i.test(errorMessage);
+
+  return isMissingSchema
+    ? 'Share Life is not connected yet. Apply supabase/share-life.sql in the Supabase SQL Editor, then retry.'
+    : 'Could not load Share Life notes. Please try again.';
+}
+
 export function canStartShareLifeCreate(canManage, createPending) {
   return canManage === true && createPending !== true;
 }

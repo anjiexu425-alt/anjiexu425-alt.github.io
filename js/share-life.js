@@ -21,6 +21,7 @@ import {
   resolveFocusTrapTarget,
   resolveScrollBehavior,
   setLikedNoteId,
+  shareLifeLoadErrorMessage,
   shareLifeNoteToInsertRow,
   sumLikeCounts,
   supabaseRowToShareLifeNote,
@@ -1098,8 +1099,9 @@ async function loadShareLifeNotes() {
     }
     notesLoaded = false;
     renderStats();
+    console.error('Could not load Share Life notes.', error);
     renderTrackMessage(
-      errorMessage(error, 'Could not load life notes.'),
+      shareLifeLoadErrorMessage(error),
       () => void loadShareLifeNotes(),
     );
   } finally {
