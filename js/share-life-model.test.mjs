@@ -309,3 +309,9 @@ test('cover cleanup failure keeps fixed deletion semantics and technical detail'
     'Note deleted, but cover cleanup failed.',
   );
 });
+
+test('create availability requires owner readiness and no global pending create', () => {
+  assert.equal(model.canStartShareLifeCreate(true, false), true);
+  assert.equal(model.canStartShareLifeCreate(true, true), false);
+  assert.equal(model.canStartShareLifeCreate(false, false), false);
+});

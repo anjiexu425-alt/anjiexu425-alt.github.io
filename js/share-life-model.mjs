@@ -258,3 +258,7 @@ export function buildShareLifeCoverCleanupFailureMessage(detail) {
     ? `Note deleted, but cover cleanup failed: ${normalizedDetail}`
     : 'Note deleted, but cover cleanup failed.';
 }
+
+export function canStartShareLifeCreate(canManage, createPending) {
+  return canManage === true && createPending !== true;
+}

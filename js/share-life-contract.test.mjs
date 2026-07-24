@@ -297,3 +297,42 @@ test('Share Life cleanup status combines fixed meaning with technical detail', a
   assert.match(script, /status\.textContent\s*=\s*buildShareLifeCoverCleanupFailureMessage\(/);
   assert.match(script, /errorMessage\(error,\s*['"]{2}\)/);
 });
+
+test('Share Life card links disable native ghost dragging without losing navigation', async () => {
+  const script = await readFile(new URL('./share-life.js', import.meta.url), 'utf8');
+
+  assert.match(script, /link\.draggable\s*=\s*false/);
+  assert.match(
+    script,
+    /link\.addEventListener\(\s*['"]dragstart['"]\s*,\s*\(event\)\s*=>\s*event\.preventDefault\(\)\s*\)/,
+  );
+  assert.match(script, /link\.href\s*=\s*view\.douyinUrl/);
+  assert.match(script, /link\.target\s*=\s*['"]_blank['"]/);
+  assert.match(script, /link\.setAttribute\(\s*['"]aria-label['"]/);
+});
+
+test('Share Life create lock outlives modal UI generations and always releases', async () => {
+  const script = await readFile(new URL('./share-life.js', import.meta.url), 'utf8');
+
+  assert.match(script, /let\s+createPending\s*=\s*false/);
+  assert.match(script, /canStartShareLifeCreate/);
+  assert.match(script, /addButton\.disabled\s*=\s*createPending/);
+
+  const createOpenStart = script.indexOf('function openCreateDialog');
+  const editOpenStart = script.indexOf('function openEditDialog');
+  const openCreate = script.slice(createOpenStart, editOpenStart);
+  assert.match(openCreate, /canStartShareLifeCreate\(\s*canManageNotes\(\)\s*,\s*createPending\s*\)/);
+
+  const submitStart = script.indexOf('async function handleNoteSubmit');
+  const deleteStart = script.indexOf('async function handleDelete');
+  const submitHandler = script.slice(submitStart, deleteStart);
+  assert.match(submitHandler, /if\s*\(\s*!editingId\s*&&\s*!canStartShareLifeCreate/);
+  assert.match(submitHandler, /createPending\s*=\s*true/);
+  assert.match(submitHandler, /ownsCreateLock\s*=\s*true/);
+  assert.match(submitHandler, /finally\s*\{[\s\S]*?createPending\s*=\s*false/);
+
+  const finallyStart = submitHandler.indexOf('finally');
+  const tokenCheckAfterFinally = submitHandler.indexOf('isCurrentModalOperation', finallyStart);
+  const releaseAfterFinally = submitHandler.indexOf('createPending = false', finallyStart);
+  assert.ok(releaseAfterFinally >= 0 && releaseAfterFinally < tokenCheckAfterFinally);
+});

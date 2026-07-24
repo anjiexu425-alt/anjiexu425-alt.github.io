@@ -5,6 +5,7 @@ import {
   buildShareLifeUploadPath,
   canManageShareLifeNotes,
   canConsumeHorizontalWheel,
+  canStartShareLifeCreate,
   canStartShareLifeNoteMutation,
   createDialogOperationToken,
   isShareLifeImageAllowed,
@@ -96,6 +97,7 @@ let notesLoaded = false;
 let notesLoadEpoch = 0;
 let notesLoadPending = false;
 let notesMutationRevision = 0;
+let createPending = false;
 let openDialog = null;
 let previewObjectUrl = '';
 let dialogGeneration = 0;
@@ -286,6 +288,7 @@ function markNotesMutation() {
 function renderChrome() {
   const canManage = canManageNotes();
   addButton.hidden = !canManage;
+  addButton.disabled = createPending;
   loginButton.hidden = !authKnown || isLoggedIn;
   logoutButton.hidden = !authKnown || !isLoggedIn;
 }
@@ -394,6 +397,8 @@ function createCard(note) {
     link.href = view.douyinUrl;
     link.target = '_blank';
     link.rel = 'noopener';
+    link.draggable = false;
+    link.addEventListener('dragstart', (event) => event.preventDefault());
     link.setAttribute('aria-label', `Open ${view.titleText} on Douyin`);
     card.append(link);
   }
@@ -471,7 +476,7 @@ async function bestEffortRemoveCover(path) {
 }
 
 function openCreateDialog() {
-  if (!canManageNotes()) return;
+  if (!canStartShareLifeCreate(canManageNotes(), createPending)) return;
   noteForm.reset();
   resetFormSubmitButton(noteForm);
   clearAlert(noteError);
@@ -615,6 +620,13 @@ async function handleNoteSubmit(event) {
     showAlert(noteError, 'This life note already has a pending change.');
     return;
   }
+  if (!editingId && !canStartShareLifeCreate(
+    canManageNotes(),
+    createPending,
+  )) {
+    showAlert(noteError, 'A life note is already being created.');
+    return;
+  }
   const file = coverInput.files?.[0] ?? null;
   const coverError = validateSelectedCover(file);
   if (coverError) {
@@ -630,10 +642,16 @@ async function handleNoteSubmit(event) {
     ? { ...openDialog.focusReturn }
     : null;
   let ownsMutationLock = false;
+  let ownsCreateLock = false;
+  let saveSucceeded = false;
   if (editingId) {
     pendingNoteMutationIds.add(editingId);
     ownsMutationLock = true;
     renderNotes();
+  } else {
+    createPending = true;
+    ownsCreateLock = true;
+    renderChrome();
   }
   markNotesMutation();
   setFormPending(noteForm, '保存中…');
@@ -644,17 +662,7 @@ async function handleNoteSubmit(event) {
     } else {
       await createNote(validation.values, file);
     }
-
-    if (ownsMutationLock) {
-      pendingNoteMutationIds.delete(editingId);
-      ownsMutationLock = false;
-    }
-    renderNotes();
-    if (!isCurrentModalOperation(noteDialogBackdrop, operationToken, editingId)) {
-      return;
-    }
-    noteForm.reset();
-    closeModal(noteDialogBackdrop, true, focusReturn);
+    saveSucceeded = true;
   } catch (error) {
     if (isCurrentModalOperation(noteDialogBackdrop, operationToken, editingId)) {
       showAlert(noteError, errorMessage(error, 'Could not save this life note.'));
@@ -662,12 +670,24 @@ async function handleNoteSubmit(event) {
   } finally {
     if (ownsMutationLock) {
       pendingNoteMutationIds.delete(editingId);
-      renderNotes();
+      if (!saveSucceeded) renderNotes();
+    }
+    if (ownsCreateLock) {
+      createPending = false;
+      renderChrome();
     }
     if (isCurrentModalOperation(noteDialogBackdrop, operationToken, editingId)) {
       resetFormSubmitButton(noteForm);
     }
   }
+
+  if (!saveSucceeded) return;
+  renderNotes();
+  if (!isCurrentModalOperation(noteDialogBackdrop, operationToken, editingId)) {
+    return;
+  }
+  noteForm.reset();
+  closeModal(noteDialogBackdrop, true, focusReturn);
 }
 
 async function handleDelete(note, button) {
