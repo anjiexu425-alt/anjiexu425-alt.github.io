@@ -14,12 +14,45 @@ test('normalizes a valid title and http/https Douyin URL', () => {
 
 test('validates required title, length, URL, and 8 MB image size', () => {
   assert.equal(model.MAX_SHARE_LIFE_IMAGE_BYTES, 8 * 1024 * 1024);
-  assert.equal(model.validateNoteFields({ title: ' ', douyinUrl: 'https://douyin.com' }).title, 'Please enter a title.');
-  assert.equal(model.validateNoteFields({ title: 'x'.repeat(161), douyinUrl: 'https://douyin.com' }).title, 'Title must be 160 characters or fewer.');
-  assert.equal(model.validateNoteFields({ title: 'Title', douyinUrl: 'javascript:alert(1)' }).douyinUrl, 'Please enter a valid http or https link.');
+  assert.equal(model.validateNoteFields({ title: ' ', douyinUrl: 'https://douyin.com', likesCount: '0' }).title, 'Please enter a title.');
+  assert.equal(model.validateNoteFields({ title: 'x'.repeat(161), douyinUrl: 'https://douyin.com', likesCount: '0' }).title, 'Title must be 160 characters or fewer.');
+  assert.equal(model.validateNoteFields({ title: 'Title', douyinUrl: 'javascript:alert(1)', likesCount: '0' }).douyinUrl, 'Please enter a valid http or https link.');
   assert.equal(model.isShareLifeImageAllowed(8 * 1024 * 1024, 'image/jpeg'), true);
   assert.equal(model.isShareLifeImageAllowed(8 * 1024 * 1024 + 1, 'image/jpeg'), false);
   assert.equal(model.isShareLifeImageAllowed(100, 'video/mp4'), false);
+});
+
+test('normalizes editable like counts, validates them, and maps them to Supabase rows', () => {
+  assert.equal(model.normalizeEditableLikeCount('0'), 0);
+  assert.equal(model.normalizeEditableLikeCount('42'), 42);
+  assert.equal(model.normalizeEditableLikeCount(''), null);
+  assert.equal(model.normalizeEditableLikeCount('-1'), null);
+  assert.equal(model.normalizeEditableLikeCount('1.5'), null);
+  assert.equal(model.normalizeEditableLikeCount('not-a-number'), null);
+
+  const invalid = model.validateNoteFields({
+    title: 'A note',
+    douyinUrl: 'https://www.douyin.com/user/example',
+    likesCount: '-1',
+  });
+  assert.equal(invalid.isValid, false);
+  assert.equal(invalid.likesCount, 'Likes must be a whole number of 0 or more.');
+
+  assert.equal(model.shareLifeNoteToInsertRow({
+    title: 'A note',
+    douyinUrl: 'https://www.douyin.com/user/example',
+    coverUrl: '/cover.jpg',
+    coverPath: null,
+    likesCount: 12,
+  }).likes_count, 12);
+
+  assert.equal(model.buildShareLifeEditPatch({
+    title: 'A note',
+    douyinUrl: 'https://www.douyin.com/user/example',
+    coverUrl: '/cover.jpg',
+    coverPath: null,
+    likesCount: 7,
+  }).likes_count, 7);
 });
 
 test('maps rows and preserves existing cover during an edit without upload', () => {

@@ -14,15 +14,25 @@ export function normalizeDouyinUrl(value) {
   }
 }
 
-export function validateNoteFields({ title, douyinUrl } = {}) {
+export function normalizeEditableLikeCount(value) {
+  if (value === '' || value === null || value === undefined) return null;
+  const count = Number(value);
+  return Number.isFinite(count) && Number.isInteger(count) && count >= 0
+    ? count
+    : null;
+}
+
+export function validateNoteFields({ title, douyinUrl, likesCount } = {}) {
   const values = {
     title: normalizeTitle(title),
     douyinUrl: normalizeDouyinUrl(douyinUrl),
+    likesCount: normalizeEditableLikeCount(likesCount),
   };
   const errors = {
     values,
     title: '',
     douyinUrl: '',
+    likesCount: '',
     isValid: true,
   };
 
@@ -36,7 +46,11 @@ export function validateNoteFields({ title, douyinUrl } = {}) {
     errors.douyinUrl = 'Please enter a valid http or https link.';
   }
 
-  errors.isValid = !errors.title && !errors.douyinUrl;
+  if (values.likesCount === null) {
+    errors.likesCount = 'Likes must be a whole number of 0 or more.';
+  }
+
+  errors.isValid = !errors.title && !errors.douyinUrl && !errors.likesCount;
   return errors;
 }
 
@@ -72,6 +86,7 @@ export function shareLifeNoteToInsertRow(note) {
     douyin_url: note.douyinUrl,
     cover_url: note.coverUrl,
     cover_path: note.coverPath,
+    likes_count: note.likesCount,
   };
 }
 
