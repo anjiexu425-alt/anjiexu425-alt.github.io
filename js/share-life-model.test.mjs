@@ -56,3 +56,52 @@ test('sums safe like counts and toggles deduplicated local liked ids', () => {
   assert.deepEqual(model.toggleLikedNoteId(new Set(['a']), 'a'), new Set());
   assert.deepEqual(model.toggleLikedNoteId(new Set(['a']), 'b'), new Set(['a', 'b']));
 });
+
+test('card view models preserve text as data and never return HTML', () => {
+  const view = model.buildShareLifeCardView({
+    id: 'n1',
+    title: '<img src=x onerror=alert(1)>',
+    douyinUrl: 'https://douyin.com/video/1',
+    coverUrl: '/cover.jpg',
+    likesCount: 2,
+  }, new Set(['n1']), true);
+
+  assert.equal(view.titleText, '<img src=x onerror=alert(1)>');
+  assert.equal(view.isLiked, true);
+  assert.equal(view.canManage, true);
+  assert.equal('html' in view, false);
+});
+
+test('card view models clamp negative likes and select the bundled placeholder', () => {
+  const view = model.buildShareLifeCardView({
+    id: 'n1',
+    title: 'A quiet morning',
+    douyinUrl: 'https://douyin.com/video/1',
+    coverUrl: '  ',
+    likesCount: -8,
+  }, new Set(), false);
+
+  assert.equal(view.coverUrl, '/assets/images/share-life-placeholder.svg');
+  assert.equal(view.likesCount, 0);
+  assert.equal(view.isLiked, false);
+  assert.equal(view.canManage, false);
+});
+
+test('next like intent reflects the current liked set without mutating it', () => {
+  const likedIds = new Set(['liked']);
+
+  assert.deepEqual(
+    model.nextLikeIntent({ id: 'new' }, likedIds),
+    { delta: 1, nextLiked: true },
+  );
+  assert.deepEqual(
+    model.nextLikeIntent({ id: 'liked' }, likedIds),
+    { delta: -1, nextLiked: false },
+  );
+  assert.deepEqual(likedIds, new Set(['liked']));
+});
+
+test('scroll behavior respects reduced-motion preference', () => {
+  assert.equal(model.resolveScrollBehavior(true), 'auto');
+  assert.equal(model.resolveScrollBehavior(false), 'smooth');
+});

@@ -119,3 +119,48 @@ test('Share Life Supabase adapter reuses the shared client and required resource
   assert.doesNotMatch(adapter, /https:\/\/[^\s'"]+\.supabase\.co/i);
   assert.doesNotMatch(adapter, /eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/);
 });
+
+test('Share Life production module uses safe DOM and shared data boundaries', async () => {
+  const script = await readFile(new URL('./share-life.js', import.meta.url), 'utf8');
+
+  for (const name of [
+    'buildShareLifeCardView',
+    'nextLikeIntent',
+    'resolveScrollBehavior',
+    'sumLikeCounts',
+    'validateNoteFields',
+    'isShareLifeImageAllowed',
+    'buildShareLifeUploadPath',
+    'resolveEditedCover',
+  ]) {
+    assert.match(script, new RegExp(`\\b${name}\\b`));
+  }
+
+  for (const name of [
+    'fetchShareLifeNotes',
+    'insertShareLifeNote',
+    'updateShareLifeNote',
+    'deleteShareLifeNote',
+    'adjustShareLifeLike',
+    'uploadShareLifeCover',
+    'removeShareLifeCover',
+  ]) {
+    assert.match(script, new RegExp(`\\b${name}\\b`));
+  }
+
+  for (const name of ['signIn', 'signOut', 'getSession', 'onAuthStateChange']) {
+    assert.match(script, new RegExp(`\\b${name}\\b`));
+  }
+
+  assert.match(script, /document\.createElement\(/);
+  assert.match(script, /\.textContent\s*=/);
+  assert.match(script, /setAttribute\(\s*['"]aria-pressed['"]/);
+  assert.match(script, /['"]noopener['"]/);
+  assert.match(script, /shareLifeLikedNoteIds/);
+  assert.match(script, /prefers-reduced-motion:\s*reduce/);
+  assert.match(script, /addEventListener\(\s*['"]wheel['"]/);
+  assert.match(script, /addEventListener\(\s*['"]pointerdown['"]/);
+  assert.doesNotMatch(script, /\.innerHTML\s*=/);
+  assert.doesNotMatch(script, /\.outerHTML\s*=/);
+  assert.doesNotMatch(script, /insertAdjacentHTML/);
+});

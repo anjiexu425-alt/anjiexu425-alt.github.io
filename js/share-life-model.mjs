@@ -115,3 +115,31 @@ export function toggleLikedNoteId(likedNoteIds, noteId) {
   }
   return ids;
 }
+
+export function buildShareLifeCardView(note, likedNoteIds, isLoggedIn) {
+  const likesCount = Number(note.likesCount);
+
+  return {
+    id: note.id,
+    titleText: note.title,
+    douyinUrl: note.douyinUrl,
+    coverUrl: typeof note.coverUrl === 'string' && note.coverUrl.trim()
+      ? note.coverUrl
+      : '/assets/images/share-life-placeholder.svg',
+    likesCount: Number.isFinite(likesCount) ? Math.max(0, likesCount) : 0,
+    isLiked: likedNoteIds.has(note.id),
+    canManage: isLoggedIn,
+  };
+}
+
+export function nextLikeIntent(note, likedNoteIds) {
+  const nextLiked = !likedNoteIds.has(note.id);
+  return {
+    delta: nextLiked ? 1 : -1,
+    nextLiked,
+  };
+}
+
+export function resolveScrollBehavior(prefersReducedMotion) {
+  return prefersReducedMotion ? 'auto' : 'smooth';
+}
