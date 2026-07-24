@@ -110,7 +110,12 @@ function updateTagsDisplay(container, field, tags) {
   tags.forEach((tag, index) => {
     const chip = document.createElement('span');
     chip.className = 'toolkit-tag-chip';
-    chip.innerHTML = `${tag}<span class="toolkit-tag-chip__remove" data-index="${index}">×</span>`;
+    const label = document.createTextNode(tag);
+    const removeBtn = document.createElement('span');
+    removeBtn.className = 'toolkit-tag-chip__remove';
+    removeBtn.dataset.index = String(index);
+    removeBtn.textContent = '×';
+    chip.append(label, removeBtn);
     container.insertBefore(chip, field);
   });
 }
@@ -120,7 +125,7 @@ function handleTagFieldKeydown(field, tags, container) {
     if (event.key !== 'Enter') return;
     event.preventDefault();
     const value = field.value.trim();
-    if (value && !tags.includes(value)) {
+    if (value && !tags.some((existing) => existing.toLocaleLowerCase() === value.toLocaleLowerCase())) {
       tags.push(value);
       field.value = '';
       updateTagsDisplay(container, field, tags);

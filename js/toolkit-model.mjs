@@ -33,6 +33,7 @@ export function buildItemSubmission({ name, url, description, tags }) {
 
   const errors = [];
   if (!normalizedName) errors.push('Name is required.');
+  if (normalizedName.length > 160) errors.push('Name must be 160 characters or fewer.');
   if (!isValidHttpUrl(normalizedUrl)) errors.push('A valid http(s) URL is required.');
 
   if (errors.length > 0) {

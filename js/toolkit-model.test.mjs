@@ -41,6 +41,17 @@ test('buildItemSubmission rejects a missing name', () => {
   assert.equal(result.row, null);
 });
 
+test('buildItemSubmission rejects a name over 160 characters', () => {
+  const result = buildItemSubmission({
+    name: 'x'.repeat(161),
+    url: 'https://example.com',
+    description: '',
+    tags: [],
+  });
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.errors, ['Name must be 160 characters or fewer.']);
+});
+
 test('buildItemSubmission rejects an invalid URL', () => {
   const result = buildItemSubmission({
     name: 'context-snapshot',
