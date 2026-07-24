@@ -214,16 +214,86 @@ test('Share Life delete and like handlers preserve their required operation orde
   assert.ok(deleteStart >= 0 && likeStart > deleteStart);
   const rowDelete = deleteHandler.indexOf('await deleteShareLifeNote');
   const localDelete = deleteHandler.indexOf('notes = notes.filter');
-  const render = deleteHandler.indexOf('renderNotes()');
+  const render = deleteHandler.indexOf('renderNotes()', localDelete);
   const cleanup = deleteHandler.indexOf('await removeShareLifeCover');
   assert.ok(rowDelete >= 0 && rowDelete < localDelete);
   assert.ok(localDelete < render);
   assert.ok(render < cleanup);
-  assert.match(deleteHandler, /cover could not be removed/i);
+  assert.match(deleteHandler, /buildShareLifeCoverCleanupFailureMessage/);
 
   assert.match(likeHandler, /notes\.find\(\(candidate\)\s*=>\s*candidate\.id\s*===\s*noteId\)/);
   assert.match(likeHandler, /mergeShareLifeNoteById\(/);
   assert.match(likeHandler, /setLikedNoteId\([^;]+intent\.nextLiked/);
   assert.doesNotMatch(likeHandler, /\bnote\.likesCount\s*=/);
   assert.doesNotMatch(likeHandler, /toggleLikedNoteId\(/);
+});
+
+test('Share Life card surface keeps wheel and threshold drag available', async () => {
+  const script = await readFile(new URL('./share-life.js', import.meta.url), 'utf8');
+
+  assert.match(script, /function\s+isSliderControlTarget\s*\(/);
+  assert.match(script, /closest\(\s*['"]\.share-life-card__link['"]\s*\)/);
+  assert.match(script, /suppressNextCardLinkClick/);
+  assert.match(script, /addEventListener\(\s*['"]click['"][\s\S]*?preventDefault\(\)[\s\S]*?stopPropagation\(\)/);
+  assert.match(script, /Math\.abs\(distance\)\s*>\s*4/);
+
+  const wheelStart = script.indexOf("viewport.addEventListener('wheel'");
+  const pointerStart = script.indexOf("viewport.addEventListener('pointerdown'");
+  const wheelHandler = script.slice(wheelStart, pointerStart);
+  assert.match(wheelHandler, /isSliderControlTarget\(event\.target\)/);
+  assert.doesNotMatch(wheelHandler, /isInteractiveTarget\(event\.target\)/);
+});
+
+test('Share Life load epochs, readiness, and note mutation locks guard owner writes', async () => {
+  const script = await readFile(new URL('./share-life.js', import.meta.url), 'utf8');
+
+  for (const name of [
+    'authKnown',
+    'notesLoadEpoch',
+    'notesLoadPending',
+    'notesMutationRevision',
+    'pendingNoteMutationIds',
+    'canManageShareLifeNotes',
+    'isFreshShareLifeNotesLoad',
+    'canStartShareLifeNoteMutation',
+  ]) {
+    assert.match(script, new RegExp(`\\b${name}\\b`));
+  }
+
+  assert.match(script, /if\s*\(\s*notesLoadPending\s*\)\s*return/);
+  assert.match(script, /const\s+mutationRevisionAtStart\s*=\s*notesMutationRevision/);
+  assert.match(script, /loadEpoch\s*:\s*loadEpoch/);
+  assert.match(script, /currentLoadEpoch\s*:\s*notesLoadEpoch/);
+  assert.match(script, /mutationRevisionAtStart\s*:\s*mutationRevisionAtStart/);
+  assert.match(script, /currentMutationRevision\s*:\s*notesMutationRevision/);
+  assert.match(script, /retryButton\.disabled\s*=\s*true/);
+
+  const renderChromeStart = script.indexOf('function renderChrome');
+  const renderMessageStart = script.indexOf('function renderTrackMessage');
+  const renderChrome = script.slice(renderChromeStart, renderMessageStart);
+  assert.match(renderChrome, /authKnown/);
+  assert.match(renderChrome, /canManageNotes/);
+
+  const editStart = script.indexOf('async function editNote');
+  const submitStart = script.indexOf('async function handleNoteSubmit');
+  const submitEnd = script.indexOf('async function handleDelete');
+  const submitHandler = script.slice(submitStart, submitEnd);
+  const editFunction = script.slice(editStart, submitStart);
+  assert.match(submitHandler, /pendingNoteMutationIds\.add\(editingId\)/);
+  assert.match(submitHandler, /pendingNoteMutationIds\.delete\(editingId\)/);
+  assert.match(editFunction, /mergeShareLifeNoteById/);
+
+  const deleteEnd = script.indexOf('async function handleLike');
+  const deleteHandler = script.slice(submitEnd, deleteEnd);
+  assert.match(deleteHandler, /canStartShareLifeNoteMutation/);
+  assert.match(deleteHandler, /pendingNoteMutationIds\.add\(/);
+  assert.match(deleteHandler, /pendingNoteMutationIds\.delete\(/);
+});
+
+test('Share Life cleanup status combines fixed meaning with technical detail', async () => {
+  const script = await readFile(new URL('./share-life.js', import.meta.url), 'utf8');
+
+  assert.match(script, /buildShareLifeCoverCleanupFailureMessage/);
+  assert.match(script, /status\.textContent\s*=\s*buildShareLifeCoverCleanupFailureMessage\(/);
+  assert.match(script, /errorMessage\(error,\s*['"]{2}\)/);
 });

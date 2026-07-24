@@ -255,3 +255,57 @@ test('wheel consumption is directional and pointer dragging is mouse-only', () =
   assert.equal(model.isMouseDragPointer({ pointerType: 'pen', button: 0, isPrimary: true }), false);
   assert.equal(model.isMouseDragPointer({ pointerType: 'mouse', button: 1, isPrimary: true }), false);
 });
+
+test('owner mutations require known auth and loaded, idle notes', () => {
+  const ready = {
+    authKnown: true,
+    isLoggedIn: true,
+    notesKnown: true,
+    notesLoadPending: false,
+  };
+
+  assert.equal(model.canManageShareLifeNotes(ready), true);
+  assert.equal(model.canManageShareLifeNotes({ ...ready, authKnown: false }), false);
+  assert.equal(model.canManageShareLifeNotes({ ...ready, isLoggedIn: false }), false);
+  assert.equal(model.canManageShareLifeNotes({ ...ready, notesKnown: false }), false);
+  assert.equal(model.canManageShareLifeNotes({ ...ready, notesLoadPending: true }), false);
+});
+
+test('notes load results are fresh only for the same epoch and mutation revision', () => {
+  const fresh = {
+    loadEpoch: 4,
+    currentLoadEpoch: 4,
+    mutationRevisionAtStart: 9,
+    currentMutationRevision: 9,
+  };
+
+  assert.equal(model.isFreshShareLifeNotesLoad(fresh), true);
+  assert.equal(model.isFreshShareLifeNotesLoad({
+    ...fresh,
+    currentLoadEpoch: 5,
+  }), false);
+  assert.equal(model.isFreshShareLifeNotesLoad({
+    ...fresh,
+    currentMutationRevision: 10,
+  }), false);
+});
+
+test('per-note mutation availability survives independently of dialog state', () => {
+  const pendingIds = new Set(['busy']);
+
+  assert.equal(model.canStartShareLifeNoteMutation('free', pendingIds, true), true);
+  assert.equal(model.canStartShareLifeNoteMutation('busy', pendingIds, true), false);
+  assert.equal(model.canStartShareLifeNoteMutation('free', pendingIds, false), false);
+  assert.equal(model.canStartShareLifeNoteMutation('', pendingIds, true), false);
+});
+
+test('cover cleanup failure keeps fixed deletion semantics and technical detail', () => {
+  assert.equal(
+    model.buildShareLifeCoverCleanupFailureMessage('storage timeout'),
+    'Note deleted, but cover cleanup failed: storage timeout',
+  );
+  assert.equal(
+    model.buildShareLifeCoverCleanupFailureMessage(''),
+    'Note deleted, but cover cleanup failed.',
+  );
+});

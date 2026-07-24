@@ -218,3 +218,43 @@ export function canConsumeHorizontalWheel({
 export function isMouseDragPointer({ pointerType, button, isPrimary } = {}) {
   return pointerType === 'mouse' && button === 0 && isPrimary === true;
 }
+
+export function canManageShareLifeNotes({
+  authKnown,
+  isLoggedIn,
+  notesKnown,
+  notesLoadPending,
+} = {}) {
+  return authKnown === true
+    && isLoggedIn === true
+    && notesKnown === true
+    && notesLoadPending !== true;
+}
+
+export function isFreshShareLifeNotesLoad({
+  loadEpoch,
+  currentLoadEpoch,
+  mutationRevisionAtStart,
+  currentMutationRevision,
+} = {}) {
+  return loadEpoch === currentLoadEpoch
+    && mutationRevisionAtStart === currentMutationRevision;
+}
+
+export function canStartShareLifeNoteMutation(
+  noteId,
+  pendingNoteMutationIds,
+  canManage,
+) {
+  return canManage === true
+    && typeof noteId === 'string'
+    && noteId.length > 0
+    && !pendingNoteMutationIds.has(noteId);
+}
+
+export function buildShareLifeCoverCleanupFailureMessage(detail) {
+  const normalizedDetail = typeof detail === 'string' ? detail.trim() : '';
+  return normalizedDetail
+    ? `Note deleted, but cover cleanup failed: ${normalizedDetail}`
+    : 'Note deleted, but cover cleanup failed.';
+}

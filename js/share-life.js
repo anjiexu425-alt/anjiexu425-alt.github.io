@@ -1,11 +1,15 @@
 import {
   buildShareLifeCardView,
+  buildShareLifeCoverCleanupFailureMessage,
   buildShareLifeEditPatch,
   buildShareLifeUploadPath,
+  canManageShareLifeNotes,
   canConsumeHorizontalWheel,
+  canStartShareLifeNoteMutation,
   createDialogOperationToken,
   isShareLifeImageAllowed,
   isDialogOperationCurrent,
+  isFreshShareLifeNotesLoad,
   isMouseDragPointer,
   mergeShareLifeNoteById,
   nextLikeIntent,
@@ -39,7 +43,7 @@ import {
 
 const PLACEHOLDER_URL = '/assets/images/share-life-placeholder.svg';
 const LIKED_NOTE_IDS_KEY = 'shareLifeLikedNoteIds';
-const INTERACTIVE_SELECTOR = 'a, button, input, textarea, select, label';
+const SLIDER_CONTROL_SELECTOR = 'button, input, textarea, select, label';
 const FOCUSABLE_SELECTOR = [
   'a[href]',
   'button:not([disabled])',
@@ -86,12 +90,17 @@ const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
 let notes = [];
 let likedNoteIds = new Set();
 let isLoggedIn = false;
+let authKnown = false;
 let authSubscribed = false;
 let notesLoaded = false;
+let notesLoadEpoch = 0;
+let notesLoadPending = false;
+let notesMutationRevision = 0;
 let openDialog = null;
 let previewObjectUrl = '';
 let dialogGeneration = 0;
 const pendingLikeIds = new Set();
+const pendingNoteMutationIds = new Set();
 
 function createSvgIcon(pathData) {
   const svg = document.createElementNS(SVG_NAMESPACE, 'svg');
@@ -118,7 +127,9 @@ function showAlert(element, message) {
 }
 
 function errorMessage(error, fallback) {
-  return error instanceof Error && error.message ? error.message : fallback;
+  return typeof error?.message === 'string' && error.message
+    ? error.message
+    : fallback;
 }
 
 function announceError(error, fallback) {
@@ -167,7 +178,8 @@ function restoreModalFocus(opener, focusReturn = null) {
       && opener.isConnected
       && !opener.hidden
       && !opener.disabled,
-    matchingEditExists: replacementEdit instanceof HTMLElement,
+    matchingEditExists: replacementEdit instanceof HTMLElement
+      && !replacementEdit.disabled,
     addAvailable: !addButton.hidden && !addButton.disabled,
     loginAvailable: !loginButton.hidden && !loginButton.disabled,
   });
@@ -254,10 +266,28 @@ function renderStats() {
   likesCount.textContent = String(sumLikeCounts(notes));
 }
 
+function canManageNotes() {
+  return canManageShareLifeNotes({
+    authKnown,
+    isLoggedIn,
+    notesKnown: notesLoaded,
+    notesLoadPending,
+  });
+}
+
+function markNotesMutation() {
+  notesMutationRevision += 1;
+  if (notesLoadPending) {
+    notesLoadEpoch += 1;
+    notesLoadPending = false;
+  }
+}
+
 function renderChrome() {
-  addButton.hidden = !isLoggedIn;
-  loginButton.hidden = isLoggedIn;
-  logoutButton.hidden = !isLoggedIn;
+  const canManage = canManageNotes();
+  addButton.hidden = !canManage;
+  loginButton.hidden = !authKnown || isLoggedIn;
+  logoutButton.hidden = !authKnown || !isLoggedIn;
 }
 
 function renderTrackMessage(message, retryHandler = null) {
@@ -271,7 +301,10 @@ function renderTrackMessage(message, retryHandler = null) {
     retryButton.className = 'share-life-button';
     retryButton.type = 'button';
     retryButton.textContent = 'Retry';
-    retryButton.addEventListener('click', retryHandler);
+    retryButton.addEventListener('click', () => {
+      retryButton.disabled = true;
+      retryHandler();
+    });
     track.append(retryButton);
   }
 
@@ -320,7 +353,7 @@ function createLikeButton(noteId, view) {
 }
 
 function createCard(note) {
-  const view = buildShareLifeCardView(note, likedNoteIds, isLoggedIn);
+  const view = buildShareLifeCardView(note, likedNoteIds, canManageNotes());
   const card = document.createElement('article');
   card.className = 'share-life-card';
   card.dataset.noteId = note.id;
@@ -374,6 +407,7 @@ function createCard(note) {
     );
     editButton.dataset.shareLifeAction = 'edit';
     editButton.dataset.noteId = note.id;
+    editButton.disabled = pendingNoteMutationIds.has(note.id);
     const deleteButton = createManageButton(
       'share-life-card__manage--delete',
       `Delete ${view.titleText}`,
@@ -382,6 +416,7 @@ function createCard(note) {
     );
     deleteButton.dataset.shareLifeAction = 'delete';
     deleteButton.dataset.noteId = note.id;
+    deleteButton.disabled = pendingNoteMutationIds.has(note.id);
     card.append(editButton, deleteButton);
   }
 
@@ -436,6 +471,7 @@ async function bestEffortRemoveCover(path) {
 }
 
 function openCreateDialog() {
+  if (!canManageNotes()) return;
   noteForm.reset();
   resetFormSubmitButton(noteForm);
   clearAlert(noteError);
@@ -446,17 +482,26 @@ function openCreateDialog() {
 }
 
 function openEditDialog(note, opener) {
+  if (!canStartShareLifeNoteMutation(
+    note.id,
+    pendingNoteMutationIds,
+    canManageNotes(),
+  )) {
+    return;
+  }
+  const currentNote = notes.find((candidate) => candidate.id === note.id);
+  if (!currentNote) return;
   noteForm.reset();
   resetFormSubmitButton(noteForm);
   clearAlert(noteError);
-  noteIdInput.value = note.id;
-  titleInput.value = note.title;
-  douyinUrlInput.value = note.douyinUrl;
+  noteIdInput.value = currentNote.id;
+  titleInput.value = currentNote.title;
+  douyinUrlInput.value = currentNote.douyinUrl;
   noteDialogTitle.textContent = '编辑笔记';
-  setPreview(note.coverUrl || PLACEHOLDER_URL, note.title);
+  setPreview(currentNote.coverUrl || PLACEHOLDER_URL, currentNote.title);
   openModal(noteDialogBackdrop, titleInput, opener, {
     type: 'edit',
-    noteId: note.id,
+    noteId: currentNote.id,
   });
 }
 
@@ -489,6 +534,7 @@ async function createNote(values, file) {
     throw error;
   }
 
+  markNotesMutation();
   notes.push(supabaseRowToShareLifeNote(row));
 }
 
@@ -531,6 +577,7 @@ async function editNote(existingNoteId, values, file) {
     likesCount: _staleLikesCount,
     ...editPatch
   } = updatedNote;
+  markNotesMutation();
   notes = mergeShareLifeNoteById(notes, existingNoteId, editPatch);
 }
 
@@ -538,8 +585,8 @@ async function handleNoteSubmit(event) {
   event.preventDefault();
   clearAlert(noteError);
 
-  if (!isLoggedIn) {
-    showAlert(noteError, 'Please log in to manage life notes.');
+  if (!canManageNotes()) {
+    showAlert(noteError, 'Life notes are not ready for changes.');
     return;
   }
 
@@ -560,6 +607,14 @@ async function handleNoteSubmit(event) {
     showAlert(noteError, 'This life note no longer exists.');
     return;
   }
+  if (editingId && !canStartShareLifeNoteMutation(
+    editingId,
+    pendingNoteMutationIds,
+    canManageNotes(),
+  )) {
+    showAlert(noteError, 'This life note already has a pending change.');
+    return;
+  }
   const file = coverInput.files?.[0] ?? null;
   const coverError = validateSelectedCover(file);
   if (coverError) {
@@ -574,6 +629,13 @@ async function handleNoteSubmit(event) {
   const focusReturn = openDialog?.focusReturn
     ? { ...openDialog.focusReturn }
     : null;
+  let ownsMutationLock = false;
+  if (editingId) {
+    pendingNoteMutationIds.add(editingId);
+    ownsMutationLock = true;
+    renderNotes();
+  }
+  markNotesMutation();
   setFormPending(noteForm, '保存中…');
 
   try {
@@ -583,6 +645,10 @@ async function handleNoteSubmit(event) {
       await createNote(validation.values, file);
     }
 
+    if (ownsMutationLock) {
+      pendingNoteMutationIds.delete(editingId);
+      ownsMutationLock = false;
+    }
     renderNotes();
     if (!isCurrentModalOperation(noteDialogBackdrop, operationToken, editingId)) {
       return;
@@ -594,6 +660,10 @@ async function handleNoteSubmit(event) {
       showAlert(noteError, errorMessage(error, 'Could not save this life note.'));
     }
   } finally {
+    if (ownsMutationLock) {
+      pendingNoteMutationIds.delete(editingId);
+      renderNotes();
+    }
     if (isCurrentModalOperation(noteDialogBackdrop, operationToken, editingId)) {
       resetFormSubmitButton(noteForm);
     }
@@ -601,27 +671,45 @@ async function handleNoteSubmit(event) {
 }
 
 async function handleDelete(note, button) {
-  if (!isLoggedIn || !window.confirm(`Delete “${note.title}”?`)) return;
+  if (!canStartShareLifeNoteMutation(
+    note.id,
+    pendingNoteMutationIds,
+    canManageNotes(),
+  )) {
+    return;
+  }
+  const currentNote = notes.find((candidate) => candidate.id === note.id);
+  if (!currentNote || !window.confirm(`Delete “${currentNote.title}”?`)) return;
 
+  pendingNoteMutationIds.add(currentNote.id);
+  markNotesMutation();
   button.disabled = true;
+  renderNotes();
+  let ownsMutationLock = true;
   try {
-    await deleteShareLifeNote(note.id);
-    notes = notes.filter((candidate) => candidate.id !== note.id);
-    likedNoteIds = setLikedNoteId(likedNoteIds, note.id, false);
+    await deleteShareLifeNote(currentNote.id);
+    markNotesMutation();
+    notes = notes.filter((candidate) => candidate.id !== currentNote.id);
+    likedNoteIds = setLikedNoteId(likedNoteIds, currentNote.id, false);
     persistLikedNoteIds();
     renderNotes();
 
     try {
-      await removeShareLifeCover(note.coverPath);
+      await removeShareLifeCover(currentNote.coverPath);
     } catch (error) {
-      announceError(
-        error,
-        'Life note deleted, but its cover could not be removed.',
+      status.textContent = buildShareLifeCoverCleanupFailureMessage(
+        errorMessage(error, ''),
       );
     }
   } catch (error) {
+    pendingNoteMutationIds.delete(currentNote.id);
+    ownsMutationLock = false;
+    renderNotes();
     announceError(error, 'Could not delete this life note.');
   } finally {
+    if (ownsMutationLock) {
+      pendingNoteMutationIds.delete(currentNote.id);
+    }
     button.disabled = false;
   }
 }
@@ -640,6 +728,7 @@ async function handleLike(noteId, button) {
     const nextCount = await adjustShareLifeLike(noteId, intent.delta);
     const currentNote = notes.find((candidate) => candidate.id === noteId);
     if (!currentNote) return;
+    markNotesMutation();
     notes = mergeShareLifeNoteById(notes, noteId, {
       likesCount: Math.max(0, Number.isFinite(nextCount) ? nextCount : 0),
     });
@@ -660,6 +749,10 @@ async function handleLike(noteId, button) {
 async function handleLoginSubmit(event) {
   event.preventDefault();
   clearAlert(loginError);
+  if (!authKnown) {
+    showAlert(loginError, 'Login status is still loading.');
+    return;
+  }
 
   const operationToken = createDialogOperationToken(
     openDialog?.generation,
@@ -673,6 +766,7 @@ async function handleLoginSubmit(event) {
   try {
     const session = await signIn(emailInput.value, passwordInput.value);
     isLoggedIn = Boolean(session);
+    authKnown = true;
     renderAuthState();
     if (!isCurrentModalOperation(loginDialogBackdrop, operationToken)) {
       return;
@@ -691,6 +785,7 @@ async function handleLoginSubmit(event) {
 }
 
 async function handleLogout() {
+  if (!authKnown || !isLoggedIn) return;
   const idleLabel = logoutButton.textContent;
   logoutButton.disabled = true;
   logoutButton.textContent = 'Logging Out…';
@@ -698,6 +793,7 @@ async function handleLogout() {
   try {
     await signOut();
     isLoggedIn = false;
+    authKnown = true;
     renderAuthState();
   } catch (error) {
     announceError(error, 'Could not log out.');
@@ -723,8 +819,9 @@ function scrollCards(direction) {
   });
 }
 
-function isInteractiveTarget(target) {
-  return target instanceof Element && Boolean(target.closest(INTERACTIVE_SELECTOR));
+function isSliderControlTarget(target) {
+  return target instanceof Element
+    && Boolean(target.closest(SLIDER_CONTROL_SELECTOR));
 }
 
 function configureSliderInteractions() {
@@ -735,7 +832,7 @@ function configureSliderInteractions() {
   viewport.addEventListener('wheel', (event) => {
     if (
       Math.abs(event.deltaY) <= Math.abs(event.deltaX)
-      || isInteractiveTarget(event.target)
+      || isSliderControlTarget(event.target)
       || !canConsumeHorizontalWheel({
         scrollLeft: viewport.scrollLeft,
         scrollWidth: viewport.scrollWidth,
@@ -757,12 +854,14 @@ function configureSliderInteractions() {
   let pointerStartX = 0;
   let scrollStart = 0;
   let isDragging = false;
+  let pointerStartedOnCardLink = false;
+  let suppressNextCardLinkClick = false;
 
   viewport.addEventListener('pointerdown', (event) => {
     if (
       event.pointerType !== 'mouse'
       || !isMouseDragPointer(event)
-      || isInteractiveTarget(event.target)
+      || isSliderControlTarget(event.target)
     ) {
       return;
     }
@@ -771,13 +870,17 @@ function configureSliderInteractions() {
     pointerStartX = event.clientX;
     scrollStart = viewport.scrollLeft;
     isDragging = false;
-    viewport.setPointerCapture(event.pointerId);
+    pointerStartedOnCardLink = event.target instanceof Element
+      && Boolean(event.target.closest('.share-life-card__link'));
   });
 
   viewport.addEventListener('pointermove', (event) => {
     if (event.pointerId !== activePointerId) return;
     const distance = event.clientX - pointerStartX;
-    if (Math.abs(distance) > 4) isDragging = true;
+    if (Math.abs(distance) > 4 && !isDragging) {
+      isDragging = true;
+      viewport.setPointerCapture(event.pointerId);
+    }
     if (!isDragging) return;
 
     event.preventDefault();
@@ -786,12 +889,33 @@ function configureSliderInteractions() {
 
   const endDrag = (event) => {
     if (event.pointerId !== activePointerId) return;
+    const shouldSuppressLink = isDragging && pointerStartedOnCardLink;
     if (viewport.hasPointerCapture(event.pointerId)) {
       viewport.releasePointerCapture(event.pointerId);
     }
     activePointerId = null;
     isDragging = false;
+    pointerStartedOnCardLink = false;
+    if (shouldSuppressLink) {
+      suppressNextCardLinkClick = true;
+      window.setTimeout(() => {
+        suppressNextCardLinkClick = false;
+      }, 0);
+    }
   };
+
+  viewport.addEventListener('click', (event) => {
+    if (
+      !suppressNextCardLinkClick
+      || !(event.target instanceof Element)
+      || !event.target.closest('.share-life-card__link')
+    ) {
+      return;
+    }
+    suppressNextCardLinkClick = false;
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
 
   viewport.addEventListener('pointerup', endDrag);
   viewport.addEventListener('pointercancel', endDrag);
@@ -857,6 +981,7 @@ async function initializeAuth() {
   if (!authSubscribed) {
     onAuthStateChange((nextSession) => {
       isLoggedIn = Boolean(nextSession);
+      authKnown = true;
       renderAuthState();
     });
     authSubscribed = true;
@@ -864,6 +989,7 @@ async function initializeAuth() {
   try {
     const session = await getSession();
     isLoggedIn = Boolean(session);
+    authKnown = true;
     renderAuthState();
   } catch (error) {
     renderAuthState();
@@ -872,18 +998,45 @@ async function initializeAuth() {
 }
 
 async function loadShareLifeNotes() {
+  if (notesLoadPending) return;
+  notesLoadPending = true;
+  const loadEpoch = ++notesLoadEpoch;
+  const mutationRevisionAtStart = notesMutationRevision;
+  renderAuthState();
+
   try {
     const rows = await fetchShareLifeNotes();
+    if (!isFreshShareLifeNotesLoad({
+      loadEpoch: loadEpoch,
+      currentLoadEpoch: notesLoadEpoch,
+      mutationRevisionAtStart: mutationRevisionAtStart,
+      currentMutationRevision: notesMutationRevision,
+    })) {
+      return;
+    }
     notes = rows.map(supabaseRowToShareLifeNote);
     notesLoaded = true;
     renderNotes();
   } catch (error) {
+    if (!isFreshShareLifeNotesLoad({
+      loadEpoch: loadEpoch,
+      currentLoadEpoch: notesLoadEpoch,
+      mutationRevisionAtStart: mutationRevisionAtStart,
+      currentMutationRevision: notesMutationRevision,
+    })) {
+      return;
+    }
     notesLoaded = false;
     renderStats();
     renderTrackMessage(
       errorMessage(error, 'Could not load life notes.'),
       () => void loadShareLifeNotes(),
     );
+  } finally {
+    if (loadEpoch === notesLoadEpoch) {
+      notesLoadPending = false;
+      renderAuthState();
+    }
   }
 }
 
