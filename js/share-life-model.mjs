@@ -263,7 +263,10 @@ export function shareLifeLoadErrorMessage(error) {
   const errorCode = typeof error?.code === 'string' ? error.code : '';
   const errorMessage = typeof error?.message === 'string' ? error.message : '';
   const isMissingSchema = errorCode === 'PGRST205'
-    || /share_life_notes|schema cache/i.test(errorMessage);
+    || (
+      /share_life_notes/i.test(errorMessage)
+      && /schema cache|could not find|does not exist/i.test(errorMessage)
+    );
 
   return isMissingSchema
     ? 'Share Life is not connected yet. Apply supabase/share-life.sql in the Supabase SQL Editor, then retry.'

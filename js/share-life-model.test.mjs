@@ -329,3 +329,12 @@ test('maps missing Share Life schema errors to setup guidance', () => {
     'Could not load Share Life notes. Please try again.',
   );
 });
+
+test('keeps Share Life permission errors on the generic load message', () => {
+  assert.equal(
+    model.shareLifeLoadErrorMessage({
+      message: 'permission denied for table share_life_notes',
+    }),
+    'Could not load Share Life notes. Please try again.',
+  );
+});
