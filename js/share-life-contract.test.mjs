@@ -2,6 +2,35 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+test('Share Life local acceptance fixture is deterministic and isolated from Supabase', async () => {
+  const html = await readFile(new URL('../share-life-fixture.html', import.meta.url), 'utf8');
+  const script = await readFile(new URL('./share-life-fixture.js', import.meta.url), 'utf8');
+
+  assert.match(html, /<link\b[^>]*rel="stylesheet"[^>]*href="css\/share-life\.css"/i);
+  assert.match(
+    html,
+    /<script\b[^>]*type="module"[^>]*src="js\/share-life-fixture\.js"[^>]*><\/script>/i,
+  );
+  assert.match(html, />\s*Local acceptance fixture\s*</i);
+  assert.match(html, /\bid="shareLifeFixtureAuthToggle"/i);
+
+  assert.match(script, /from\s+['"]\.\/share-life-model\.mjs['"]/);
+  assert.match(script, /const\s+FIXTURE_NOTES\s*=\s*Object\.freeze\(\s*\[/);
+  assert.ok(
+    (script.match(/\bid:\s*['"]fixture-note-\d+['"]/g) ?? []).length >= 3,
+    'fixture should seed at least three in-memory notes',
+  );
+  assert.match(script, /<img src=x onerror='alert\(1\)'> Fixture safety title/);
+  assert.match(script, /title\.textContent\s*=\s*view\.titleText/);
+  assert.doesNotMatch(script, /\.innerHTML\s*=/);
+  assert.doesNotMatch(script, /\blocalStorage\b/);
+  assert.doesNotMatch(script, /shareLifeLikedNoteIds/);
+
+  const fixtureSource = `${html}\n${script}`;
+  assert.doesNotMatch(fixtureSource, /supabase(?:\.co|-js|\/supabase)|diary-supabase|share-life-supabase/i);
+  assert.doesNotMatch(fixtureSource, /\.from\(\s*['"]share_life_notes['"]\s*\)/i);
+});
+
 test('Share Life page exposes its semantic and accessibility contract', async () => {
   const html = await readFile(new URL('../share-life.html', import.meta.url), 'utf8');
 
