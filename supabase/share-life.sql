@@ -7,7 +7,7 @@ create table if not exists public.share_life_notes (
   douyin_url text not null,
   cover_url text not null,
   cover_path text,
-  likes_count bigint not null default 0 check (likes_count >= 0),
+  likes_count bigint not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -26,6 +26,22 @@ drop constraint if exists share_life_notes_title_length_check;
 alter table public.share_life_notes
 add constraint share_life_notes_title_length_check
 check (char_length(btrim(title)) between 1 and 160);
+
+-- Upgrade the original generated lower-bound constraint to one stable,
+-- rerunnable domain constraint. Clamp legacy rows before enforcing the cap.
+alter table public.share_life_notes
+drop constraint if exists share_life_notes_likes_count_check;
+
+alter table public.share_life_notes
+drop constraint if exists share_life_notes_likes_count_range_check;
+
+update public.share_life_notes
+set likes_count = 999999999
+where likes_count > 999999999;
+
+alter table public.share_life_notes
+add constraint share_life_notes_likes_count_range_check
+check (likes_count between 0 and 999999999);
 
 create or replace function public.set_share_life_updated_at()
 returns trigger
@@ -93,7 +109,7 @@ begin
   end if;
 
   update public.share_life_notes
-  set likes_count = greatest(0, likes_count + delta)
+  set likes_count = least(999999999, greatest(0, likes_count + delta))
   where id = note_id
   returning likes_count into new_count;
 

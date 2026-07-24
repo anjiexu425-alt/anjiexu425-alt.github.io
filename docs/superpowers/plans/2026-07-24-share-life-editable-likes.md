@@ -261,3 +261,27 @@ If browser acceptance required no correction, do not create an empty commit. Oth
 git add share-life.html js/share-life.js js/share-life-model.mjs js/share-life-model.test.mjs js/share-life-contract.test.mjs
 git commit -m "fix: complete editable likes acceptance"
 ```
+
+---
+
+## Approved final invariant amendment — 2026-07-24
+
+This addendum records the user-approved database-domain expansion without
+rewriting the original implementation plan. It supersedes the earlier
+assumptions that no schema change was required and that the existing public RPC
+would remain textually unchanged.
+
+- Use one per-note domain, `0..999999999`, in the exported client maximum,
+  editable and persisted normalization, validation copy, both HTML inputs, the
+  fixture, the SQL CHECK constraint, and the public RPC saturation bound.
+- Before adding the named range constraint, rerunnable SQL clamps any existing
+  `likes_count > 999999999` row to `999999999`.
+- Preserve the RPC signature, `-1`/`1` validation, atomic update, security
+  definer configuration, search path, revoke, and anon/authenticated grants.
+- Implement the atomic update as
+  `least(999999999, greatest(0, likes_count + delta))`.
+- Sum per-note counts with `BigInt` and expose an exact aggregate suitable for
+  conversion directly to DOM text, without an intermediate unsafe `Number`.
+- Verify exact max acceptance, max-plus-one rejection, max-plus-one public-like
+  saturation, legacy-row clamp ordering, named SQL range enforcement, fixture
+  parity, and aggregate precision beyond `Number.MAX_SAFE_INTEGER`.

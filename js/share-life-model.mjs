@@ -1,5 +1,5 @@
 export const MAX_SHARE_LIFE_IMAGE_BYTES = 8 * 1024 * 1024;
-export const MAX_SHARE_LIFE_LIKE_COUNT = Number.MAX_SAFE_INTEGER;
+export const MAX_SHARE_LIFE_LIKE_COUNT = 999_999_999;
 
 export function normalizeTitle(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -24,7 +24,9 @@ export function normalizeEditableLikeCount(value) {
   } else {
     return null;
   }
-  return Number.isSafeInteger(count) && count >= 0
+  return Number.isSafeInteger(count)
+    && count >= 0
+    && count <= MAX_SHARE_LIFE_LIKE_COUNT
     ? count
     : null;
 }
@@ -58,7 +60,7 @@ export function validateNoteFields({ title, douyinUrl, likesCount } = {}) {
   }
 
   if (values.likesCount === null) {
-    errors.likesCount = 'Likes must be a whole number between 0 and 9,007,199,254,740,991.';
+    errors.likesCount = 'Likes must be a whole number between 0 and 999,999,999.';
   }
 
   errors.isValid = !errors.title && !errors.douyinUrl && !errors.likesCount;
@@ -125,9 +127,18 @@ export function resolveCreatedCover(uploadedCover) {
 }
 
 export function sumLikeCounts(notes) {
-  return notes.reduce((sum, note) => (
-    sum + normalizePersistedLikeCount(note.likesCount)
-  ), 0);
+  let sum = 0n;
+  for (const note of notes) {
+    sum += BigInt(normalizePersistedLikeCount(note.likesCount));
+  }
+  return sum;
+}
+
+export function applyShareLifeLikeDelta(likesCount, delta) {
+  const count = normalizePersistedLikeCount(likesCount);
+  if (delta === 1) return Math.min(MAX_SHARE_LIFE_LIKE_COUNT, count + 1);
+  if (delta === -1) return Math.max(0, count - 1);
+  return count;
 }
 
 export function parseLikedNoteIds(value) {

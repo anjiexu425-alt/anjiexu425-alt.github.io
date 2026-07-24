@@ -22,6 +22,7 @@ test('Share Life local acceptance fixture is deterministic and isolated from Sup
   );
   assert.match(script, /<img src=x onerror='alert\(1\)'> Fixture safety title/);
   assert.match(script, /title\.textContent\s*=\s*view\.titleText/);
+  assert.match(script, /\bapplyShareLifeLikeDelta\b/);
   assert.doesNotMatch(script, /\.innerHTML\s*=/);
   assert.doesNotMatch(script, /\blocalStorage\b/);
   assert.doesNotMatch(script, /shareLifeLikedNoteIds/);
@@ -208,7 +209,7 @@ test('Share Life note forms collect editable like counts and keep them through s
     );
     assert.match(
       html,
-      /<input\b[^>]*id="shareLifeLikesCount"[^>]*max="9007199254740991"[^>]*\/>/i,
+      /<input\b[^>]*id="shareLifeLikesCount"[^>]*max="999999999"[^>]*\/>/i,
     );
   }
 
@@ -308,6 +309,22 @@ test('Share Life Supabase schema has its required security contract', async () =
 
   assert.match(sql, /create table if not exists public\.share_life_notes/i);
   assert.match(sql, /likes_count bigint not null default 0/i);
+  assert.match(
+    sql,
+    /drop constraint if exists\s+share_life_notes_likes_count_check/i,
+  );
+  assert.match(
+    sql,
+    /drop constraint if exists\s+share_life_notes_likes_count_range_check/i,
+  );
+  const existingCountClamp = sql.search(
+    /update\s+public\.share_life_notes\s+set\s+likes_count\s*=\s*999999999\s+where\s+likes_count\s*>\s*999999999\s*;/i,
+  );
+  const rangeConstraint = sql.search(
+    /add constraint\s+share_life_notes_likes_count_range_check\s+check\s*\(\s*likes_count\s+between\s+0\s+and\s+999999999\s*\)/i,
+  );
+  assert.ok(existingCountClamp >= 0);
+  assert.ok(rangeConstraint > existingCountClamp);
   assert.match(sql, /enable row level security/i);
   assert.match(sql, /create or replace function public\.adjust_share_life_like/i);
   assert.match(
@@ -316,7 +333,10 @@ test('Share Life Supabase schema has its required security contract', async () =
   );
   assert.match(sql, /delta is null/i);
   assert.match(sql, /delta not in \(-1,\s*1\)/i);
-  assert.match(sql, /greatest\(0,\s*likes_count \+ delta\)/i);
+  assert.match(
+    sql,
+    /least\(\s*999999999\s*,\s*greatest\(\s*0\s*,\s*likes_count\s*\+\s*delta\s*\)\s*\)/i,
+  );
   assert.match(
     sql,
     /revoke execute on function public\.adjust_share_life_like\(uuid,\s*integer\) from public/i,

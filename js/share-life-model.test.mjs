@@ -38,7 +38,7 @@ test('normalizes editable like counts, validates them, and maps them to Supabase
   assert.equal(invalid.isValid, false);
   assert.equal(
     invalid.likesCount,
-    'Likes must be a whole number between 0 and 9,007,199,254,740,991.',
+    'Likes must be a whole number between 0 and 999,999,999.',
   );
 
   assert.equal(model.shareLifeNoteToInsertRow({
@@ -58,23 +58,23 @@ test('normalizes editable like counts, validates them, and maps them to Supabase
   }).likes_count, 7);
 });
 
-test('accepts only editable like counts within the JavaScript safe-integer boundary', () => {
-  assert.equal(model.MAX_SHARE_LIFE_LIKE_COUNT, Number.MAX_SAFE_INTEGER);
+test('accepts only editable like counts within the per-note domain boundary', () => {
+  assert.equal(model.MAX_SHARE_LIFE_LIKE_COUNT, 999_999_999);
   assert.equal(
-    model.normalizeEditableLikeCount(String(Number.MAX_SAFE_INTEGER)),
-    Number.MAX_SAFE_INTEGER,
+    model.normalizeEditableLikeCount(String(model.MAX_SHARE_LIFE_LIKE_COUNT)),
+    model.MAX_SHARE_LIFE_LIKE_COUNT,
   );
-  assert.equal(model.normalizeEditableLikeCount('9007199254740992'), null);
+  assert.equal(model.normalizeEditableLikeCount('1000000000'), null);
   assert.equal(model.normalizeEditableLikeCount('9223372036854775807'), null);
 
   const tooLarge = model.validateNoteFields({
     title: 'A note',
     douyinUrl: 'https://www.douyin.com/user/example',
-    likesCount: '9007199254740992',
+    likesCount: '1000000000',
   });
   assert.equal(
     tooLarge.likesCount,
-    'Likes must be a whole number between 0 and 9,007,199,254,740,991.',
+    'Likes must be a whole number between 0 and 999,999,999.',
   );
 });
 
@@ -105,7 +105,7 @@ test('validates blank, negative, and fractional like-count form values', () => {
     assert.equal(validation.isValid, false);
     assert.equal(
       validation.likesCount,
-      'Likes must be a whole number between 0 and 9,007,199,254,740,991.',
+      'Likes must be a whole number between 0 and 999,999,999.',
     );
   }
 });
@@ -181,7 +181,7 @@ test('uses the bundled placeholder and a null path when create has no upload', (
 });
 
 test('sums safe like counts and toggles deduplicated local liked ids', () => {
-  assert.equal(model.sumLikeCounts([{ likesCount: 3 }, { likesCount: 7 }, { likesCount: -2 }]), 10);
+  assert.equal(model.sumLikeCounts([{ likesCount: 3 }, { likesCount: 7 }, { likesCount: -2 }]), 10n);
   assert.deepEqual([...model.parseLikedNoteIds('["a","a","b",4]')], ['a', 'b']);
   assert.deepEqual([...model.parseLikedNoteIds('bad json')], []);
   assert.deepEqual(model.toggleLikedNoteId(new Set(['a']), 'a'), new Set());
@@ -197,6 +197,7 @@ test('normalizes every illegal persisted like count to zero at all read boundari
     Infinity,
     Number.NaN,
     'not-a-number',
+    '1000000000',
     '9007199254740992',
     '9223372036854775807',
   ];
@@ -218,12 +219,40 @@ test('normalizes every illegal persisted like count to zero at all read boundari
 
   assert.equal(
     model.sumLikeCounts(illegalCounts.map((likesCount) => ({ likesCount }))),
-    0,
+    0n,
   );
   assert.equal(
-    model.normalizePersistedLikeCount(String(Number.MAX_SAFE_INTEGER)),
-    Number.MAX_SAFE_INTEGER,
+    model.normalizePersistedLikeCount(String(model.MAX_SHARE_LIFE_LIKE_COUNT)),
+    model.MAX_SHARE_LIFE_LIKE_COUNT,
   );
+});
+
+test('sums enough valid notes to exceed Number.MAX_SAFE_INTEGER without losing precision', () => {
+  const noteCount = Math.floor(
+    Number.MAX_SAFE_INTEGER / model.MAX_SHARE_LIFE_LIKE_COUNT,
+  ) + 1;
+  const sharedNote = { likesCount: model.MAX_SHARE_LIFE_LIKE_COUNT };
+  const notes = {
+    *[Symbol.iterator]() {
+      for (let index = 0; index < noteCount; index += 1) {
+        yield sharedNote;
+      }
+    },
+  };
+
+  const expected = BigInt(noteCount) * BigInt(model.MAX_SHARE_LIFE_LIKE_COUNT);
+  assert.ok(expected > BigInt(Number.MAX_SAFE_INTEGER));
+  assert.equal(model.sumLikeCounts(notes), expected);
+});
+
+test('saturates public-like fixture arithmetic at the per-note domain boundaries', () => {
+  assert.equal(
+    model.applyShareLifeLikeDelta(model.MAX_SHARE_LIFE_LIKE_COUNT, 1),
+    model.MAX_SHARE_LIFE_LIKE_COUNT,
+  );
+  assert.equal(model.applyShareLifeLikeDelta(0, -1), 0);
+  assert.equal(model.applyShareLifeLikeDelta(41, 1), 42);
+  assert.equal(model.applyShareLifeLikeDelta(41, -1), 40);
 });
 
 test('sets a like intent explicitly without toggling stale state', () => {

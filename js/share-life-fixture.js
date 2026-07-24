@@ -1,4 +1,5 @@
 import {
+  applyShareLifeLikeDelta,
   buildShareLifeCardView,
   canConsumeHorizontalWheel,
   isMouseDragPointer,
@@ -478,10 +479,7 @@ function handleLike(noteId) {
   notes = notes.map((candidate) => candidate.id === noteId
     ? {
         ...candidate,
-        likesCount: Math.max(
-          0,
-          normalizePersistedLikeCount(candidate.likesCount) + intent.delta,
-        ),
+        likesCount: applyShareLifeLikeDelta(candidate.likesCount, intent.delta),
       }
     : candidate);
   renderNotes();
