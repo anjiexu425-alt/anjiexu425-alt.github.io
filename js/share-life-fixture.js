@@ -8,8 +8,9 @@ import {
   normalizePersistedLikeCount,
   resolveFocusTrapTarget,
   resolveScrollBehavior,
+  SHARE_LIFE_FOLLOWERS_LABEL,
+  SHARE_LIFE_LIKES_LABEL,
   setLikedNoteId,
-  sumLikeCounts,
   validateNoteFields,
 } from './share-life-model.mjs';
 
@@ -75,6 +76,7 @@ const addButton = document.getElementById('shareLifeAddButton');
 const authToggle = document.getElementById('shareLifeFixtureAuthToggle');
 const previousButton = document.getElementById('shareLifePrev');
 const nextButton = document.getElementById('shareLifeNext');
+const followersCount = document.getElementById('shareLifeFollowersCount');
 const totalLikesCount = document.getElementById('shareLifeTotalLikesCount');
 
 const noteDialogBackdrop = document.getElementById('shareLifeNoteDialogBackdrop');
@@ -151,7 +153,8 @@ function updateFixtureChrome() {
 }
 
 function renderStats() {
-  totalLikesCount.textContent = String(sumLikeCounts(notes));
+  followersCount.textContent = SHARE_LIFE_FOLLOWERS_LABEL;
+  totalLikesCount.textContent = SHARE_LIFE_LIKES_LABEL;
 }
 
 function createManageButton(className, label, iconPath, action, noteId) {

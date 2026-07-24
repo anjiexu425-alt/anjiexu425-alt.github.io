@@ -2,6 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as model from './share-life-model.mjs';
 
+test('exports fixed Share Life header statistics', () => {
+  assert.equal(model.SHARE_LIFE_FOLLOWERS_LABEL, '320');
+  assert.equal(model.SHARE_LIFE_LIKES_LABEL, '1.1w');
+});
+
 test('normalizes a valid title and http/https Douyin URL', () => {
   assert.equal(model.normalizeTitle('  Iceland light  '), 'Iceland light');
   assert.equal(

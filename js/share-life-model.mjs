@@ -1,3 +1,5 @@
+export const SHARE_LIFE_FOLLOWERS_LABEL = '320';
+export const SHARE_LIFE_LIKES_LABEL = '1.1w';
 export const MAX_SHARE_LIFE_IMAGE_BYTES = 8 * 1024 * 1024;
 export const MAX_SHARE_LIFE_LIKE_COUNT = 999_999_999;
 

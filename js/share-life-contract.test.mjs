@@ -2,6 +2,31 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+test('Share Life header statistics stay fixed across production and fixture runtimes', async () => {
+  const [productionHtml, fixtureHtml, productionScript, fixtureScript] = await Promise.all([
+    readFile(new URL('../share-life.html', import.meta.url), 'utf8'),
+    readFile(new URL('../share-life-fixture.html', import.meta.url), 'utf8'),
+    readFile(new URL('./share-life.js', import.meta.url), 'utf8'),
+    readFile(new URL('./share-life-fixture.js', import.meta.url), 'utf8'),
+  ]);
+
+  assert.match(productionHtml, /id="shareLifeFollowersCount">320</);
+  assert.match(productionHtml, /id="shareLifeTotalLikesCount">1\.1w</);
+  assert.match(fixtureHtml, /id="shareLifeFollowersCount">320</);
+  assert.match(fixtureHtml, /id="shareLifeTotalLikesCount">1\.1w</);
+
+  for (const script of [productionScript, fixtureScript]) {
+    assert.match(script, /SHARE_LIFE_FOLLOWERS_LABEL/);
+    assert.match(script, /SHARE_LIFE_LIKES_LABEL/);
+    assert.match(script, /followersCount\.textContent\s*=\s*SHARE_LIFE_FOLLOWERS_LABEL/);
+    assert.match(script, /totalLikesCount\.textContent\s*=\s*SHARE_LIFE_LIKES_LABEL/);
+    assert.doesNotMatch(
+      script,
+      /totalLikesCount\.textContent\s*=\s*(?:String\()?sumLikeCounts\(notes\)\)?/,
+    );
+  }
+});
+
 test('Share Life local acceptance fixture is deterministic and isolated from Supabase', async () => {
   const html = await readFile(new URL('../share-life-fixture.html', import.meta.url), 'utf8');
   const script = await readFile(new URL('./share-life-fixture.js', import.meta.url), 'utf8');
@@ -162,7 +187,7 @@ test('Share Life page exposes its semantic and accessibility contract', async ()
   assert.match(html, /<[^>]+\brole="dialog"[^>]+\baria-modal="true"[^>]+\baria-labelledby="shareLifeLoginDialogTitle"/i);
   assert.match(html, /<dt>\s*Followers\s*<\/dt>\s*<dd\b[^>]*id="shareLifeFollowersCount"/i);
   assert.match(html, /<dt>\s*Likes\s*<\/dt>\s*<dd\b[^>]*id="shareLifeTotalLikesCount"/i);
-  assert.match(html, /<dd\b[^>]*id="shareLifeTotalLikesCount"[^>]*>\s*0\s*<\/dd>/i);
+  assert.match(html, /<dd\b[^>]*id="shareLifeTotalLikesCount"[^>]*>\s*1\.1w\s*<\/dd>/i);
   assert.doesNotMatch(html, /\bid="shareLifeLikes"/i);
   assert.match(html, /<button\b[^>]*id="shareLifeAddButton"[^>]*\blang="zh-CN"/i);
   assert.match(html, /<div\b[^>]*id="shareLifeNoteDialog"[^>]*\blang="zh-CN"[\s\S]*?\brole="dialog"/i);
@@ -477,7 +502,8 @@ test('Share Life production module uses safe DOM and shared data boundaries', as
     'buildShareLifeCardView',
     'nextLikeIntent',
     'resolveScrollBehavior',
-    'sumLikeCounts',
+    'SHARE_LIFE_FOLLOWERS_LABEL',
+    'SHARE_LIFE_LIKES_LABEL',
     'validateNoteFields',
     'isShareLifeImageAllowed',
     'buildShareLifeUploadPath',

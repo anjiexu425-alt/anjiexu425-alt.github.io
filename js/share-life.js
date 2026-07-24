@@ -22,10 +22,11 @@ import {
   resolveFocusReturnTarget,
   resolveFocusTrapTarget,
   resolveScrollBehavior,
+  SHARE_LIFE_FOLLOWERS_LABEL,
+  SHARE_LIFE_LIKES_LABEL,
   setLikedNoteId,
   shareLifeLoadErrorMessage,
   shareLifeNoteToInsertRow,
-  sumLikeCounts,
   supabaseRowToShareLifeNote,
   validateNoteFields,
 } from './share-life-model.mjs';
@@ -288,8 +289,8 @@ function updateSliderButtons() {
 }
 
 function renderStats() {
-  followersCount.textContent = '90';
-  totalLikesCount.textContent = String(sumLikeCounts(notes));
+  followersCount.textContent = SHARE_LIFE_FOLLOWERS_LABEL;
+  totalLikesCount.textContent = SHARE_LIFE_LIKES_LABEL;
 }
 
 function canManageNotes() {
