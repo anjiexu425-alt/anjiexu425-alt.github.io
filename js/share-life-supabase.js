@@ -34,8 +34,14 @@ export async function updateShareLifeNote(id, patch) {
 }
 
 export async function deleteShareLifeNote(id) {
-  const { error } = await supabase.from(TABLE).delete().eq('id', id);
+  const { data, error } = await supabase
+    .from(TABLE)
+    .delete()
+    .eq('id', id)
+    .select('id')
+    .single();
   if (error) throw error;
+  if (data?.id !== id) throw new Error('The deleted Share Life note did not match the request.');
 }
 
 export async function adjustShareLifeLike(noteId, delta) {

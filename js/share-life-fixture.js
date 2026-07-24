@@ -86,6 +86,7 @@ const coverInput = document.getElementById('shareLifeCover');
 const coverPreview = document.querySelector('#shareLifeCoverPreview img');
 const noteError = document.getElementById('shareLifeNoteError');
 const noteCancel = document.getElementById('shareLifeNoteCancel');
+const noteSubmit = document.getElementById('shareLifeNoteSubmit');
 
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -96,6 +97,7 @@ let nextFixtureId = FIXTURE_NOTES.length + 1;
 let dialogState = null;
 let selectedCoverDataUrl = '';
 let coverReadGeneration = 0;
+let coverReadPending = false;
 let suppressNextCardLinkClick = false;
 
 function createSvgIcon(pathData) {
@@ -124,6 +126,11 @@ function clearFormError() {
 function showFormError(message) {
   noteError.textContent = message;
   noteError.hidden = false;
+}
+
+function setCoverReadPending(isPending) {
+  coverReadPending = isPending;
+  noteSubmit.disabled = isPending;
 }
 
 function updateSliderButtons() {
@@ -278,12 +285,14 @@ function openNoteDialog(noteId, opener) {
   clearFormError();
   selectedCoverDataUrl = '';
   coverReadGeneration += 1;
+  setCoverReadPending(false);
   noteIdInput.value = note?.id ?? '';
   titleInput.value = note?.title ?? '';
   douyinUrlInput.value = note?.douyinUrl ?? '';
   coverPreview.src = note?.coverUrl || PLACEHOLDER_URL;
   coverPreview.alt = note ? `${note.title} cover preview` : 'Life note cover preview';
   noteDialogTitle.textContent = note ? '编辑笔记' : '添加笔记';
+  noteSubmit.textContent = note ? '保存更改' : '添加';
   dialogState = { opener, noteId: note?.id ?? '' };
   noteDialogBackdrop.hidden = false;
   titleInput.focus();
@@ -295,6 +304,7 @@ function closeNoteDialog(restoreFocus = true) {
   const previousDialog = dialogState;
   dialogState = null;
   coverReadGeneration += 1;
+  coverReadPending = false;
   selectedCoverDataUrl = '';
   noteDialogBackdrop.hidden = true;
   noteForm.reset();
@@ -343,32 +353,45 @@ async function handleCoverChange() {
   const readGeneration = ++coverReadGeneration;
 
   if (!file) {
+    setCoverReadPending(false);
     restoreCurrentCoverPreview();
     return;
   }
 
   if (!isShareLifeImageAllowed(file.size, file.type)) {
     coverInput.value = '';
+    setCoverReadPending(false);
     restoreCurrentCoverPreview();
     showFormError('Choose an image no larger than 8 MB.');
     return;
   }
 
+  setCoverReadPending(true);
   try {
     const dataUrl = await readFileAsDataUrl(file);
     if (readGeneration !== coverReadGeneration || noteDialogBackdrop.hidden) return;
+    if (!dataUrl) throw new Error('The selected image was empty.');
     selectedCoverDataUrl = dataUrl;
     coverPreview.src = dataUrl;
     coverPreview.alt = `${file.name} cover preview`;
   } catch {
     if (readGeneration !== coverReadGeneration || noteDialogBackdrop.hidden) return;
+    coverInput.value = '';
     restoreCurrentCoverPreview();
     showFormError('The selected image could not be previewed.');
+  } finally {
+    if (readGeneration === coverReadGeneration && !noteDialogBackdrop.hidden) {
+      setCoverReadPending(false);
+    }
   }
 }
 
 function handleNoteSubmit(event) {
   event.preventDefault();
+  if (coverReadPending) {
+    showFormError('Wait for the cover preview to finish.');
+    return;
+  }
   if (!isSignedIn) {
     showFormError('Enable owner controls before changing fixture notes.');
     return;

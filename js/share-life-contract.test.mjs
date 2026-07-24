@@ -79,8 +79,62 @@ test('Share Life fixture restores the current cover after invalid or unreadable 
 
   const catchStart = changeHandler.indexOf('catch', readTryStart);
   const catchBranch = changeHandler.slice(catchStart);
+  assert.match(catchBranch, /coverInput\.value\s*=\s*['"]/);
   assert.match(catchBranch, /restoreCurrentCoverPreview\(\)/);
   assert.match(catchBranch, /showFormError\(/);
+  assert.match(script, /let\s+coverReadPending\s*=\s*false/);
+  assert.match(script, /function\s+setCoverReadPending\s*\(/);
+  assert.match(changeHandler, /setCoverReadPending\(true\)/);
+  assert.match(changeHandler, /readGeneration\s*!==\s*coverReadGeneration/);
+  assert.match(changeHandler, /setCoverReadPending\(false\)/);
+
+  const submitHandler = script.slice(submitStart, script.indexOf('function handleDelete'));
+  assert.match(submitHandler, /if\s*\(\s*coverReadPending\s*\)/);
+  assert.match(submitHandler, /showFormError\(/);
+});
+
+test('Share Life production cover preview is generation-safe and restores the edited cover', async () => {
+  const script = await readFile(new URL('./share-life.js', import.meta.url), 'utf8');
+  const restoreStart = script.indexOf('function restoreCurrentCoverPreview');
+  const readStart = script.indexOf('function readFileAsDataUrl');
+  const changeStart = script.indexOf('async function handleCoverChange');
+  const configureStart = script.indexOf('function configureModalInteractions');
+  const restoreHelper = script.slice(restoreStart, readStart);
+  const changeHandler = script.slice(changeStart, configureStart);
+
+  assert.ok(restoreStart >= 0 && readStart > restoreStart);
+  assert.match(restoreHelper, /notes\.find\(\(note\)\s*=>\s*note\.id\s*===\s*noteIdInput\.value\)/);
+  assert.match(restoreHelper, /existingNote\?\.coverUrl\s*\|\|\s*PLACEHOLDER_URL/);
+  assert.match(script, /let\s+coverReadGeneration\s*=\s*0/);
+  assert.match(script, /let\s+coverReadPending\s*=\s*false/);
+  assert.match(script, /function\s+setCoverReadPending\s*\(/);
+  assert.match(script, /new\s+FileReader\(\)/);
+  assert.doesNotMatch(script, /URL\.createObjectURL/);
+
+  const invalidStart = changeHandler.indexOf('if (!isShareLifeImageAllowed');
+  const tryStart = changeHandler.indexOf('try {', invalidStart);
+  const invalidBranch = changeHandler.slice(invalidStart, tryStart);
+  assert.match(invalidBranch, /coverInput\.value\s*=\s*['"]/);
+  assert.match(invalidBranch, /restoreCurrentCoverPreview\(\)/);
+
+  const catchStart = changeHandler.indexOf('catch', tryStart);
+  const catchBranch = changeHandler.slice(catchStart);
+  assert.match(catchBranch, /readGeneration\s*!==\s*coverReadGeneration/);
+  assert.match(catchBranch, /coverInput\.value\s*=\s*['"]/);
+  assert.match(catchBranch, /restoreCurrentCoverPreview\(\)/);
+  assert.match(changeHandler, /setCoverReadPending\(true\)/);
+  assert.match(changeHandler, /setCoverReadPending\(false\)/);
+
+  const submitStart = script.indexOf('async function handleNoteSubmit');
+  const deleteStart = script.indexOf('async function handleDelete');
+  const submitHandler = script.slice(submitStart, deleteStart);
+  assert.match(submitHandler, /if\s*\(\s*coverReadPending\s*\)/);
+
+  const closeStart = script.indexOf('function closeModal');
+  const currentOperationStart = script.indexOf('function isCurrentModalOperation');
+  const closeHelper = script.slice(closeStart, currentOperationStart);
+  assert.match(closeHelper, /coverReadGeneration\s*\+=\s*1/);
+  assert.match(closeHelper, /coverReadPending\s*=\s*false/);
 });
 
 test('Share Life page exposes its semantic and accessibility contract', async () => {
@@ -154,21 +208,46 @@ test('Share Life stylesheet preserves native scrolling and accessible motion', a
   assert.match(css, /:root\s*\{[^}]*--share-life-border\s*:/i);
   assert.match(css, /--share-life-muted\s*:\s*var\(--color-text-muted\)/i);
   assert.doesNotMatch(css, /#85858a/i);
-  assert.match(css, /\.share-life-card__likes\s*\{[^}]*border\s*:\s*0[^}]*background\s*:\s*transparent[^}]*font\s*:\s*inherit/i);
+  assert.match(css, /\.share-life-card__likes\s*\{[^}]*min-width\s*:\s*2\.75rem[^}]*min-height\s*:\s*2\.75rem[^}]*border\s*:\s*0[^}]*background\s*:\s*transparent[^}]*font\s*:\s*inherit/i);
+  assert.match(css, /\.share-life-card__likes:focus-visible\s*(?:,|\{)/i);
+  assert.match(css, /\.share-life-card__likes svg\s*\{[^}]*width\s*:\s*0\.9rem[^}]*height\s*:\s*0\.9rem/i);
   assert.match(css, /\.share-life-card__manage svg\s*\{[^}]*width\s*:[^;}]+;[^}]*height\s*:/i);
   assert.doesNotMatch(css, /backdrop-filter\s*:/i);
 });
 
 test('Share Life Supabase schema has its required security contract', async () => {
   const sql = await readFile(new URL('../supabase/share-life.sql', import.meta.url), 'utf8');
+  const policyBlock = (name) => {
+    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = sql.match(new RegExp(`create policy\\s+"${escapedName}"[\\s\\S]*?;`, 'i'));
+    assert.ok(match, `expected policy ${name}`);
+    return match[0];
+  };
+  const assertOwnerPredicate = (block, minimumCount = 1) => {
+    const matches = block.match(
+      /auth\.jwt\(\)\s*->>\s*'email'\s*=\s*'anjiexu0630@163\.com'/gi,
+    ) ?? [];
+    assert.ok(
+      matches.length >= minimumCount,
+      `expected owner email predicate ${minimumCount} time(s) in:\n${block}`,
+    );
+  };
 
   assert.match(sql, /create table if not exists public\.share_life_notes/i);
   assert.match(sql, /likes_count bigint not null default 0/i);
   assert.match(sql, /enable row level security/i);
   assert.match(sql, /create or replace function public\.adjust_share_life_like/i);
+  assert.match(
+    sql,
+    /create or replace function public\.adjust_share_life_like[\s\S]*?security definer[\s\S]*?set search_path\s*=\s*public/i,
+  );
   assert.match(sql, /delta is null/i);
   assert.match(sql, /delta not in \(-1,\s*1\)/i);
   assert.match(sql, /greatest\(0,\s*likes_count \+ delta\)/i);
+  assert.match(
+    sql,
+    /revoke execute on function public\.adjust_share_life_like\(uuid,\s*integer\) from public/i,
+  );
   assert.match(sql, /grant execute .* to anon,\s*authenticated/i);
   assert.match(sql, /share-life-media/i);
   assert.match(sql, /cover_path\s+text(?:\s*,|\s*\n)/i);
@@ -178,6 +257,57 @@ test('Share Life Supabase schema has its required security contract', async () =
     /alter table\s+public\.share_life_notes\s+alter column\s+cover_path\s+drop not null/i,
   );
   assert.doesNotMatch(sql, /for update\s+to anon/i);
+
+  assert.match(
+    sql,
+    /alter table\s+public\.share_life_notes\s+drop constraint if exists\s+share_life_notes_title_length_check/i,
+  );
+  assert.match(
+    sql,
+    /add constraint\s+share_life_notes_title_length_check\s+check\s*\(\s*char_length\(\s*btrim\(title\)\s*\)\s+between\s+1\s+and\s+160\s*\)/i,
+  );
+  assert.doesNotMatch(sql, /char_length\(\s*title\s*\)\s+between/i);
+  assert.match(sql, /create or replace function public\.set_share_life_updated_at\(\)/i);
+  assert.match(sql, /new\.updated_at\s*:=\s*now\(\)/i);
+  assert.match(sql, /drop trigger if exists\s+set_share_life_updated_at\s+on\s+public\.share_life_notes/i);
+  assert.match(
+    sql,
+    /create trigger\s+set_share_life_updated_at\s+before update on\s+public\.share_life_notes[\s\S]*?for each row[\s\S]*?execute function\s+public\.set_share_life_updated_at\(\)/i,
+  );
+
+  for (const name of [
+    'Authenticated users can create Share Life notes',
+    'Authenticated users can edit Share Life notes',
+    'Authenticated users can delete Share Life notes',
+  ]) {
+    const block = policyBlock(name);
+    assert.match(block, /to authenticated/i);
+    assertOwnerPredicate(block, name.includes('edit') ? 2 : 1);
+  }
+
+  for (const name of [
+    'Authenticated users can upload Share Life media',
+    'Authenticated users can update Share Life media',
+    'Authenticated users can delete Share Life media',
+  ]) {
+    const block = policyBlock(name);
+    assert.match(block, /to authenticated/i);
+    const minimumCount = name.includes('update') ? 2 : 1;
+    assertOwnerPredicate(block, minimumCount);
+    assert.ok(
+      (block.match(/bucket_id\s*=\s*'share-life-media'/gi) ?? []).length >= minimumCount,
+      `expected bucket scope ${minimumCount} time(s) in:\n${block}`,
+    );
+  }
+
+  assert.match(
+    policyBlock('Public can view Share Life notes'),
+    /for select[\s\S]*?to public[\s\S]*?using\s*\(\s*true\s*\)/i,
+  );
+  assert.match(
+    policyBlock('Public can view Share Life media'),
+    /for select[\s\S]*?to public[\s\S]*?bucket_id\s*=\s*'share-life-media'/i,
+  );
 });
 
 test('Share Life Supabase adapter reuses the shared client and required resources', async () => {
@@ -190,6 +320,11 @@ test('Share Life Supabase adapter reuses the shared client and required resource
   assert.match(adapter, /\.rpc\(\s*['"]adjust_share_life_like['"]/i);
   assert.match(adapter, /const\s+BUCKET\s*=\s*['"]share-life-media['"]/i);
   assert.match(adapter, /storage\.from\(\s*BUCKET\s*\)/i);
+  assert.match(
+    adapter,
+    /\.delete\(\)\s*\.eq\(\s*['"]id['"]\s*,\s*id\s*\)\s*\.select\(\s*['"]id['"]\s*\)\s*\.single\(\)/i,
+  );
+  assert.match(adapter, /if\s*\(\s*data\?\.id\s*!==\s*id\s*\)\s*throw new Error\(/i);
 
   for (const name of [
     'fetchShareLifeNotes',
@@ -205,6 +340,41 @@ test('Share Life Supabase adapter reuses the shared client and required resource
 
   assert.doesNotMatch(adapter, /https:\/\/[^\s'"]+\.supabase\.co/i);
   assert.doesNotMatch(adapter, /eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/);
+});
+
+test('Share Life note modal submit copy changes between create and edit modes', async () => {
+  for (const page of ['../share-life.html', '../share-life-fixture.html']) {
+    const html = await readFile(new URL(page, import.meta.url), 'utf8');
+    assert.match(
+      html,
+      /<button\b[^>]*id="shareLifeNoteSubmit"[^>]*type="submit"[^>]*>\s*添加\s*<\/button>/i,
+    );
+  }
+
+  for (const modulePath of ['./share-life.js', './share-life-fixture.js']) {
+    const script = await readFile(new URL(modulePath, import.meta.url), 'utf8');
+    assert.match(script, /const\s+noteSubmit\s*=\s*document\.getElementById\(\s*['"]shareLifeNoteSubmit['"]\s*\)/);
+
+    const createStart = modulePath.includes('fixture')
+      ? script.indexOf('function openNoteDialog')
+      : script.indexOf('function openCreateDialog');
+    const createEnd = modulePath.includes('fixture')
+      ? script.indexOf('function closeNoteDialog')
+      : script.indexOf('function openEditDialog');
+    const createBlock = script.slice(createStart, createEnd);
+    assert.match(createBlock, /noteSubmit\.textContent\s*=\s*(?:note\s*\?\s*['"]保存更改['"]\s*:\s*)?['"]添加['"]/);
+
+    if (!modulePath.includes('fixture')) {
+      const editStart = script.indexOf('function openEditDialog');
+      const editEnd = script.indexOf('function validateSelectedCover');
+      assert.match(
+        script.slice(editStart, editEnd),
+        /noteSubmit\.textContent\s*=\s*['"]保存更改['"]/,
+      );
+    } else {
+      assert.match(createBlock, /note\s*\?\s*['"]保存更改['"]\s*:\s*['"]添加['"]/);
+    }
+  }
 });
 
 test('Share Life production module uses safe DOM and shared data boundaries', async () => {

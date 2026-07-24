@@ -60,7 +60,11 @@ respect reduced-motion preferences.
 ### Authentication and management
 
 Share Life reuses the same Supabase project and email/password owner account
-as Study Diary.
+as Study Diary. The only account permitted to mutate Share Life notes or media
+is `anjiexu0630@163.com`; the SQL enforces that email in addition to requiring
+the `authenticated` role. Supabase email/password sign-up should remain
+disabled so visitors cannot create unnecessary accounts, even though the RLS
+owner check remains the authoritative write boundary.
 
 - Signed-out visitors see a Log In button and no Add, Edit, or Delete controls.
 - Signed-in owners see Log Out, Add Note, Edit, and Delete controls.
@@ -115,17 +119,19 @@ object. `cover_url` is always present so the card renderer has one source.
 Row Level Security rules:
 
 - `select`: public (`anon` and `authenticated`);
-- `insert`, `update`, `delete`: authenticated owner only;
+- `insert`, `update`, `delete`: the authenticated owner email
+  `anjiexu0630@163.com` only;
 - no public direct update policy.
 
-This single-owner site follows Study Diary's current authenticated-write model.
-If more authenticated accounts are added later, policies must be tightened to
-an explicit owner ID before those accounts receive access.
+The email predicate is enforced inside every note and Storage mutation policy,
+so other authenticated accounts cannot write. Keeping public sign-up disabled
+is still recommended to reduce account abuse and operational noise.
 
 Create a public `share-life-media` bucket:
 
 - public read;
-- authenticated insert/update/delete;
+- insert/update/delete restricted to authenticated
+  `anjiexu0630@163.com`;
 - uploads use an entry-independent timestamp/random path;
 - only paths returned by the upload helper are stored in `cover_path`.
 
@@ -263,4 +269,3 @@ Live Supabase mutation acceptance happens only after `supabase/share-life.sql`
 has been applied. Before that external prerequisite, a deterministic local
 fixture will exercise the complete UI with an in-memory adapter without
 claiming that production persistence is ready.
-

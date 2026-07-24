@@ -163,6 +163,7 @@
 .share-life-button:focus-visible,
 .share-life-slider__arrow:focus-visible,
 .share-life-modal__close:focus-visible,
+.share-life-card__likes:focus-visible,
 .share-life-form input:focus-visible {
   outline: 3px solid rgba(0, 47, 167, 0.25);
   outline-offset: 3px;
@@ -277,6 +278,8 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
   padding: 0;
   border: 0;
   background: transparent;

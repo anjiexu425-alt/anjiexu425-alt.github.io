@@ -77,6 +77,7 @@ const coverInput = document.getElementById('shareLifeCover');
 const coverPreview = document.querySelector('#shareLifeCoverPreview img');
 const noteError = document.getElementById('shareLifeNoteError');
 const noteCancel = document.getElementById('shareLifeNoteCancel');
+const noteSubmit = document.getElementById('shareLifeNoteSubmit');
 
 const loginDialogBackdrop = document.getElementById('shareLifeLoginDialogBackdrop');
 const loginDialogClose = document.getElementById('shareLifeLoginDialogClose');
@@ -99,8 +100,9 @@ let notesLoadPending = false;
 let notesMutationRevision = 0;
 let createPending = false;
 let openDialog = null;
-let previewObjectUrl = '';
 let dialogGeneration = 0;
+let coverReadGeneration = 0;
+let coverReadPending = false;
 const pendingLikeIds = new Set();
 const pendingNoteMutationIds = new Set();
 
@@ -143,10 +145,26 @@ function setPreview(source, altText = 'Life note cover preview') {
   coverPreview.alt = altText;
 }
 
-function revokePreviewObjectUrl() {
-  if (!previewObjectUrl) return;
-  URL.revokeObjectURL(previewObjectUrl);
-  previewObjectUrl = '';
+function setCoverReadPending(isPending) {
+  coverReadPending = isPending;
+  noteSubmit.disabled = isPending;
+}
+
+function restoreCurrentCoverPreview() {
+  const existingNote = notes.find((note) => note.id === noteIdInput.value);
+  setPreview(existingNote?.coverUrl || PLACEHOLDER_URL, existingNote?.title);
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => resolve(String(reader.result || '')), { once: true });
+    reader.addEventListener('error', () => reject(reader.error), { once: true });
+    reader.addEventListener('abort', () => reject(new Error('Cover preview was cancelled.')), {
+      once: true,
+    });
+    reader.readAsDataURL(file);
+  });
 }
 
 function resetFormSubmitButton(form) {
@@ -221,7 +239,9 @@ function closeModal(backdrop, restoreFocus = true, focusReturnOverride = null) {
   }
 
   if (backdrop === noteDialogBackdrop) {
-    revokePreviewObjectUrl();
+    coverReadGeneration += 1;
+    coverReadPending = false;
+    coverInput.value = '';
     resetFormSubmitButton(noteForm);
   } else if (backdrop === loginDialogBackdrop) {
     resetFormSubmitButton(loginForm);
@@ -482,6 +502,9 @@ function openCreateDialog() {
   clearAlert(noteError);
   noteIdInput.value = '';
   noteDialogTitle.textContent = '添加笔记';
+  noteSubmit.textContent = '添加';
+  coverReadGeneration += 1;
+  setCoverReadPending(false);
   setPreview(PLACEHOLDER_URL);
   openModal(noteDialogBackdrop, titleInput, addButton, { type: 'add' });
 }
@@ -503,6 +526,9 @@ function openEditDialog(note, opener) {
   titleInput.value = currentNote.title;
   douyinUrlInput.value = currentNote.douyinUrl;
   noteDialogTitle.textContent = '编辑笔记';
+  noteSubmit.textContent = '保存更改';
+  coverReadGeneration += 1;
+  setCoverReadPending(false);
   setPreview(currentNote.coverUrl || PLACEHOLDER_URL, currentNote.title);
   openModal(noteDialogBackdrop, titleInput, opener, {
     type: 'edit',
@@ -515,6 +541,43 @@ function validateSelectedCover(file) {
     return 'Please choose an image file up to 8 MB.';
   }
   return '';
+}
+
+async function handleCoverChange() {
+  clearAlert(noteError);
+  const file = coverInput.files?.[0] ?? null;
+  const readGeneration = ++coverReadGeneration;
+
+  if (!file) {
+    setCoverReadPending(false);
+    restoreCurrentCoverPreview();
+    return;
+  }
+
+  if (!isShareLifeImageAllowed(file.size, file.type)) {
+    coverInput.value = '';
+    setCoverReadPending(false);
+    restoreCurrentCoverPreview();
+    showAlert(noteError, 'Please choose an image file up to 8 MB.');
+    return;
+  }
+
+  setCoverReadPending(true);
+  try {
+    const dataUrl = await readFileAsDataUrl(file);
+    if (readGeneration !== coverReadGeneration || noteDialogBackdrop.hidden) return;
+    if (!dataUrl) throw new Error('The selected image was empty.');
+    setPreview(dataUrl, file.name);
+  } catch {
+    if (readGeneration !== coverReadGeneration || noteDialogBackdrop.hidden) return;
+    coverInput.value = '';
+    restoreCurrentCoverPreview();
+    showAlert(noteError, 'The selected image could not be previewed.');
+  } finally {
+    if (readGeneration === coverReadGeneration && !noteDialogBackdrop.hidden) {
+      setCoverReadPending(false);
+    }
+  }
 }
 
 async function createNote(values, file) {
@@ -589,6 +652,11 @@ async function editNote(existingNoteId, values, file) {
 async function handleNoteSubmit(event) {
   event.preventDefault();
   clearAlert(noteError);
+
+  if (coverReadPending) {
+    showAlert(noteError, 'Please wait for the cover preview to finish.');
+    return;
+  }
 
   if (!canManageNotes()) {
     showAlert(noteError, 'Life notes are not ready for changes.');
@@ -973,25 +1041,7 @@ function configureModalInteractions() {
     }
   });
 
-  coverInput.addEventListener('change', () => {
-    clearAlert(noteError);
-    revokePreviewObjectUrl();
-    const file = coverInput.files?.[0] ?? null;
-    if (!file) {
-      const existingNote = notes.find((note) => note.id === noteIdInput.value);
-      setPreview(existingNote?.coverUrl || PLACEHOLDER_URL, existingNote?.title);
-      return;
-    }
-    if (!isShareLifeImageAllowed(file.size, file.type)) {
-      showAlert(noteError, 'Please choose an image file up to 8 MB.');
-      coverInput.value = '';
-      setPreview(PLACEHOLDER_URL);
-      return;
-    }
-
-    previewObjectUrl = URL.createObjectURL(file);
-    setPreview(previewObjectUrl, file.name);
-  });
+  coverInput.addEventListener('change', () => void handleCoverChange());
 
   noteForm.addEventListener('submit', (event) => void handleNoteSubmit(event));
   loginForm.addEventListener('submit', (event) => void handleLoginSubmit(event));
