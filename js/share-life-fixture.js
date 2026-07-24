@@ -4,6 +4,7 @@ import {
   isMouseDragPointer,
   isShareLifeImageAllowed,
   nextLikeIntent,
+  normalizePersistedLikeCount,
   resolveFocusTrapTarget,
   resolveScrollBehavior,
   setLikedNoteId,
@@ -291,7 +292,7 @@ function openNoteDialog(noteId, opener) {
   titleInput.value = note?.title ?? '';
   douyinUrlInput.value = note?.douyinUrl ?? '';
   if (note) {
-    likesCountInput.value = String(Math.max(0, Number(note.likesCount) || 0));
+    likesCountInput.value = String(normalizePersistedLikeCount(note.likesCount));
   } else {
     likesCountInput.value = '0';
   }
@@ -475,7 +476,13 @@ function handleLike(noteId) {
   const intent = nextLikeIntent(note, likedNoteIds);
   likedNoteIds = setLikedNoteId(likedNoteIds, noteId, intent.nextLiked);
   notes = notes.map((candidate) => candidate.id === noteId
-    ? { ...candidate, likesCount: Math.max(0, candidate.likesCount + intent.delta) }
+    ? {
+        ...candidate,
+        likesCount: Math.max(
+          0,
+          normalizePersistedLikeCount(candidate.likesCount) + intent.delta,
+        ),
+      }
     : candidate);
   renderNotes();
   announce(intent.nextLiked ? 'Fixture note liked.' : 'Fixture note unliked.');

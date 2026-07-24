@@ -36,7 +36,10 @@ test('normalizes editable like counts, validates them, and maps them to Supabase
     likesCount: '-1',
   });
   assert.equal(invalid.isValid, false);
-  assert.equal(invalid.likesCount, 'Likes must be a whole number of 0 or more.');
+  assert.equal(
+    invalid.likesCount,
+    'Likes must be a whole number between 0 and 9,007,199,254,740,991.',
+  );
 
   assert.equal(model.shareLifeNoteToInsertRow({
     title: 'A note',
@@ -53,6 +56,26 @@ test('normalizes editable like counts, validates them, and maps them to Supabase
     coverPath: null,
     likesCount: 7,
   }).likes_count, 7);
+});
+
+test('accepts only editable like counts within the JavaScript safe-integer boundary', () => {
+  assert.equal(model.MAX_SHARE_LIFE_LIKE_COUNT, Number.MAX_SAFE_INTEGER);
+  assert.equal(
+    model.normalizeEditableLikeCount(String(Number.MAX_SAFE_INTEGER)),
+    Number.MAX_SAFE_INTEGER,
+  );
+  assert.equal(model.normalizeEditableLikeCount('9007199254740992'), null);
+  assert.equal(model.normalizeEditableLikeCount('9223372036854775807'), null);
+
+  const tooLarge = model.validateNoteFields({
+    title: 'A note',
+    douyinUrl: 'https://www.douyin.com/user/example',
+    likesCount: '9007199254740992',
+  });
+  assert.equal(
+    tooLarge.likesCount,
+    'Likes must be a whole number between 0 and 9,007,199,254,740,991.',
+  );
 });
 
 test('rejects coercible non-count values without rejecting integer inputs', () => {
@@ -80,7 +103,10 @@ test('validates blank, negative, and fractional like-count form values', () => {
       likesCount,
     });
     assert.equal(validation.isValid, false);
-    assert.equal(validation.likesCount, 'Likes must be a whole number of 0 or more.');
+    assert.equal(
+      validation.likesCount,
+      'Likes must be a whole number between 0 and 9,007,199,254,740,991.',
+    );
   }
 });
 
@@ -160,6 +186,44 @@ test('sums safe like counts and toggles deduplicated local liked ids', () => {
   assert.deepEqual([...model.parseLikedNoteIds('bad json')], []);
   assert.deepEqual(model.toggleLikedNoteId(new Set(['a']), 'a'), new Set());
   assert.deepEqual(model.toggleLikedNoteId(new Set(['a']), 'b'), new Set(['a', 'b']));
+});
+
+test('normalizes every illegal persisted like count to zero at all read boundaries', () => {
+  const illegalCounts = [
+    undefined,
+    null,
+    -1,
+    1.5,
+    Infinity,
+    Number.NaN,
+    'not-a-number',
+    '9007199254740992',
+    '9223372036854775807',
+  ];
+
+  for (const likesCount of illegalCounts) {
+    assert.equal(model.normalizePersistedLikeCount(likesCount), 0);
+    assert.equal(
+      model.supabaseRowToShareLifeNote({ likes_count: likesCount }).likesCount,
+      0,
+    );
+    assert.equal(
+      model.buildShareLifeCardView({
+        id: 'defensive-count',
+        likesCount,
+      }, new Set(), false).likesCount,
+      0,
+    );
+  }
+
+  assert.equal(
+    model.sumLikeCounts(illegalCounts.map((likesCount) => ({ likesCount }))),
+    0,
+  );
+  assert.equal(
+    model.normalizePersistedLikeCount(String(Number.MAX_SAFE_INTEGER)),
+    Number.MAX_SAFE_INTEGER,
+  );
 });
 
 test('sets a like intent explicitly without toggling stale state', () => {
@@ -352,13 +416,61 @@ test('notes load results are fresh only for the same epoch and mutation revision
   }), false);
 });
 
-test('per-note mutation availability survives independently of dialog state', () => {
-  const pendingIds = new Set(['busy']);
+test('per-note owner and like locks exclude one another without blocking other notes', () => {
+  const pendingMutationIds = new Set(['owner-busy']);
+  const pendingLikeIds = new Set(['like-busy']);
 
-  assert.equal(model.canStartShareLifeNoteMutation('free', pendingIds, true), true);
-  assert.equal(model.canStartShareLifeNoteMutation('busy', pendingIds, true), false);
-  assert.equal(model.canStartShareLifeNoteMutation('free', pendingIds, false), false);
-  assert.equal(model.canStartShareLifeNoteMutation('', pendingIds, true), false);
+  assert.equal(model.canStartShareLifeNoteMutation(
+    'free',
+    pendingMutationIds,
+    pendingLikeIds,
+    true,
+  ), true);
+  assert.equal(model.canStartShareLifeNoteMutation(
+    'owner-busy',
+    pendingMutationIds,
+    pendingLikeIds,
+    true,
+  ), false);
+  assert.equal(model.canStartShareLifeNoteMutation(
+    'like-busy',
+    pendingMutationIds,
+    pendingLikeIds,
+    true,
+  ), false);
+  assert.equal(model.canStartShareLifeNoteMutation(
+    'free',
+    pendingMutationIds,
+    pendingLikeIds,
+    false,
+  ), false);
+  assert.equal(model.canStartShareLifeNoteMutation(
+    '',
+    pendingMutationIds,
+    pendingLikeIds,
+    true,
+  ), false);
+
+  assert.equal(model.canStartShareLifeLike(
+    'free',
+    pendingLikeIds,
+    pendingMutationIds,
+  ), true);
+  assert.equal(model.canStartShareLifeLike(
+    'like-busy',
+    pendingLikeIds,
+    pendingMutationIds,
+  ), false);
+  assert.equal(model.canStartShareLifeLike(
+    'owner-busy',
+    pendingLikeIds,
+    pendingMutationIds,
+  ), false);
+  assert.equal(model.canStartShareLifeLike(
+    '',
+    pendingLikeIds,
+    pendingMutationIds,
+  ), false);
 });
 
 test('cover cleanup failure keeps fixed deletion semantics and technical detail', () => {

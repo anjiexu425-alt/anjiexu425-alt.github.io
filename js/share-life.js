@@ -6,6 +6,7 @@ import {
   canManageShareLifeNotes,
   canConsumeHorizontalWheel,
   canStartShareLifeCreate,
+  canStartShareLifeLike,
   canStartShareLifeNoteMutation,
   createDialogOperationToken,
   isShareLifeImageAllowed,
@@ -14,6 +15,7 @@ import {
   isMouseDragPointer,
   mergeShareLifeNoteById,
   nextLikeIntent,
+  normalizePersistedLikeCount,
   parseLikedNoteIds,
   resolveCreatedCover,
   resolveEditedCover,
@@ -361,7 +363,11 @@ function createLikeButton(noteId, view) {
   button.type = 'button';
   button.setAttribute('aria-label', `${view.isLiked ? 'Unlike' : 'Like'} ${view.titleText}`);
   button.setAttribute('aria-pressed', String(view.isLiked));
-  button.disabled = pendingLikeIds.has(noteId);
+  button.disabled = !canStartShareLifeLike(
+    noteId,
+    pendingLikeIds,
+    pendingNoteMutationIds,
+  );
   button.append(createSvgIcon('M12 21s-7-4.6-9.2-8.4C.8 9.2 2.2 5 6.2 4.2c2.1-.4 4.1.5 5.8 2.5 1.7-2 3.7-2.9 5.8-2.5 4 .8 5.4 5 3.4 8.4C19 16.4 12 21 12 21Z'));
 
   const count = document.createElement('span');
@@ -371,7 +377,7 @@ function createLikeButton(noteId, view) {
   button.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    void handleLike(noteId, button);
+    void handleLike(noteId);
   });
 
   return button;
@@ -434,7 +440,12 @@ function createCard(note) {
     );
     editButton.dataset.shareLifeAction = 'edit';
     editButton.dataset.noteId = note.id;
-    editButton.disabled = pendingNoteMutationIds.has(note.id);
+    editButton.disabled = !canStartShareLifeNoteMutation(
+      note.id,
+      pendingNoteMutationIds,
+      pendingLikeIds,
+      true,
+    );
     const deleteButton = createManageButton(
       'share-life-card__manage--delete',
       `Delete ${view.titleText}`,
@@ -443,7 +454,12 @@ function createCard(note) {
     );
     deleteButton.dataset.shareLifeAction = 'delete';
     deleteButton.dataset.noteId = note.id;
-    deleteButton.disabled = pendingNoteMutationIds.has(note.id);
+    deleteButton.disabled = !canStartShareLifeNoteMutation(
+      note.id,
+      pendingNoteMutationIds,
+      pendingLikeIds,
+      true,
+    );
     card.append(editButton, deleteButton);
   }
 
@@ -516,6 +532,7 @@ function openEditDialog(note, opener) {
   if (!canStartShareLifeNoteMutation(
     note.id,
     pendingNoteMutationIds,
+    pendingLikeIds,
     canManageNotes(),
   )) {
     return;
@@ -528,7 +545,7 @@ function openEditDialog(note, opener) {
   noteIdInput.value = currentNote.id;
   titleInput.value = currentNote.title;
   douyinUrlInput.value = currentNote.douyinUrl;
-  likesCountInput.value = String(Math.max(0, Number(currentNote.likesCount) || 0));
+  likesCountInput.value = String(normalizePersistedLikeCount(currentNote.likesCount));
   noteDialogTitle.textContent = '编辑笔记';
   noteSubmit.textContent = '保存更改';
   coverReadGeneration += 1;
@@ -686,6 +703,7 @@ async function handleNoteSubmit(event) {
   if (editingId && !canStartShareLifeNoteMutation(
     editingId,
     pendingNoteMutationIds,
+    pendingLikeIds,
     canManageNotes(),
   )) {
     showAlert(noteError, 'This life note already has a pending change.');
@@ -765,6 +783,7 @@ async function handleDelete(note, button) {
   if (!canStartShareLifeNoteMutation(
     note.id,
     pendingNoteMutationIds,
+    pendingLikeIds,
     canManageNotes(),
   )) {
     return;
@@ -805,15 +824,19 @@ async function handleDelete(note, button) {
   }
 }
 
-async function handleLike(noteId, button) {
-  if (pendingLikeIds.has(noteId)) return;
+async function handleLike(noteId) {
+  if (!canStartShareLifeLike(
+    noteId,
+    pendingLikeIds,
+    pendingNoteMutationIds,
+  )) return;
 
   const note = notes.find((candidate) => candidate.id === noteId);
   if (!note) return;
   const intent = nextLikeIntent(note, likedNoteIds);
   pendingLikeIds.add(noteId);
-  button.disabled = true;
-  let didApply = false;
+  renderNotes();
+  let likeError = null;
 
   try {
     const nextCount = await adjustShareLifeLike(noteId, intent.delta);
@@ -821,20 +844,18 @@ async function handleLike(noteId, button) {
     if (!currentNote) return;
     markNotesMutation();
     notes = mergeShareLifeNoteById(notes, noteId, {
-      likesCount: Math.max(0, Number.isFinite(nextCount) ? nextCount : 0),
+      likesCount: normalizePersistedLikeCount(nextCount),
     });
     likedNoteIds = setLikedNoteId(likedNoteIds, noteId, intent.nextLiked);
     persistLikedNoteIds();
-    didApply = true;
   } catch (error) {
-    announceError(error, 'Could not update this like.');
-    return;
+    likeError = error;
   } finally {
     pendingLikeIds.delete(noteId);
-    button.disabled = false;
+    renderNotes();
   }
 
-  if (didApply) renderNotes();
+  if (likeError) announceError(likeError, 'Could not update this like.');
 }
 
 async function handleLoginSubmit(event) {

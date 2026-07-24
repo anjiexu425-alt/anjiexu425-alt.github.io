@@ -206,6 +206,10 @@ test('Share Life note forms collect editable like counts and keep them through s
       html,
       /<input\b[^>]*id="shareLifeLikesCount"[^>]*name="likesCount"[^>]*type="number"[^>]*min="0"[^>]*step="1"[^>]*required[^>]*\/>/i,
     );
+    assert.match(
+      html,
+      /<input\b[^>]*id="shareLifeLikesCount"[^>]*max="9007199254740991"[^>]*\/>/i,
+    );
   }
 
   const productionScript = await readFile(new URL('./share-life.js', import.meta.url), 'utf8');
@@ -229,7 +233,7 @@ test('Share Life note forms collect editable like counts and keep them through s
   );
 
   assert.match(createBlock, /likesCountInput\.value\s*=\s*['"]0['"]/);
-  assert.match(editBlock, /likesCountInput\.value\s*=\s*String\(Math\.max\(0,\s*Number\(currentNote\.likesCount\)\s*\|\|\s*0\)\)/);
+  assert.match(editBlock, /likesCountInput\.value\s*=\s*String\(normalizePersistedLikeCount\(currentNote\.likesCount\)\)/);
   assert.match(submitBlock, /likesCount\s*:\s*likesCountInput\.value/);
   assert.match(submitBlock, /validation\.title\s*\|\|\s*validation\.douyinUrl\s*\|\|\s*validation\.likesCount/);
   const invalidBranch = submitBlock.slice(
@@ -253,7 +257,7 @@ test('Share Life note forms collect editable like counts and keep them through s
     /const\s+likesCountInput\s*=\s*document\.getElementById\(\s*['"]shareLifeLikesCount['"]\s*\)/,
   );
   assert.match(fixtureOpenBlock, /likesCountInput\.value\s*=\s*['"]0['"]/);
-  assert.match(fixtureOpenBlock, /likesCountInput\.value\s*=\s*String\(Math\.max\(0,\s*Number\(note\.likesCount\)\s*\|\|\s*0\)\)/);
+  assert.match(fixtureOpenBlock, /likesCountInput\.value\s*=\s*String\(normalizePersistedLikeCount\(note\.likesCount\)\)/);
   assert.match(fixtureSubmitBlock, /likesCount\s*:\s*likesCountInput\.value/);
   assert.match(fixtureSubmitBlock, /likesCount\s*:\s*validation\.values\.likesCount/);
   const fixtureInvalidBranch = fixtureSubmitBlock.slice(
@@ -608,6 +612,61 @@ test('Share Life load epochs, readiness, and note mutation locks guard owner wri
   assert.match(deleteHandler, /canStartShareLifeNoteMutation/);
   assert.match(deleteHandler, /pendingNoteMutationIds\.add\(/);
   assert.match(deleteHandler, /pendingNoteMutationIds\.delete\(/);
+});
+
+test('Share Life like and owner locks exclude same-note overlap in both directions', async () => {
+  const script = await readFile(new URL('./share-life.js', import.meta.url), 'utf8');
+  const cardStart = script.indexOf('function createLikeButton');
+  const openEditStart = script.indexOf('function openEditDialog');
+  const submitStart = script.indexOf('async function handleNoteSubmit');
+  const deleteStart = script.indexOf('async function handleDelete');
+  const likeStart = script.indexOf('async function handleLike');
+  const loginStart = script.indexOf('async function handleLoginSubmit');
+  const cardBlock = script.slice(cardStart, script.indexOf('function renderNotes'));
+  const openEditBlock = script.slice(openEditStart, script.indexOf('function validateSelectedCover'));
+  const submitBlock = script.slice(submitStart, deleteStart);
+  const likeBlock = script.slice(likeStart, loginStart);
+
+  assert.match(
+    cardBlock,
+    /button\.disabled\s*=\s*!canStartShareLifeLike\(\s*noteId,\s*pendingLikeIds,\s*pendingNoteMutationIds,?\s*\)/,
+  );
+  assert.match(
+    cardBlock,
+    /editButton\.disabled\s*=\s*!canStartShareLifeNoteMutation\(\s*note\.id,\s*pendingNoteMutationIds,\s*pendingLikeIds,\s*true,?\s*\)/,
+  );
+  assert.match(
+    openEditBlock,
+    /canStartShareLifeNoteMutation\(\s*note\.id,\s*pendingNoteMutationIds,\s*pendingLikeIds,\s*canManageNotes\(\),?\s*\)/,
+  );
+  assert.match(
+    submitBlock,
+    /canStartShareLifeNoteMutation\(\s*editingId,\s*pendingNoteMutationIds,\s*pendingLikeIds,\s*canManageNotes\(\),?\s*\)/,
+  );
+  assert.match(
+    likeBlock,
+    /if\s*\(\s*!canStartShareLifeLike\(\s*noteId,\s*pendingLikeIds,\s*pendingNoteMutationIds,?\s*\)\s*\)\s*return/,
+  );
+
+  const ownerLock = submitBlock.indexOf('pendingNoteMutationIds.add(editingId)');
+  const ownerSave = submitBlock.indexOf('await editNote(editingId');
+  const ownerUnlock = submitBlock.indexOf('pendingNoteMutationIds.delete(editingId)');
+  assert.ok(ownerLock >= 0 && ownerLock < ownerSave);
+  assert.ok(ownerSave < ownerUnlock);
+
+  const likeLock = likeBlock.indexOf('pendingLikeIds.add(noteId)');
+  const likeRpc = likeBlock.indexOf('await adjustShareLifeLike');
+  const likeMerge = likeBlock.indexOf('mergeShareLifeNoteById');
+  const likeUnlock = likeBlock.indexOf('pendingLikeIds.delete(noteId)');
+  assert.ok(likeLock >= 0 && likeLock < likeRpc);
+  assert.ok(likeRpc < likeMerge);
+  assert.ok(likeMerge < likeUnlock);
+
+  assert.match(submitBlock, /await editNote\(editingId,\s*validation\.values,\s*file\)/);
+  assert.match(
+    script.slice(script.indexOf('async function editNote'), submitStart),
+    /likesCount\s*:\s*values\.likesCount/,
+  );
 });
 
 test('Share Life cleanup status combines fixed meaning with technical detail', async () => {

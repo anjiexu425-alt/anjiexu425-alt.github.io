@@ -1,4 +1,5 @@
 export const MAX_SHARE_LIFE_IMAGE_BYTES = 8 * 1024 * 1024;
+export const MAX_SHARE_LIFE_LIKE_COUNT = Number.MAX_SAFE_INTEGER;
 
 export function normalizeTitle(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -23,9 +24,13 @@ export function normalizeEditableLikeCount(value) {
   } else {
     return null;
   }
-  return Number.isFinite(count) && Number.isInteger(count) && count >= 0
+  return Number.isSafeInteger(count) && count >= 0
     ? count
     : null;
+}
+
+export function normalizePersistedLikeCount(value) {
+  return normalizeEditableLikeCount(value) ?? 0;
 }
 
 export function validateNoteFields({ title, douyinUrl, likesCount } = {}) {
@@ -53,7 +58,7 @@ export function validateNoteFields({ title, douyinUrl, likesCount } = {}) {
   }
 
   if (values.likesCount === null) {
-    errors.likesCount = 'Likes must be a whole number of 0 or more.';
+    errors.likesCount = 'Likes must be a whole number between 0 and 9,007,199,254,740,991.';
   }
 
   errors.isValid = !errors.title && !errors.douyinUrl && !errors.likesCount;
@@ -80,7 +85,7 @@ export function supabaseRowToShareLifeNote(row) {
     douyinUrl: normalizeDouyinUrl(row.douyin_url),
     coverUrl: row.cover_url,
     coverPath: row.cover_path,
-    likesCount: row.likes_count,
+    likesCount: normalizePersistedLikeCount(row.likes_count),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -121,7 +126,7 @@ export function resolveCreatedCover(uploadedCover) {
 
 export function sumLikeCounts(notes) {
   return notes.reduce((sum, note) => (
-    sum + Math.max(0, Number.isFinite(Number(note.likesCount)) ? Number(note.likesCount) : 0)
+    sum + normalizePersistedLikeCount(note.likesCount)
   ), 0);
 }
 
@@ -156,8 +161,6 @@ export function setLikedNoteId(likedNoteIds, noteId, nextLiked) {
 }
 
 export function buildShareLifeCardView(note, likedNoteIds, isLoggedIn) {
-  const likesCount = Number(note.likesCount);
-
   return {
     id: note.id,
     titleText: note.title,
@@ -165,7 +168,7 @@ export function buildShareLifeCardView(note, likedNoteIds, isLoggedIn) {
     coverUrl: typeof note.coverUrl === 'string' && note.coverUrl.trim()
       ? note.coverUrl
       : '/assets/images/share-life-placeholder.svg',
-    likesCount: Number.isFinite(likesCount) ? Math.max(0, likesCount) : 0,
+    likesCount: normalizePersistedLikeCount(note.likesCount),
     isLiked: likedNoteIds.has(note.id),
     canManage: isLoggedIn,
   };
@@ -265,11 +268,24 @@ export function isFreshShareLifeNotesLoad({
 export function canStartShareLifeNoteMutation(
   noteId,
   pendingNoteMutationIds,
+  pendingLikeIds,
   canManage,
 ) {
   return canManage === true
     && typeof noteId === 'string'
     && noteId.length > 0
+    && !pendingNoteMutationIds.has(noteId)
+    && !pendingLikeIds.has(noteId);
+}
+
+export function canStartShareLifeLike(
+  noteId,
+  pendingLikeIds,
+  pendingNoteMutationIds,
+) {
+  return typeof noteId === 'string'
+    && noteId.length > 0
+    && !pendingLikeIds.has(noteId)
     && !pendingNoteMutationIds.has(noteId);
 }
 
