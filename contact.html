@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anjie — Contact</title>
+  <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Noto+Sans+SC:wght@300;400;500;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/contact.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+  <canvas id="ballpitCanvas"></canvas>
+
+  <a href="index.html" class="back-link">
+    <svg viewBox="0 0 24 24"><path d="M19 12H5M5 12l7-7M5 12l7 7"/></svg>
+    返回
+  </a>
+
+  <div class="content">
+    <div class="title-decoration">
+      <span class="title-circle"></span>
+      <span class="title-circle"></span>
+      <span class="title-circle"></span>
+    </div>
+
+    <h1 class="main-title">GET IN TOUCH</h1>
+
+    <div class="contact-links">
+      <a href="mailto:anjiexu0630@163.com" class="contact-link">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        <span class="link-label">Email</span>
+      </a>
+
+      <a href="https://github.com" target="_blank" rel="noopener" class="contact-link">
+        <svg viewBox="0 0 24 24" class="icon-solid"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        <span class="link-label">GitHub</span>
+      </a>
+
+      <a href="https://www.douyin.com" target="_blank" rel="noopener" class="contact-link">
+        <svg viewBox="0 0 24 24" class="icon-solid"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.08 1.04-1.25 1.77-.21.82-.16 1.72.17 2.51.46 1.05 1.5 1.8 2.65 1.85 1.26.1 2.53-.49 3.24-1.54.35-.53.5-1.18.5-1.81V.02z"/></svg>
+        <span class="link-label">Douyin</span>
+      </a>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p class="footer-text">Contact</p>
+  </footer>
+
+  <script>
+    // Ballpit 3D Effect - Scattered Glass Spheres with Mouse Bounce
+    (function() {
+      const canvas = document.getElementById('ballpitCanvas');
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+      const pmremGenerator = new THREE.PMREMGenerator(renderer);
+      pmremGenerator.compileEquirectangularShader();
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+      dirLight.position.set(10, 20, 10);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 2048;
+      dirLight.shadow.mapSize.height = 2048;
+      scene.add(dirLight);
+
+      const pointLight = new THREE.PointLight(0x002FA7, 1.5, 50);
+      pointLight.position.set(0, 10, 5);
+      scene.add(pointLight);
+
+      const sphereCount = 120;
+      const spheres = [];
+      const sphereGeometry = new THREE.SphereGeometry(1, 32, 32);
+
+      const GRAVITY = -0.012;
+      const WALL_BOUNCE = 0.92;
+      const FRICTION = 0.998;
+      const FLOOR_Y = -12;
+      const CEILING_Y = 18;
+      const WALL_X = 20;
+      const WALL_Z = 8;
+
+      const glassColors = [
+        0x002FA7, 0x1a4fc7, 0x3366cc, 0x4d7fd9,
+        0x6688dd, 0x8099e6, 0x99aaee, 0xb3bbf5,
+        0xccccff, 0xe6e6ff, 0xf0f0ff, 0xffffff,
+        0x1a237e, 0x283593, 0x3949ab, 0x5c6bc0
+      ];
+
+      for (let i = 0; i < sphereCount; i++) {
+        const color = glassColors[Math.floor(Math.random() * glassColors.length)];
+
+        const material = new THREE.MeshPhysicalMaterial({
+          color: color,
+          metalness: 0,
+          roughness: 0.15,
+          transmission: 0.5,
+          thickness: 1.5,
+          transparent: true,
+          opacity: 0.9,
+          clearcoat: 0.6,
+          clearcoatRoughness: 0.1,
+          ior: 1.5
+        });
+
+        const mesh = new THREE.Mesh(sphereGeometry, material);
+
+        const x = (Math.random() - 0.5) * WALL_X * 1.6;
+        const y = Math.random() * (CEILING_Y - FLOOR_Y) * 0.8 + FLOOR_Y + 2;
+        const z = (Math.random() - 0.5) * WALL_Z * 1.2;
+
+        mesh.position.set(x, y, z);
+
+        const scale = Math.random() * 0.6 + 0.3;
+        mesh.scale.set(scale, scale, scale);
+
+        mesh.velocity = new THREE.Vector3(
+          (Math.random() - 0.5) * 0.12,
+          (Math.random() - 0.5) * 0.08,
+          (Math.random() - 0.5) * 0.06
+        );
+
+        mesh.radius = scale;
+        mesh.hovered = false;
+        mesh.hoverTime = 0;
+        spheres.push(mesh);
+        scene.add(mesh);
+      }
+
+      const mouse = new THREE.Vector2();
+      const raycaster = new THREE.Raycaster();
+      let hoveredSphere = null;
+
+      document.addEventListener('mousemove', (e) => {
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(spheres);
+
+        if (hoveredSphere && (!intersects.length || intersects[0].object !== hoveredSphere)) {
+          hoveredSphere.hovered = false;
+          hoveredSphere = null;
+        }
+
+        if (intersects.length > 0) {
+          const sphere = intersects[0].object;
+          if (!sphere.hovered) {
+            sphere.hovered = true;
+            hoveredSphere = sphere;
+
+            sphere.velocity.y = 0.3 + Math.random() * 0.2;
+            sphere.velocity.x += (Math.random() - 0.5) * 0.2;
+            sphere.velocity.z += (Math.random() - 0.5) * 0.15;
+
+            const baseScale = sphere.radius;
+            sphere.scale.setScalar(baseScale * 1.1);
+            setTimeout(() => {
+              if (sphere) sphere.scale.setScalar(baseScale);
+            }, 200);
+          }
+        }
+      });
+
+      camera.position.set(0, 2, 28);
+      camera.lookAt(0, 0, 0);
+
+      const clock = new THREE.Clock();
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const delta = Math.min(clock.getDelta(), 0.05);
+
+        spheres.forEach((sphere, i) => {
+          sphere.velocity.y += GRAVITY;
+          sphere.velocity.multiplyScalar(FRICTION);
+          sphere.position.add(sphere.velocity);
+
+          if (sphere.position.y - sphere.radius < FLOOR_Y) {
+            sphere.position.y = FLOOR_Y + sphere.radius;
+            sphere.velocity.y = -sphere.velocity.y * WALL_BOUNCE;
+            sphere.velocity.x *= 0.95;
+            sphere.velocity.z *= 0.95;
+          }
+
+          if (sphere.position.y + sphere.radius > CEILING_Y) {
+            sphere.position.y = CEILING_Y - sphere.radius;
+            sphere.velocity.y = -sphere.velocity.y * WALL_BOUNCE;
+          }
+
+          if (sphere.position.x + sphere.radius > WALL_X) {
+            sphere.position.x = WALL_X - sphere.radius;
+            sphere.velocity.x = -sphere.velocity.x * WALL_BOUNCE;
+          }
+          if (sphere.position.x - sphere.radius < -WALL_X) {
+            sphere.position.x = -WALL_X + sphere.radius;
+            sphere.velocity.x = -sphere.velocity.x * WALL_BOUNCE;
+          }
+
+          if (sphere.position.z + sphere.radius > WALL_Z) {
+            sphere.position.z = WALL_Z - sphere.radius;
+            sphere.velocity.z = -sphere.velocity.z * WALL_BOUNCE;
+          }
+          if (sphere.position.z - sphere.radius < -WALL_Z) {
+            sphere.position.z = -WALL_Z + sphere.radius;
+            sphere.velocity.z = -sphere.velocity.z * WALL_BOUNCE;
+          }
+
+          for (let j = i + 1; j < spheres.length; j++) {
+            const other = spheres[j];
+            const dx = other.position.x - sphere.position.x;
+            const dy = other.position.y - sphere.position.y;
+            const dz = other.position.z - sphere.position.z;
+            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            const minDist = sphere.radius + other.radius;
+
+            if (dist < minDist && dist > 0.001) {
+              const overlap = (minDist - dist) * 0.25;
+              const nx = dx / dist;
+              const ny = dy / dist;
+              const nz = dz / dist;
+
+              sphere.position.x -= nx * overlap;
+              sphere.position.y -= ny * overlap;
+              sphere.position.z -= nz * overlap;
+              other.position.x += nx * overlap;
+              other.position.y += ny * overlap;
+              other.position.z += nz * overlap;
+
+              const v1n = sphere.velocity.x * nx + sphere.velocity.y * ny + sphere.velocity.z * nz;
+              const v2n = other.velocity.x * nx + other.velocity.y * ny + other.velocity.z * nz;
+
+              const exchange = (v2n - v1n) * 0.25;
+              sphere.velocity.x += exchange * nx;
+              sphere.velocity.y += exchange * ny;
+              sphere.velocity.z += exchange * nz;
+              other.velocity.x -= exchange * nx;
+              other.velocity.y -= exchange * ny;
+              other.velocity.z -= exchange * nz;
+            }
+          }
+
+          sphere.rotation.x += sphere.velocity.z * 0.03;
+          sphere.rotation.z -= sphere.velocity.x * 0.03;
+        });
+
+        const time = clock.getElapsedTime();
+        camera.position.x = Math.sin(time * 0.02) * 2;
+        camera.position.y = 2 + Math.cos(time * 0.015) * 1;
+        camera.lookAt(0, 1, 0);
+
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          clock.stop();
+        } else {
+          clock.start();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
