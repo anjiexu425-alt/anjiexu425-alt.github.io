@@ -26,6 +26,10 @@ test('Share Life page exposes its semantic and accessibility contract', async ()
   assert.match(html, /<[^>]+\brole="dialog"[^>]+\baria-modal="true"[^>]+\baria-labelledby="shareLifeLoginDialogTitle"/i);
   assert.match(html, /<dt>\s*Followers\s*<\/dt>\s*<dd\b[^>]*id="shareLifeFollowersCount"/i);
   assert.match(html, /<dt>\s*Likes\s*<\/dt>\s*<dd\b[^>]*id="shareLifeLikesCount"/i);
+  assert.match(html, /<dd\b[^>]*id="shareLifeLikesCount"[^>]*>\s*0\s*<\/dd>/i);
+  assert.doesNotMatch(html, /\bid="shareLifeLikes"/i);
+  assert.match(html, /<button\b[^>]*id="shareLifeAddButton"[^>]*\blang="zh-CN"/i);
+  assert.match(html, /<div\b[^>]*id="shareLifeNoteDialog"[^>]*\blang="zh-CN"[\s\S]*?\brole="dialog"/i);
 
   for (const id of [
     'shareLifeTitle',
@@ -66,6 +70,11 @@ test('Share Life stylesheet preserves native scrolling and accessible motion', a
   assert.match(css, /::-webkit-scrollbar[\s\S]*?display\s*:\s*none/i);
   assert.match(css, /:focus-visible/i);
   assert.match(css, /\.share-life-button\[hidden\]\s*\{[^}]*display\s*:\s*none/i);
+  assert.match(css, /:root\s*\{[^}]*--share-life-border\s*:/i);
+  assert.match(css, /--share-life-muted\s*:\s*var\(--color-text-muted\)/i);
+  assert.doesNotMatch(css, /#85858a/i);
+  assert.match(css, /\.share-life-card__likes\s*\{[^}]*border\s*:\s*0[^}]*background\s*:\s*transparent[^}]*font\s*:\s*inherit/i);
+  assert.match(css, /\.share-life-card__manage svg\s*\{[^}]*width\s*:[^;}]+;[^}]*height\s*:/i);
   assert.doesNotMatch(css, /backdrop-filter\s*:/i);
 });
 

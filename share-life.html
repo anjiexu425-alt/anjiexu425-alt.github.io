@@ -48,14 +48,14 @@
           </div>
           <div class="share-life-stats__item">
             <dt>Likes</dt>
-            <dd id="shareLifeLikesCount">2,500</dd>
+            <dd id="shareLifeLikesCount">0</dd>
           </div>
         </dl>
       </div>
     </section>
 
     <section class="share-life-actions" aria-label="Life note management">
-      <button id="shareLifeAddButton" class="share-life-button share-life-button--add" type="button" hidden>
+      <button id="shareLifeAddButton" class="share-life-button share-life-button--add" type="button" lang="zh-CN" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 5v14M5 12h14" />
         </svg>
@@ -90,13 +90,14 @@
     <div
       id="shareLifeNoteDialog"
       class="share-life-modal"
+      lang="zh-CN"
       role="dialog"
       aria-modal="true"
       aria-labelledby="shareLifeNoteDialogTitle"
     >
       <div class="share-life-modal__header">
         <h2 id="shareLifeNoteDialogTitle">添加笔记</h2>
-        <button id="shareLifeNoteDialogClose" class="share-life-modal__close" type="button" aria-label="Close note editor">
+        <button id="shareLifeNoteDialogClose" class="share-life-modal__close" type="button" aria-label="关闭笔记编辑器">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>
@@ -122,11 +123,6 @@
           <div id="shareLifeCoverPreview" class="share-life-form__preview">
             <img src="assets/images/share-life-placeholder.svg" alt="Abstract warm-paper and Klein-blue cover preview" />
           </div>
-        </div>
-
-        <div class="share-life-form__field">
-          <label for="shareLifeLikes">点赞数（可选）</label>
-          <input id="shareLifeLikes" name="likes" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
         </div>
 
         <p id="shareLifeNoteError" class="share-life-form__error" role="alert" hidden></p>

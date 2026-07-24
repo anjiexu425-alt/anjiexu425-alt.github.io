@@ -1,8 +1,11 @@
-.share-life-page {
+:root {
   --share-life-border: rgba(43, 43, 46, 0.13);
-  --share-life-muted: #85858a;
+  --share-life-muted: var(--color-text-muted);
   --share-life-shadow: 0 6px 26px rgba(25, 25, 28, 0.07);
   --share-life-shadow-hover: 0 16px 42px rgba(25, 25, 28, 0.12);
+}
+
+.share-life-page {
   padding-top: clamp(2.5rem, 7vw, 5.5rem);
   padding-bottom: var(--space-4);
 }
@@ -260,7 +263,12 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--color-klein-blue);
+  font: inherit;
+  cursor: pointer;
 }
 
 .share-life-card__likes svg {
@@ -291,6 +299,16 @@
 
 .share-life-card__manage--delete {
   right: 0.75rem;
+}
+
+.share-life-card__manage svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .share-life-slider__arrow {
