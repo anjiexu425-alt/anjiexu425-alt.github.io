@@ -160,8 +160,8 @@ test('Share Life page exposes its semantic and accessibility contract', async ()
   assert.match(html, /<[^>]+\brole="dialog"[^>]+\baria-modal="true"[^>]+\baria-labelledby="shareLifeNoteDialogTitle"/i);
   assert.match(html, /<[^>]+\brole="dialog"[^>]+\baria-modal="true"[^>]+\baria-labelledby="shareLifeLoginDialogTitle"/i);
   assert.match(html, /<dt>\s*Followers\s*<\/dt>\s*<dd\b[^>]*id="shareLifeFollowersCount"/i);
-  assert.match(html, /<dt>\s*Likes\s*<\/dt>\s*<dd\b[^>]*id="shareLifeLikesCount"/i);
-  assert.match(html, /<dd\b[^>]*id="shareLifeLikesCount"[^>]*>\s*0\s*<\/dd>/i);
+  assert.match(html, /<dt>\s*Likes\s*<\/dt>\s*<dd\b[^>]*id="shareLifeTotalLikesCount"/i);
+  assert.match(html, /<dd\b[^>]*id="shareLifeTotalLikesCount"[^>]*>\s*0\s*<\/dd>/i);
   assert.doesNotMatch(html, /\bid="shareLifeLikes"/i);
   assert.match(html, /<button\b[^>]*id="shareLifeAddButton"[^>]*\blang="zh-CN"/i);
   assert.match(html, /<div\b[^>]*id="shareLifeNoteDialog"[^>]*\blang="zh-CN"[\s\S]*?\brole="dialog"/i);
@@ -193,6 +193,61 @@ test('Share Life page exposes its semantic and accessibility contract', async ()
   assert.doesNotMatch(html, /<style\b/i);
   assert.doesNotMatch(html, /<script\b(?![^>]*\bsrc=)[^>]*>/i);
   assert.doesNotMatch(html, /\bonclick\s*=/i);
+});
+
+test('Share Life note forms collect editable like counts and keep them through saves', async () => {
+  for (const page of ['../share-life.html', '../share-life-fixture.html']) {
+    const html = await readFile(new URL(page, import.meta.url), 'utf8');
+
+    assert.match(html, /<label\b[^>]*for="shareLifeLikesCount"[^>]*>\s*点赞数\s*<\/label>/i);
+    assert.match(
+      html,
+      /<input\b[^>]*id="shareLifeLikesCount"[^>]*name="likesCount"[^>]*type="number"[^>]*min="0"[^>]*step="1"[^>]*required[^>]*\/>/i,
+    );
+  }
+
+  const productionScript = await readFile(new URL('./share-life.js', import.meta.url), 'utf8');
+  assert.match(
+    productionScript,
+    /const\s+likesCountInput\s*=\s*document\.getElementById\(\s*['"]shareLifeLikesCount['"]\s*\)/,
+  );
+  const createStart = productionScript.indexOf('function openCreateDialog');
+  const editStart = productionScript.indexOf('function openEditDialog');
+  const validationStart = productionScript.indexOf('async function handleNoteSubmit');
+  const createBlock = productionScript.slice(createStart, editStart);
+  const editBlock = productionScript.slice(editStart, productionScript.indexOf('function validateSelectedCover'));
+  const submitBlock = productionScript.slice(validationStart, productionScript.indexOf('async function handleDelete'));
+  const createNoteBlock = productionScript.slice(
+    productionScript.indexOf('async function createNote'),
+    productionScript.indexOf('async function editNote'),
+  );
+  const editNoteBlock = productionScript.slice(
+    productionScript.indexOf('async function editNote'),
+    validationStart,
+  );
+
+  assert.match(createBlock, /likesCountInput\.value\s*=\s*['"]0['"]/);
+  assert.match(editBlock, /likesCountInput\.value\s*=\s*String\(Math\.max\(0,\s*Number\(currentNote\.likesCount\)\s*\|\|\s*0\)\)/);
+  assert.match(submitBlock, /likesCount\s*:\s*likesCountInput\.value/);
+  assert.match(submitBlock, /validation\.title\s*\|\|\s*validation\.douyinUrl\s*\|\|\s*validation\.likesCount/);
+  assert.match(createNoteBlock, /likesCount\s*:\s*values\.likesCount/);
+  assert.match(editNoteBlock, /likesCount\s*:\s*values\.likesCount/);
+  assert.doesNotMatch(editNoteBlock, /likesCount:\s*_staleLikesCount/);
+
+  const fixtureScript = await readFile(new URL('./share-life-fixture.js', import.meta.url), 'utf8');
+  const fixtureOpenStart = fixtureScript.indexOf('function openNoteDialog');
+  const fixtureSubmitStart = fixtureScript.indexOf('function handleNoteSubmit');
+  const fixtureOpenBlock = fixtureScript.slice(fixtureOpenStart, fixtureScript.indexOf('function closeNoteDialog'));
+  const fixtureSubmitBlock = fixtureScript.slice(fixtureSubmitStart, fixtureScript.indexOf('function handleDelete'));
+
+  assert.match(
+    fixtureScript,
+    /const\s+likesCountInput\s*=\s*document\.getElementById\(\s*['"]shareLifeLikesCount['"]\s*\)/,
+  );
+  assert.match(fixtureOpenBlock, /likesCountInput\.value\s*=\s*['"]0['"]/);
+  assert.match(fixtureOpenBlock, /likesCountInput\.value\s*=\s*String\(Math\.max\(0,\s*Number\(note\.likesCount\)\s*\|\|\s*0\)\)/);
+  assert.match(fixtureSubmitBlock, /likesCount\s*:\s*likesCountInput\.value/);
+  assert.match(fixtureSubmitBlock, /likesCount\s*:\s*validation\.values\.likesCount/);
 });
 
 test('Share Life stylesheet preserves native scrolling and accessible motion', async () => {

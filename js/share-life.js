@@ -65,7 +65,7 @@ const logoutButton = document.getElementById('shareLifeLogoutButton');
 const previousButton = document.getElementById('shareLifePrev');
 const nextButton = document.getElementById('shareLifeNext');
 const followersCount = document.getElementById('shareLifeFollowersCount');
-const likesCount = document.getElementById('shareLifeLikesCount');
+const totalLikesCount = document.getElementById('shareLifeTotalLikesCount');
 
 const noteDialogBackdrop = document.getElementById('shareLifeNoteDialogBackdrop');
 const noteDialogTitle = document.getElementById('shareLifeNoteDialogTitle');
@@ -75,6 +75,7 @@ const noteIdInput = document.getElementById('shareLifeNoteId');
 const titleInput = document.getElementById('shareLifeTitle');
 const douyinUrlInput = document.getElementById('shareLifeDouyinUrl');
 const coverInput = document.getElementById('shareLifeCover');
+const likesCountInput = document.getElementById('shareLifeLikesCount');
 const coverPreview = document.querySelector('#shareLifeCoverPreview img');
 const noteError = document.getElementById('shareLifeNoteError');
 const noteCancel = document.getElementById('shareLifeNoteCancel');
@@ -286,7 +287,7 @@ function updateSliderButtons() {
 
 function renderStats() {
   followersCount.textContent = '90';
-  likesCount.textContent = String(sumLikeCounts(notes));
+  totalLikesCount.textContent = String(sumLikeCounts(notes));
 }
 
 function canManageNotes() {
@@ -502,6 +503,7 @@ function openCreateDialog() {
   resetFormSubmitButton(noteForm);
   clearAlert(noteError);
   noteIdInput.value = '';
+  likesCountInput.value = '0';
   noteDialogTitle.textContent = '添加笔记';
   noteSubmit.textContent = '添加';
   coverReadGeneration += 1;
@@ -526,6 +528,7 @@ function openEditDialog(note, opener) {
   noteIdInput.value = currentNote.id;
   titleInput.value = currentNote.title;
   douyinUrlInput.value = currentNote.douyinUrl;
+  likesCountInput.value = String(Math.max(0, Number(currentNote.likesCount) || 0));
   noteDialogTitle.textContent = '编辑笔记';
   noteSubmit.textContent = '保存更改';
   coverReadGeneration += 1;
@@ -594,6 +597,7 @@ async function createNote(values, file) {
     row = await insertShareLifeNote(shareLifeNoteToInsertRow({
       title: values.title,
       douyinUrl: values.douyinUrl,
+      likesCount: values.likesCount,
       ...createdCover,
     }));
   } catch (error) {
@@ -628,6 +632,7 @@ async function editNote(existingNoteId, values, file) {
     row = await updateShareLifeNote(existingNote.id, buildShareLifeEditPatch({
       title: values.title,
       douyinUrl: values.douyinUrl,
+      likesCount: values.likesCount,
       ...resolvedCover,
     }));
   } catch (error) {
@@ -642,12 +647,8 @@ async function editNote(existingNoteId, values, file) {
   }
 
   const updatedNote = supabaseRowToShareLifeNote(row);
-  const {
-    likesCount: _staleLikesCount,
-    ...editPatch
-  } = updatedNote;
   markNotesMutation();
-  notes = mergeShareLifeNoteById(notes, existingNoteId, editPatch);
+  notes = mergeShareLifeNoteById(notes, existingNoteId, updatedNote);
 }
 
 async function handleNoteSubmit(event) {
@@ -667,9 +668,10 @@ async function handleNoteSubmit(event) {
   const validation = validateNoteFields({
     title: titleInput.value,
     douyinUrl: douyinUrlInput.value,
+    likesCount: likesCountInput.value,
   });
   if (!validation.isValid) {
-    showAlert(noteError, validation.title || validation.douyinUrl);
+    showAlert(noteError, validation.title || validation.douyinUrl || validation.likesCount);
     return;
   }
 

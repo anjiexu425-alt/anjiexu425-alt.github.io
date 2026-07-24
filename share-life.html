@@ -48,7 +48,7 @@
           </div>
           <div class="share-life-stats__item">
             <dt>Likes</dt>
-            <dd id="shareLifeLikesCount">0</dd>
+            <dd id="shareLifeTotalLikesCount">0</dd>
           </div>
         </dl>
       </div>
@@ -123,6 +123,20 @@
           <div id="shareLifeCoverPreview" class="share-life-form__preview">
             <img src="assets/images/share-life-placeholder.svg" alt="Abstract warm-paper and Klein-blue cover preview" />
           </div>
+        </div>
+
+        <div class="share-life-form__field">
+          <label for="shareLifeLikesCount">点赞数</label>
+          <input
+            id="shareLifeLikesCount"
+            name="likesCount"
+            type="number"
+            min="0"
+            step="1"
+            inputmode="numeric"
+            value="0"
+            required
+          />
         </div>
 
         <p id="shareLifeNoteError" class="share-life-form__error" role="alert" hidden></p>

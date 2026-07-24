@@ -73,7 +73,7 @@ const addButton = document.getElementById('shareLifeAddButton');
 const authToggle = document.getElementById('shareLifeFixtureAuthToggle');
 const previousButton = document.getElementById('shareLifePrev');
 const nextButton = document.getElementById('shareLifeNext');
-const likesCount = document.getElementById('shareLifeLikesCount');
+const totalLikesCount = document.getElementById('shareLifeTotalLikesCount');
 
 const noteDialogBackdrop = document.getElementById('shareLifeNoteDialogBackdrop');
 const noteDialogTitle = document.getElementById('shareLifeNoteDialogTitle');
@@ -83,6 +83,7 @@ const noteIdInput = document.getElementById('shareLifeNoteId');
 const titleInput = document.getElementById('shareLifeTitle');
 const douyinUrlInput = document.getElementById('shareLifeDouyinUrl');
 const coverInput = document.getElementById('shareLifeCover');
+const likesCountInput = document.getElementById('shareLifeLikesCount');
 const coverPreview = document.querySelector('#shareLifeCoverPreview img');
 const noteError = document.getElementById('shareLifeNoteError');
 const noteCancel = document.getElementById('shareLifeNoteCancel');
@@ -148,7 +149,7 @@ function updateFixtureChrome() {
 }
 
 function renderStats() {
-  likesCount.textContent = String(sumLikeCounts(notes));
+  totalLikesCount.textContent = String(sumLikeCounts(notes));
 }
 
 function createManageButton(className, label, iconPath, action, noteId) {
@@ -289,6 +290,11 @@ function openNoteDialog(noteId, opener) {
   noteIdInput.value = note?.id ?? '';
   titleInput.value = note?.title ?? '';
   douyinUrlInput.value = note?.douyinUrl ?? '';
+  if (note) {
+    likesCountInput.value = String(Math.max(0, Number(note.likesCount) || 0));
+  } else {
+    likesCountInput.value = '0';
+  }
   coverPreview.src = note?.coverUrl || PLACEHOLDER_URL;
   coverPreview.alt = note ? `${note.title} cover preview` : 'Life note cover preview';
   noteDialogTitle.textContent = note ? '编辑笔记' : '添加笔记';
@@ -400,9 +406,10 @@ function handleNoteSubmit(event) {
   const validation = validateNoteFields({
     title: titleInput.value,
     douyinUrl: douyinUrlInput.value,
+    likesCount: likesCountInput.value,
   });
   if (!validation.isValid) {
-    showFormError(validation.title || validation.douyinUrl);
+    showFormError(validation.title || validation.douyinUrl || validation.likesCount);
     return;
   }
 
@@ -420,6 +427,7 @@ function handleNoteSubmit(event) {
           ...note,
           title: validation.values.title,
           douyinUrl: validation.values.douyinUrl,
+          likesCount: validation.values.likesCount,
           coverUrl: selectedCoverDataUrl || note.coverUrl,
           updatedAt: timestamp,
         }
@@ -436,7 +444,7 @@ function handleNoteSubmit(event) {
     douyinUrl: validation.values.douyinUrl,
     coverUrl: selectedCoverDataUrl || PLACEHOLDER_URL,
     coverPath: null,
-    likesCount: 0,
+    likesCount: validation.values.likesCount,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
