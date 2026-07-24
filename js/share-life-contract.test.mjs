@@ -225,7 +225,7 @@ test('Share Life Supabase schema has its required security contract', async () =
   };
   const assertOwnerPredicate = (block, minimumCount = 1) => {
     const matches = block.match(
-      /auth\.jwt\(\)\s*->>\s*'email'\s*=\s*'anjiexu0630@163\.com'/gi,
+      /auth\.jwt\(\)\s*->>\s*'email'\s*=\s*'anjiexu425@gmail\.com'/gi,
     ) ?? [];
     assert.ok(
       matches.length >= minimumCount,

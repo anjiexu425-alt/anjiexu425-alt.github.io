@@ -58,22 +58,22 @@ create policy "Authenticated users can create Share Life notes"
 on public.share_life_notes
 for insert
 to authenticated
-with check (auth.jwt() ->> 'email' = 'anjiexu0630@163.com');
+with check (auth.jwt() ->> 'email' = 'anjiexu425@gmail.com');
 
 drop policy if exists "Authenticated users can edit Share Life notes" on public.share_life_notes;
 create policy "Authenticated users can edit Share Life notes"
 on public.share_life_notes
 for update
 to authenticated
-using (auth.jwt() ->> 'email' = 'anjiexu0630@163.com')
-with check (auth.jwt() ->> 'email' = 'anjiexu0630@163.com');
+using (auth.jwt() ->> 'email' = 'anjiexu425@gmail.com')
+with check (auth.jwt() ->> 'email' = 'anjiexu425@gmail.com');
 
 drop policy if exists "Authenticated users can delete Share Life notes" on public.share_life_notes;
 create policy "Authenticated users can delete Share Life notes"
 on public.share_life_notes
 for delete
 to authenticated
-using (auth.jwt() ->> 'email' = 'anjiexu0630@163.com');
+using (auth.jwt() ->> 'email' = 'anjiexu425@gmail.com');
 
 create or replace function public.adjust_share_life_like(note_id uuid, delta integer)
 returns bigint
@@ -126,7 +126,7 @@ for insert
 to authenticated
 with check (
   bucket_id = 'share-life-media'
-  and auth.jwt() ->> 'email' = 'anjiexu0630@163.com'
+  and auth.jwt() ->> 'email' = 'anjiexu425@gmail.com'
 );
 
 drop policy if exists "Authenticated users can update Share Life media" on storage.objects;
@@ -136,11 +136,11 @@ for update
 to authenticated
 using (
   bucket_id = 'share-life-media'
-  and auth.jwt() ->> 'email' = 'anjiexu0630@163.com'
+  and auth.jwt() ->> 'email' = 'anjiexu425@gmail.com'
 )
 with check (
   bucket_id = 'share-life-media'
-  and auth.jwt() ->> 'email' = 'anjiexu0630@163.com'
+  and auth.jwt() ->> 'email' = 'anjiexu425@gmail.com'
 );
 
 drop policy if exists "Authenticated users can delete Share Life media" on storage.objects;
@@ -150,5 +150,5 @@ for delete
 to authenticated
 using (
   bucket_id = 'share-life-media'
-  and auth.jwt() ->> 'email' = 'anjiexu0630@163.com'
+  and auth.jwt() ->> 'email' = 'anjiexu425@gmail.com'
 );
